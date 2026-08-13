@@ -1,0 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.iml
+.zed/
+.cursor/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
