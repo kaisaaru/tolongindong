@@ -7,6 +7,7 @@ class AppColors {
   static const Color primary = Color(0xFFFF4B4B);
   static const Color dark = Color(0xFF292929);
   static const Color light = Color(0xFFFFFFFF);
+  static const Color textPrimary = Color(0xFF121212);
 
   // Semantic Color
   static const Color success = Color(0xFF22C55E);  
