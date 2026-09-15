@@ -18,54 +18,58 @@ class AppTypography {
   static const double small = 12;
   static const double tiny = 10;
 
-  static const FontWeight heavy = FontWeight.w800;   
+  static const FontWeight heavy = FontWeight.w800;
   static const FontWeight bold = FontWeight.w700;
+  static const FontWeight semiBold = FontWeight.w600;
   static const FontWeight medium = FontWeight.w500;
   static const FontWeight regular = FontWeight.w400;
   static const FontWeight thin = FontWeight.w200;
 
+  // Ganti weight lewat parameter, jangan copyWith(fontWeight: ...):
+  // google_fonts memuat file font per weight.
   static TextStyle style({
     required double size,
     required FontWeight weight,
-    Color color = const Color(0xFF121212),
+    Color color = AppColors.textPrimary,
+    double height = 1.0, // naikkan untuk teks multi-baris, misal 1.5
   }) {
     return GoogleFonts.poppins(
       fontSize: size,
       fontWeight: weight,
       color: color,
-      height: 1.0,
+      height: height,
     );
   }
 
   static TextStyle buttonXlarge({Color color = AppColors.dark}) => TextStyle(
-        fontFamily: 'SF Pro Display',
-        fontSize: 23,
-        fontWeight: FontWeight.w600,
-        height: 32 / 23, 
-        color: color,
-      );
+    fontFamily: 'SF Pro Display',
+    fontSize: 23,
+    fontWeight: FontWeight.w600,
+    height: 32 / 23,
+    color: color,
+  );
 
   static TextStyle buttonLarge({Color color = AppColors.dark}) => TextStyle(
-        fontFamily: 'SF Pro Display',
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        height: 32 / 18,
-        color: color,
-      );
+    fontFamily: 'SF Pro Display',
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    height: 32 / 18,
+    color: color,
+  );
 
   static TextStyle buttonMedium({Color color = AppColors.dark}) => TextStyle(
-        fontFamily: 'SF Pro Display',
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        height: 24 / 14,
-        color: color,
-      );
+    fontFamily: 'SF Pro Display',
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    height: 24 / 14,
+    color: color,
+  );
 
   static TextStyle buttonSmall({Color color = AppColors.dark}) => TextStyle(
-        fontFamily: 'SF Pro Display',
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        height: 16 / 12,
-        color: color,
-      );
+    fontFamily: 'SF Pro Display',
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    height: 16 / 12,
+    color: color,
+  );
 }

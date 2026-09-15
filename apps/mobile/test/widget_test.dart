@@ -1,30 +1,55 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mobile/main.dart';
+import 'package:mobile/features/auth/login_page.dart';
+import 'package:mobile/theme/app_theme.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  Future<void> pumpLoginPage(WidgetTester tester) async {
+    // Ukuran frame Android Compact di desain.
+    tester.view.physicalSize = const Size(412, 917);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const LoginPage()),
+    );
+  }
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  Finder field(int index) => find.byType(TextField).at(index);
+
+  testWidgets('tombol Login baru aktif setelah email dan password diisi', (
+    tester,
+  ) async {
+    await pumpLoginPage(tester);
+    ElevatedButton loginButton() =>
+        tester.widget(find.widgetWithText(ElevatedButton, 'Login'));
+
+    expect(loginButton().onPressed, isNull);
+
+    await tester.enterText(field(0), 'alexsander83@gmail.com');
     await tester.pump();
+    expect(loginButton().onPressed, isNull);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.enterText(field(1), '@lexSa76');
+    await tester.pump();
+    expect(loginButton().onPressed, isNotNull);
+  });
+
+  testWidgets('ikon mata menampilkan dan menyembunyikan password', (
+    tester,
+  ) async {
+    await pumpLoginPage(tester);
+    bool obscured() => tester.widget<TextField>(field(1)).obscureText;
+
+    expect(obscured(), isTrue);
+
+    await tester.tap(find.byIcon(Icons.visibility_off));
+    await tester.pump();
+    expect(obscured(), isFalse);
+
+    await tester.tap(find.byIcon(Icons.visibility));
+    await tester.pump();
+    expect(obscured(), isTrue);
   });
 }

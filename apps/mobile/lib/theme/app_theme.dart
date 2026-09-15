@@ -31,27 +31,35 @@ class AppTheme {
       ),
 
       // ===== Tombol solid (misal: "Login") =====
+      // Elevation dimatikan, glow di desain dipasang lewat PrimaryButton.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.light,
-          disabledBackgroundColor: Colors.grey.shade300, // state form belum valid
-          disabledForegroundColor: Colors.grey.shade500,
-          textStyle: AppTypography.buttonLarge(color: AppColors.light),
+          disabledBackgroundColor: AppColors.disabled, // state form belum valid
+          disabledForegroundColor: AppColors.light,
+          textStyle: AppTypography.style(
+            size: AppTypography.body,
+            weight: AppTypography.semiBold,
+          ),
           padding: const EdgeInsets.symmetric(vertical: 14),
           minimumSize: const Size(double.infinity, 48),
+          // Bentuk pill, sesuai contoh Login.
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24), // bentuk pill, sesuai contoh Login
+            borderRadius: BorderRadius.circular(24),
           ),
-        ),
+        ).copyWith(elevation: const WidgetStatePropertyAll(0)),
       ),
 
       // ===== Tombol outline (misal: "Login dengan Google") =====
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
-          side: BorderSide(color: Colors.grey.shade300),
-          textStyle: AppTypography.buttonLarge(color: AppColors.textPrimary),
+          side: const BorderSide(color: AppColors.border),
+          textStyle: AppTypography.style(
+            size: AppTypography.caption,
+            weight: AppTypography.regular,
+          ),
           padding: const EdgeInsets.symmetric(vertical: 14),
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(
@@ -62,30 +70,45 @@ class AppTheme {
 
       // ===== Text field (email, password, search) =====
       inputDecorationTheme: InputDecorationTheme(
+        isDense: true, // tanpa ini M3 memaksa tinggi field minimal 48
         filled: true,
-        fillColor: Colors.grey.shade100,
+        fillColor: AppColors.inputFill,
         hintStyle: AppTypography.style(
-          size: AppTypography.body,
+          size: AppTypography.small,
           weight: AppTypography.regular,
-          color: Colors.grey.shade500,
+          color: AppColors.textSecondary,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+        suffixIconColor: AppColors.textSecondary, // icon mata di password
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 14,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+        border: _inputBorder(),
+        enabledBorder: _inputBorder(),
+        focusedBorder: _inputBorder(
+          const BorderSide(color: AppColors.primary, width: 1.5),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+        errorBorder: _inputBorder(const BorderSide(color: AppColors.error)),
+        focusedErrorBorder: _inputBorder(
+          const BorderSide(color: AppColors.error, width: 1.5),
         ),
+      ),
+
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 1,
       ),
 
       // Default warna icon lepas (misal Icon() tanpa SvgPicture)
       iconTheme: IconThemeData(color: AppColors.textPrimary),
+    );
+  }
+
+  // Radius 24 bikin field setinggi 40 jadi pill, sama seperti tombol.
+  static OutlineInputBorder _inputBorder([BorderSide side = BorderSide.none]) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(24),
+      borderSide: side,
     );
   }
 }
