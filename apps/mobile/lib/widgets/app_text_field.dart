@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -7,8 +8,12 @@ import '../theme/app_typography.dart';
 /// `inputDecorationTheme` di `AppTheme`.
 ///
 /// [isPassword] menyembunyikan input dan menambah tombol mata.
-/// [hasError] cuma memerahkan border; pesan error ditulis di luar widget ini
-/// supaya satu pesan bisa mewakili beberapa field.
+///
+/// Dua cara menampilkan error:
+/// - [errorText]: error milik field ini (misal "Email sudah digunakan!").
+///   Label dan border jadi merah, pesan tampil di bawah field.
+/// - [hasError]: cuma memerahkan border. Dipakai kalau satu pesan mewakili
+///   beberapa field (misal "Email atau password salah" di halaman login).
 class AppTextField extends StatefulWidget {
   const AppTextField({
     super.key,
@@ -17,9 +22,12 @@ class AppTextField extends StatefulWidget {
     this.controller,
     this.keyboardType,
     this.textInputAction,
+    this.textCapitalization = TextCapitalization.none,
+    this.inputFormatters,
     this.autofillHints,
     this.isPassword = false,
     this.hasError = false,
+    this.errorText,
     this.onChanged,
     this.onSubmitted,
   });
@@ -29,9 +37,12 @@ class AppTextField extends StatefulWidget {
   final TextEditingController? controller;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
+  final TextCapitalization textCapitalization;
+  final List<TextInputFormatter>? inputFormatters;
   final Iterable<String>? autofillHints;
   final bool isPassword;
   final bool hasError;
+  final String? errorText;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -44,6 +55,8 @@ class _AppTextFieldState extends State<AppTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final errorText = widget.errorText;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -52,7 +65,9 @@ class _AppTextFieldState extends State<AppTextField> {
           style: AppTypography.style(
             size: AppTypography.small,
             weight: AppTypography.regular,
-            color: AppColors.textSecondary,
+            color: errorText != null
+                ? AppColors.error
+                : AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 14),
@@ -60,6 +75,8 @@ class _AppTextFieldState extends State<AppTextField> {
           controller: widget.controller,
           keyboardType: widget.keyboardType,
           textInputAction: widget.textInputAction,
+          textCapitalization: widget.textCapitalization,
+          inputFormatters: widget.inputFormatters,
           autofillHints: widget.autofillHints,
           obscureText: _obscured,
           obscuringCharacter: '●',
@@ -74,8 +91,12 @@ class _AppTextFieldState extends State<AppTextField> {
           ),
           decoration: InputDecoration(
             hintText: widget.hint,
-            // Widget kosong: border jadi merah tanpa menambah ruang di bawah field.
-            error: widget.hasError ? const SizedBox.shrink() : null,
+            // Widget kosong: border jadi merah tanpa menambah ruang di bawah
+            // field. Pesan error ditulis sendiri di bawah supaya rata kiri
+            // dengan tepi field, sesuai desain.
+            error: widget.hasError || errorText != null
+                ? const SizedBox.shrink()
+                : null,
             suffixIcon: widget.isPassword ? _buildVisibilityToggle() : null,
             // Default 48 bikin field password lebih tinggi dari field lain.
             suffixIconConstraints: const BoxConstraints(
@@ -84,6 +105,19 @@ class _AppTextFieldState extends State<AppTextField> {
             ),
           ),
         ),
+        if (errorText != null)
+          Padding(
+            // Bawah 6: jarak ke label field berikutnya jadi 24, sesuai desain.
+            padding: const EdgeInsets.only(top: 12, bottom: 6),
+            child: Text(
+              errorText,
+              style: AppTypography.style(
+                size: AppTypography.small,
+                weight: AppTypography.regular,
+                color: AppColors.error,
+              ),
+            ),
+          ),
       ],
     );
   }
