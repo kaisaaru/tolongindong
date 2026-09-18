@@ -1,0 +1,227 @@
+{
+  "info": {
+    "_postman_id": "7d9b9a1c-8b83-4a12-b91c-tolongindong-auth",
+    "name": "TolonginDong - Auth API (v1)",
+    "description": "Koleksi endpoint API Autentikasi untuk TolonginDong (Laravel & Flutter). Mendukung Manual Auth dan Google Sign-In.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "temp_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Registrasi Akun (Manual)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"Budi Santoso\",\n  \"email\": \"budi.santoso@example.com\",\n  \"phone_number\": \"081234567890\",\n  \"password\": \"Rahasia123!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/register",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "register"]
+        },
+        "description": "FR-AUTH-001: Mendaftarkan akun baru. Sistem akan mengirim kode OTP 6 digit ke nomor telepon."
+      }
+    },
+    {
+      "name": "2. Verifikasi OTP (Aktivasi & Buat Wallet)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone_number\": \"081234567890\",\n  \"otp_code\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/verify-otp",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "verify-otp"]
+        },
+        "description": "FR-AUTH-002: Memverifikasi kode OTP 6-digit. Otomatis mengaktifkan akun, membuat TD-Wallet dengan saldo 0, dan mengembalikan token Sanctum."
+      }
+    },
+    {
+      "name": "3. Kirim Ulang OTP (Send / Resend OTP)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone_number\": \"081234567890\",\n  \"type\": \"register\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/send-otp",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "send-otp"]
+        },
+        "description": "Meminta pengiriman ulang kode OTP (dibatasi 1 kali per 60 detik)."
+      }
+    },
+    {
+      "name": "4. Login Manual (Email atau Nomor HP)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"budi.santoso@example.com\",\n  \"password\": \"Rahasia123!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/login",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "FR-AUTH-004: Login menggunakan identifier (bisa email atau nomor HP) + password. Terkunci 15 menit jika 5x gagal."
+      }
+    },
+    {
+      "name": "5. Google Sign-In (Login / Register)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id_token\": \"mock-google-token\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/google",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "google"]
+        },
+        "description": "Kirimkan Google ID Token dari Flutter. Jika user baru, sistem mengembalikan requires_phone_completion: true & temp_token."
+      }
+    },
+    {
+      "name": "6. Google Sign-In (Verifikasi No HP via Temp Token)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"phone_number\": \"081298765432\",\n  \"otp_code\": \"123456\",\n  \"temp_token\": \"{{temp_token}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/verify-otp",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "verify-otp"]
+        },
+        "description": "Melengkapi nomor telepon bagi user Google baru menggunakan temp_token."
+      }
+    },
+    {
+      "name": "7. Dapatkan Profil Saya & Dompet (Protected)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/auth/me",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "me"]
+        },
+        "description": "Mendapatkan profil akun yang sedang login beserta status verifikasi dan saldo TD-Wallet."
+      }
+    },
+    {
+      "name": "8. Logout (Protected)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/auth/logout",
+          "host": ["{{base_url}}"],
+          "path": ["auth", "logout"]
+        },
+        "description": "Mencabut access token Sanctum yang sedang digunakan."
+      }
+    }
+  ]
+}

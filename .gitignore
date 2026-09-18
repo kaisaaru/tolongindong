@@ -19,3 +19,6 @@ Thumbs.db
 
 # PDF
 *.pdf
+
+# API Docs
+apps/api/docs/
