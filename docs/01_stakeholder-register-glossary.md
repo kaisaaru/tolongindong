@@ -1,6 +1,6 @@
 # Stakeholder Register dan Glosarium
 
-Status dokumen: `REVIEW` v0.1
+Status dokumen: `CONFIRMED` v0.1
 
 ## 1. Stakeholder pengguna
 
@@ -12,8 +12,6 @@ Ini pihak yang memakai sistem secara langsung dan menjadi aktor di use case.
 | ACT-02 | Helper (penolong) | Menerima pesanan, mengerjakan, menerima bayaran | Pesanan yang layak, bayaran pasti cair, jarak masuk akal | Sudah kerja tetapi tidak dibayar, dibatalkan sepihak setelah jalan, talangan tidak diganti |
 | ACT-03 | Sistem | Pencocokan, penahanan dana, notifikasi, pelepasan dana otomatis | Konsistensi status dan saldo | Kondisi balapan data dan saldo ganda |
 | ACT-04 | Admin operasional | Verifikasi identitas helper, menangani sengketa, menonaktifkan akun | Bukti yang cukup untuk memutuskan | Keputusan sengketa tanpa jejak audit |
-
-Catatan penting: satu orang bisa memegang ACT-01 dan ACT-02 sekaligus, karena pada prototipe awal menunjukkan menu `Become a helper` di halaman `Me` milik client. Konsekuensi desainnya dibahas terpisah di `04_dual-role-transaction-analysis.md`.
 
 ## 2. Stakeholder proyek
 
@@ -64,6 +62,8 @@ Pertama, transparansi pendapatan. Helper harus bisa melihat rincian berapa yang 
 
 Kedua, kepastian pembayaran. Dana ditahan sistem sejak pesanan diterima sehingga helper punya jaminan bahwa client benar benar punya saldo. Ini menjadi `FR-WLT-002` dan pembatalan sepihak setelah helper berangkat tetap memberi kompensasi, diatur di `FR-ORD-011`.
 
-Ketiga, perlindungan dari penilaian sepihak. Penilaian bersifat dua arah dan tertutup sampai keduanya mengisi, sehingga helper tidak bisa ditekan dengan ancaman bintang satu. Ini menjadi `FR-RTG-002`.
+Ketiga, perlindungan dari penilaian sepihak. Poin ini direvisi 28 Agustus 2026 mengikuti `DEC-09`. Argumen awal di sini mengandalkan penilaian dua arah yang tertutup sampai keduanya mengisi, sehingga Helper tidak bisa ditekan dengan ancaman bintang satu. Mekanisme itu sudah dihapus dari lingkup, `FR-RTG-002` dinyatakan DEPRECATED, sehingga argumen ini tidak lagi punya requirement pendukung.
 
-Ketiganya sudah masuk daftar requirement
+Ini bukan sekadar detail administratif, ini kehilangan satu dari tiga argumen SDG 8 yang tadinya dipakai membenarkan desain sistem. Kalau tim ingin bab pendahuluan SRS tetap mengklaim "perlindungan dari penilaian sepihak" sebagai bagian dari kontribusi SDG 8, klaim itu perlu argumen pengganti, atau dihapus saja dari narasi dan cukup mengandalkan dua poin pertama. Saya tidak mengarang argumen pengganti sendiri di sini karena itu keputusan yang sebaiknya diambil sadar oleh tim, bukan ditutupi diam diam supaya narasinya tetap kelihatan lengkap.
+
+Dua yang pertama tetap berlaku dan sudah masuk daftar requirement.

@@ -73,37 +73,53 @@ Fitur: Membuat pesanan
 ```
 
 ```gherkin
-Fitur: Penahanan dana saat helper menerima
-  Skenario: Dana berpindah dari saldo tersedia ke saldo tertahan
-    # FR-WLT-002
-    Diberikan saldo tersedia client adalah Rp 200.000 dan saldo tertahan Rp 0
-    Dan ada pesanan senilai Rp 105.000 berstatus searching
-    Ketika helper menerima pesanan tersebut
-    Maka saldo tersedia client menjadi Rp 95.000
-    Dan saldo tertahan client menjadi Rp 105.000
-    Dan jumlah keduanya tetap Rp 200.000
-    Dan tercipta satu baris mutasi bertipe hold
+Fitur: Tawar harga dan pemilihan helper
+  # Direvisi 19 Agustus 2026 mengikuti DEC-05, model tawar harga dua arah
 
-  Skenario: Dua helper menerima hampir bersamaan
-    # FR-ORD-004, INV-03
-    Diberikan pesanan ditawarkan ke helper A dan helper B
-    Ketika keduanya menekan terima dalam selisih waktu di bawah satu detik
-    Maka tepat satu helper mendapat respons berhasil
-    Dan helper lainnya mendapat kode ORDER_ALREADY_TAKEN
-    Dan hanya ada satu baris penahanan dana untuk pesanan itu
+  Skenario: Beberapa helper mengajukan tawaran berbeda
+    # FR-ORD-003, FR-ORD-003B
+    Diberikan pesanan berstatus searching dengan harga estimasi client Rp 40.000
+    Ketika helper A mengajukan tawaran Rp 43.000
+    Dan helper B mengajukan tawaran Rp 38.000
+    Maka client melihat dua tawaran dengan nominal dan profil masing masing
+    Dan belum ada dana yang tertahan pada tahap ini
 
-  Skenario: Pengguna tidak bisa menerima pesanannya sendiri
+  Skenario: Memilih tawaran belum menahan dana, konfirmasi helper yang menahan
+    # FR-ORD-003C, FR-ORD-006B, FR-WLT-002
+    Diberikan client memilih tawaran helper B senilai Rp 38.000
+    Ketika status pesanan berubah menjadi pending_confirmation
+    Maka saldo tersedia client belum berkurang
+    Dan ketika helper B mengonfirmasi ketersediaan dalam 60 detik
+    Maka saldo tersedia client berkurang Rp 38.000 dan saldo tertahan bertambah Rp 38.000
+    Dan status pesanan berubah menjadi accepted
+
+  Skenario: Helper terpilih tidak merespons konfirmasi
+    # FR-ORD-006B
+    Diberikan client memilih tawaran helper B
+    Ketika 60 detik berlalu tanpa konfirmasi dari helper B
+    Maka status pesanan kembali menjadi searching
+    Dan client dapat memilih tawaran lain yang masih berlaku
+    Dan tidak ada dana yang tertahan
+
+  Skenario: Helper terpilih ternyata sudah mengambil pesanan lain
+    # INV-06
+    Diberikan client memilih tawaran helper B
+    Dan pada saat bersamaan helper B baru saja dikonfirmasi pada pesanan lain
+    Ketika sistem memeriksa ketersediaan helper B untuk pesanan ini
+    Maka permintaan konfirmasi ditolak dengan kode HELPER_HAS_ACTIVE_ORDER
+    Dan status pesanan kembali menjadi searching
+
+  Skenario: Pengguna tidak bisa mengajukan tawaran pada pesanannya sendiri
     # FR-ORD-016, INV-05
     Diberikan seorang pengguna yang berstatus helper terverifikasi membuat pesanan sebagai client
-    Ketika pengguna tersebut mencoba menerima pesanannya sendiri
+    Ketika pengguna tersebut mencoba mengajukan tawaran pada pesanannya sendiri
     Maka sistem menolak dengan kode SELF_ORDER_NOT_ALLOWED
-    Dan pesanan tetap berstatus searching
 
-  Skenario: Permintaan terima dikirim ulang karena jaringan buruk
+  Skenario: Permintaan konfirmasi dikirim ulang karena jaringan buruk
     # FR-WLT-009, INV-04
-    Diberikan helper menekan terima dan permintaan gagal karena waktu habis di sisi jaringan
+    Diberikan helper menekan konfirmasi dan permintaan gagal karena waktu habis di sisi jaringan
     Ketika aplikasi mengirim ulang permintaan dengan idempotency key yang sama
-    Maka sistem mengembalikan hasil penerimaan yang pertama
+    Maka sistem mengembalikan hasil konfirmasi yang pertama
     Dan tidak tercipta baris penahanan dana kedua
 ```
 
@@ -193,37 +209,85 @@ Fitur: Pembatalan pesanan
     Dan jumlah pembatalan helper bertambah satu
     Dan client menerima notifikasi beserta tawaran mencari helper lain
 
-  Skenario: Pesanan yang sedang dikerjakan tidak bisa dibatalkan sepihak
-    # FR-ORD-011
-    Diberikan pesanan berstatus in_progress
+  Skenario: Pesanan yang sedang dikerjakan tidak bisa dibatalkan sepihak, kategori Delivery
+    # FR-ORD-011, DEC-10
+    Diberikan pesanan berkategori Delivery berstatus in_progress
     Ketika client menekan batalkan
     Maka sistem menolak pembatalan langsung
     Dan mengarahkan client ke pengajuan sengketa
+
+  Skenario: Sengketa ditolak untuk kategori selain Delivery
+    # FR-ORD-018, DEC-10
+    Diberikan pesanan berkategori Household berstatus awaiting_confirmation
+    Ketika client mencoba mengajukan sengketa
+    Maka sistem menolak dengan pesan bahwa kanal sengketa hanya tersedia untuk kategori Delivery
+    Dan client hanya memiliki opsi konfirmasi selesai atau membiarkan batas waktu 24 jam berlalu
 ```
 
-## 6. Penilaian dua arah
+## 6. Penilaian satu arah
+
+Direvisi 28 Agustus 2026 mengikuti DEC-09. Dua skenario lama soal penilaian tersembunyi dan terbuka setelah tenggat dihapus karena mekanisme dua arah sudah tidak berlaku, digantikan satu skenario penilaian langsung terlihat.
 
 ```gherkin
-Fitur: Penilaian dua arah
-  Skenario: Penilaian disembunyikan sampai keduanya mengisi
-    # FR-RTG-002
+Fitur: Penilaian satu arah
+  Skenario: Client memberi penilaian dan langsung terlihat
+    # FR-RTG-001, FR-RTG-003
     Diberikan pesanan berstatus completed
-    Dan client sudah memberi penilaian tiga bintang
-    Ketika helper membuka halaman ulasan sebelum ia sendiri menilai
-    Maka helper tidak dapat melihat isi penilaian client
+    Ketika client memberi penilaian empat bintang dengan ulasan
+    Maka penilaian langsung tercatat dan terlihat pada profil helper
+    Dan rating rata rata helper diperbarui tanpa masa tunda
 
-  Skenario: Penilaian terbuka setelah tenggat
-    # FR-RTG-002
-    Diberikan hanya client yang memberi penilaian
-    Ketika 72 jam berlalu sejak pesanan selesai
-    Maka penilaian client menjadi terlihat
-    Dan rating rata rata helper diperbarui
+  Skenario: Helper tidak memiliki jalur memberi penilaian
+    # DEC-09
+    Diberikan pesanan berstatus completed
+    Ketika helper membuka aplikasi
+    Maka tidak ada menu atau tombol untuk menilai client di mana pun pada aplikasi
 
   Skenario: Pesanan batal tidak bisa dinilai
     # FR-RTG-004
     Diberikan pesanan berstatus cancelled_by_helper
     Ketika client mencoba memberi penilaian
     Maka sistem menolak permintaan tersebut
+```
+
+## 6B. Panel admin
+
+Baru ditambahkan 28 Agustus 2026 mengikuti DEC-07. Modul ini belum pernah ditinjau BE, skenario di bawah kemungkinan masih berubah setelah sesi BE.
+
+```gherkin
+Fitur: Panel admin
+  Skenario: Akun biasa tidak bisa akses panel admin
+    # FR-ADM-002
+    Diberikan akun Client atau Helper yang tidak bertanda admin
+    Ketika akun tersebut mencoba mengakses endpoint atau halaman admin
+    Maka sistem menolak dengan kode 403
+
+  Skenario: Admin menyetujui verifikasi
+    # FR-ADM-003, FR-ADM-004, FR-ADM-008
+    Diberikan pengajuan verifikasi Helper berstatus pending
+    Ketika admin menyetujui pengajuan tersebut
+    Maka status verifikasi Helper menjadi verified
+    Dan Helper tersebut dapat mulai menerima tawaran pesanan
+    Dan tercatat satu baris baru di admin_action_log
+
+  Skenario: Admin menolak verifikasi wajib mengisi alasan
+    # FR-ADM-004
+    Diberikan pengajuan verifikasi Helper berstatus pending
+    Ketika admin menolak tanpa mengisi alasan penolakan
+    Maka sistem menolak permintaan tersebut
+
+  Skenario: Admin memutuskan sengketa hanya untuk kategori Delivery
+    # FR-ADM-005, FR-ADM-006, DEC-10
+    Diberikan sengketa masuk untuk pesanan berkategori Delivery
+    Ketika admin memutuskan resolusi berpihak pada helper
+    Maka dana tertahan dilepas ke helper
+    Dan status pesanan menjadi completed
+
+  Skenario: Sengketa untuk kategori selain Delivery tidak pernah muncul di panel admin
+    # FR-ADM-005, DEC-10
+    Diberikan tidak ada pesanan kategori Delivery yang bersengketa
+    Ketika admin membuka daftar sengketa
+    Maka daftar tersebut kosong meskipun ada pesanan kategori lain yang bermasalah
 ```
 
 ## 7. Catatan pengujian tambahan untuk QA
