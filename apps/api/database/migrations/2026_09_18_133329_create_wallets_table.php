@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('wallets', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
+            $table->foreignUuid('user_id')->unique()->constrained('users')->cascadeOnDelete();
             $table->unsignedBigInteger('available_balance')->default(0);
             $table->unsignedBigInteger('held_balance')->default(0);
             $table->string('currency', 10)->default('IDR');
