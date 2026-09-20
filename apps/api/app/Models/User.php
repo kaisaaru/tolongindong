@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -12,7 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -67,4 +68,31 @@ class User extends Authenticatable
     {
         return $this->hasOne(Wallet::class);
     }
+
+    /**
+     * User has one optional Helper Profile (DEC-01 Dual Role).
+     */
+    public function helperProfile(): HasOne
+    {
+        return $this->hasOne(HelperProfile::class);
+    }
+
+    /**
+     * User can submit verification requests.
+     */
+    public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VerificationRequest::class);
+    }
+
+    /**
+     * Check if user is an approved helper.
+     */
+    public function isVerifiedHelper(): bool
+    {
+        return $this->verification_status === 'verified' &&
+            $this->helperProfile !== null &&
+            $this->helperProfile->isApproved();
+    }
 }
+
