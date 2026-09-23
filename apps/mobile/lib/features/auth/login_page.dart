@@ -70,7 +70,7 @@ class _LoginPageState extends State<LoginPage> {
           hasError: hasError,
           onChanged: _onChanged,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 19),
         AppTextField(
           label: 'Password',
           hint: 'Masukkan password anda',
@@ -85,7 +85,7 @@ class _LoginPageState extends State<LoginPage> {
         // Tinggi minimum dijaga supaya tombol Login tidak bergeser saat
         // pesan error muncul (desain Compact-7).
         ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 96),
+          constraints: const BoxConstraints(minHeight: 94),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
