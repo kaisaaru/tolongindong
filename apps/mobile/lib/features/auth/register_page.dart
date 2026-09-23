@@ -69,11 +69,13 @@ class _RegisterPageState extends State<RegisterPage> {
     return AuthLayout(
       title: 'Daftar Akun',
       subtitle: 'Lengkapi data diri Anda untuk mulai\nmenggunakan TolonginDong',
+      maxTopSpace: 39,
       children: [
-        // Tinggi normal 4 field = 318. Sisa 32 jadi cadangan untuk satu pesan
-        // error, supaya tombol Daftar tidak bergeser (desain Compact-16/18/21).
+        // Tinggi normal 4 field = 321. Sisa 31 jadi cadangan untuk satu pesan
+        // error (29), supaya tombol Daftar tidak bergeser (desain
+        // Compact-16/18/21).
         ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 350),
+          constraints: const BoxConstraints(minHeight: 352),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -87,7 +89,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 autofillHints: const [AutofillHints.name],
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 19),
               AppTextField(
                 label: 'Email',
                 hint: 'Masukkan email anda',
@@ -98,7 +100,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 errorText: _emailError,
                 onChanged: (_) => setState(() => _emailError = null),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 19),
               AppTextField(
                 label: 'No. tlpn',
                 hint: '08346763242',
@@ -110,7 +112,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 errorText: _phoneError,
                 onChanged: (_) => setState(() => _phoneError = null),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 19),
               AppTextField(
                 label: 'Password',
                 hint: 'Masukkan password anda',

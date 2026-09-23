@@ -19,7 +19,7 @@ class OrDivider extends StatelessWidget {
             'atau',
             style: AppTypography.style(
               size: AppTypography.small,
-              weight: AppTypography.regular,
+              weight: AppTypography.light,
               color: AppColors.textSecondary,
             ),
           ),

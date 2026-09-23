@@ -23,6 +23,7 @@ class AppTypography {
   static const FontWeight semiBold = FontWeight.w600;
   static const FontWeight medium = FontWeight.w500;
   static const FontWeight regular = FontWeight.w400;
+  static const FontWeight light = FontWeight.w300;
   static const FontWeight thin = FontWeight.w200;
 
   // Ganti weight lewat parameter, jangan copyWith(fontWeight: ...):
@@ -38,6 +39,9 @@ class AppTypography {
       fontWeight: weight,
       color: color,
       height: height,
+      // 0 seperti di Figma. Kalau dikosongkan, Text ikut letterSpacing tema
+      // Material 3 (0.25-0.5), jadi teks lebih lebar dari desain.
+      letterSpacing: 0,
     );
   }
 

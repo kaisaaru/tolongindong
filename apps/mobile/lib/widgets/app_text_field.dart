@@ -64,7 +64,7 @@ class _AppTextFieldState extends State<AppTextField> {
           widget.label,
           style: AppTypography.style(
             size: AppTypography.small,
-            weight: AppTypography.regular,
+            weight: AppTypography.medium,
             color: errorText != null
                 ? AppColors.error
                 : AppColors.textSecondary,
@@ -107,8 +107,9 @@ class _AppTextFieldState extends State<AppTextField> {
         ),
         if (errorText != null)
           Padding(
-            // Bawah 6: jarak ke label field berikutnya jadi 24, sesuai desain.
-            padding: const EdgeInsets.only(top: 12, bottom: 6),
+            // Bawah 5 + jarak antar-field 19: jarak ke label field berikutnya
+            // jadi 24, sesuai desain.
+            padding: const EdgeInsets.only(top: 12, bottom: 5),
             child: Text(
               errorText,
               style: AppTypography.style(
@@ -124,7 +125,8 @@ class _AppTextFieldState extends State<AppTextField> {
 
   Widget _buildVisibilityToggle() {
     return Padding(
-      padding: const EdgeInsetsDirectional.only(end: 8),
+      // Pusat ikon 31 dari tepi kanan field (13 + 18), sesuai desain.
+      padding: const EdgeInsetsDirectional.only(end: 13),
       child: IconButton(
         onPressed: () => setState(() => _obscured = !_obscured),
         icon: Icon(_obscured ? Icons.visibility_off : Icons.visibility),

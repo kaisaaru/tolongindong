@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'features/auth/login_page.dart';
+import 'features/splash/splash_page.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
       title: 'Tolongin Dong',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const LoginPage(),
+      home: const SplashPage(),
     );
   }
 }
