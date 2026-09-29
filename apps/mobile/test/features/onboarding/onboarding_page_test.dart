@@ -1,10 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/onboarding/onboarding_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/pump_page.dart';
 
 void main() {
+  // Onboarding menandai dirinya "sudah dilihat" saat selesai, jadi
+  // penyimpanan preferensi perlu tersedia di lingkungan tes.
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+  });
+
   const firstTitle = 'Bantuan Mudah untuk\nTugas Harian';
   const secondTitle = 'Aman dengan Helper\nTerverifikasi';
   const lastTitle = 'Solusi Tuntas dengan\nHarga Adil';

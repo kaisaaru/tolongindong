@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/api/api_exception.dart';
 import 'package:mobile/features/auth/otp_page.dart';
 import 'package:mobile/features/auth/register_page.dart';
+import 'package:mobile/models/auth_user.dart';
 
+import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/pump_page.dart';
 
 void main() {
@@ -60,12 +63,44 @@ void main() {
   testWidgets('data valid lanjut ke OTP dengan nomor yang disamarkan', (
     tester,
   ) async {
-    await pumpPage(tester, const RegisterPage());
+    final repo = FakeAuthRepository(
+      registerResult: const OtpChallenge(
+        phoneNumber: '08774438764',
+        expiresInSeconds: 300,
+      ),
+    );
+    await pumpPage(tester, RegisterPage(authRepo: repo));
     await fillForm(tester);
 
     await tester.tap(daftarButton);
     await tester.pumpAndSettle();
+
+    // Server dipanggil dengan data yang diisi, bukan dilewati.
+    expect(repo.lastCall?['email'], 'alexsander83@gmail.com');
     expect(find.byType(OtpPage), findsOneWidget);
     expect(find.textContaining('********8764'), findsOneWidget);
+  });
+
+  testWidgets('email sudah terdaftar ditempel ke field email, tidak ke OTP', (
+    tester,
+  ) async {
+    final repo = FakeAuthRepository(
+      failWith: const ApiException(
+        code: 'VALIDATION_ERROR',
+        message: 'Validasi pendaftaran gagal',
+        detail: {
+          'email': ['Alamat email ini sudah terdaftar.'],
+        },
+        statusCode: 422,
+      ),
+    );
+    await pumpPage(tester, RegisterPage(authRepo: repo));
+    await fillForm(tester);
+
+    await tester.tap(daftarButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alamat email ini sudah terdaftar.'), findsOneWidget);
+    expect(find.byType(OtpPage), findsNothing);
   });
 }

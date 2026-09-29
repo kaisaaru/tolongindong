@@ -15,11 +15,21 @@ class OtpInput extends StatefulWidget {
   const OtpInput({
     super.key,
     this.length = 6,
+    this.controller,
+    this.hasError = false,
     this.onChanged,
     this.onSubmitted,
   });
 
   final int length;
+
+  /// Diisi kalau halaman perlu mengosongkan kode dari luar, misalnya
+  /// setelah server menolak kodenya.
+  final TextEditingController? controller;
+
+  /// Memerahkan semua kotak. Pesannya sendiri ditampilkan halaman.
+  final bool hasError;
+
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -28,8 +38,12 @@ class OtpInput extends StatefulWidget {
 }
 
 class _OtpInputState extends State<OtpInput> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller =
+      widget.controller ?? TextEditingController();
   final _focusNode = FocusNode();
+
+  /// Controller milik halaman tidak boleh ikut dibuang di sini.
+  bool get _ownsController => widget.controller == null;
 
   @override
   void initState() {
@@ -41,7 +55,8 @@ class _OtpInputState extends State<OtpInput> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller.removeListener(_onCodeChanged);
+    if (_ownsController) _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -70,6 +85,7 @@ class _OtpInputState extends State<OtpInput> {
                 child: _OtpBox(
                   digit: i < code.length ? code[i] : '',
                   isActive: _focusNode.hasFocus && i == activeIndex,
+                  hasError: widget.hasError,
                 ),
               ),
             ],
@@ -105,10 +121,15 @@ class _OtpInputState extends State<OtpInput> {
 }
 
 class _OtpBox extends StatelessWidget {
-  const _OtpBox({required this.digit, required this.isActive});
+  const _OtpBox({
+    required this.digit,
+    required this.isActive,
+    this.hasError = false,
+  });
 
   final String digit;
   final bool isActive;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
@@ -119,9 +140,11 @@ class _OtpBox extends StatelessWidget {
         color: AppColors.inputFill,
         borderRadius: BorderRadius.circular(8),
         // Sama seperti focusedBorder text field di theme.
-        border: isActive
-            ? Border.all(color: AppColors.primary, width: 1.5)
-            : null,
+        border: hasError
+            ? Border.all(color: AppColors.error, width: 1.5)
+            : isActive
+                ? Border.all(color: AppColors.primary, width: 1.5)
+                : null,
       ),
       child: Text(
         digit,
