@@ -6,6 +6,7 @@ import 'package:mobile/models/auth_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/fake_auth_repository.dart';
+import '../../helpers/fake_catalog_repository.dart';
 import '../../helpers/pump_page.dart';
 
 void main() {
@@ -43,7 +44,10 @@ void main() {
     );
     await pumpPage(
       tester,
-      SplashPage(authRepo: FakeAuthRepository(sessionUser: user)),
+      SplashPage(
+        authRepo: FakeAuthRepository(sessionUser: user),
+        catalogRepo: FakeCatalogRepository(),
+      ),
     );
 
     await tester.pump(SplashPage.duration);

@@ -8,6 +8,7 @@ import '../../core/storage/app_preferences.dart';
 import '../../theme/app_colors.dart';
 import '../auth/auth_repository.dart';
 import '../auth/login_page.dart';
+import '../home/catalog_repository.dart';
 import '../home/home_page.dart';
 import '../onboarding/onboarding_page.dart';
 import 'widgets/splash_waves.dart';
@@ -21,10 +22,14 @@ import 'widgets/splash_waves.dart';
 /// sisanya                        -> Login
 /// ```
 class SplashPage extends StatefulWidget {
-  const SplashPage({super.key, this.authRepo});
+  const SplashPage({super.key, this.authRepo, this.catalogRepo});
 
   /// Diisi hanya saat pengujian, supaya splash bisa diuji tanpa server.
   final AuthRepository? authRepo;
+
+  /// Diteruskan ke beranda. Splash sendiri tidak memakainya — ada di sini
+  /// supaya beranda tetap bisa diuji walau dibuka lewat splash.
+  final CatalogRepository? catalogRepo;
 
   /// Lama splash tampil minimal, walau pengecekan selesai lebih cepat.
   static const duration = Duration(seconds: 2);
@@ -59,7 +64,11 @@ class _SplashPageState extends State<SplashPage> {
   Future<Widget> _resolveDestination() async {
     if (await _authRepo.hasSession()) {
       try {
-        return HomePage(user: await _authRepo.me());
+        return HomePage(
+          user: await _authRepo.me(),
+          authRepo: widget.authRepo,
+          catalogRepo: widget.catalogRepo,
+        );
       } on ApiException catch (e) {
         // Token hanya dibuang kalau server benar-benar menolaknya. Jaringan
         // mati bukan alasan menghapus sesi — pengguna cuma diminta login lagi.
