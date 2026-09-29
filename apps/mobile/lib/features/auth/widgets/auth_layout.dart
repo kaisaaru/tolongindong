@@ -7,21 +7,26 @@ import '../../../theme/app_typography.dart';
 /// Kerangka halaman auth (login, daftar, OTP): judul, subjudul, lalu
 /// [children] dalam satu kolom selebar 300, sesuai desain.
 ///
-/// Konten diletakkan di tengah layar, tapi ruang di atas judul maksimal 104.
-/// Jadi halaman pendek seperti OTP tetap di bagian atas, sama seperti desain.
-/// Kalau konten lebih tinggi dari layar (misal keyboard muncul), halaman
-/// bisa di-scroll.
+/// Konten diletakkan di tengah layar, tapi ruang di atas judul maksimal
+/// [maxTopSpace]. Jadi halaman pendek seperti OTP tetap di bagian atas, sama
+/// seperti desain. Kalau konten lebih tinggi dari layar (misal keyboard
+/// muncul), halaman bisa di-scroll.
 class AuthLayout extends StatelessWidget {
   const AuthLayout({
     super.key,
     required this.title,
     required this.subtitle,
     required this.children,
+    this.maxTopSpace = 104,
   });
 
   final String title;
   final String subtitle;
   final List<Widget> children;
+
+  /// Halaman dengan form panjang (daftar) memakai nilai lebih kecil, karena
+  /// di desain kontennya dimulai lebih ke atas.
+  final double maxTopSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -59,11 +64,12 @@ class AuthLayout extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Sisa ruang dibagi dua atas-bawah (konten di tengah), tapi yang
-        // atas dibatasi 104. SizedBox.expand dipakai (bukan SizedBox(height:))
-        // supaya ruang ini tidak ikut dihitung sebagai tinggi konten.
+        // atas dibatasi maxTopSpace. SizedBox.expand dipakai (bukan
+        // SizedBox(height:)) supaya ruang ini tidak ikut dihitung sebagai
+        // tinggi konten.
         Flexible(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 104),
+            constraints: BoxConstraints(maxHeight: maxTopSpace),
             child: const SizedBox.expand(),
           ),
         ),
@@ -86,7 +92,7 @@ class AuthLayout extends StatelessWidget {
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 50),
         ...children,
         const Spacer(),
       ],

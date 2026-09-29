@@ -2,20 +2,48 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'full_name',
+        'phone_number',
+        'email',
+        'password',
+        'google_id',
+        'photo_url',
+        'verification_status',
+        'is_admin',
+        'is_suspended',
+        'suspended_reason',
+        'phone_verified_at',
+        'email_verified_at',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -26,7 +54,45 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_admin' => 'boolean',
+            'is_suspended' => 'boolean',
         ];
     }
+
+    /**
+     * User has one TD-Wallet.
+     */
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
+    /**
+     * User has one optional Helper Profile (DEC-01 Dual Role).
+     */
+    public function helperProfile(): HasOne
+    {
+        return $this->hasOne(HelperProfile::class);
+    }
+
+    /**
+     * User can submit verification requests.
+     */
+    public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VerificationRequest::class);
+    }
+
+    /**
+     * Check if user is an approved helper.
+     */
+    public function isVerifiedHelper(): bool
+    {
+        return $this->verification_status === 'verified' &&
+            $this->helperProfile !== null &&
+            $this->helperProfile->isApproved();
+    }
 }
+

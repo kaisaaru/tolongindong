@@ -38,11 +38,14 @@ class AppTheme {
           foregroundColor: AppColors.light,
           disabledBackgroundColor: AppColors.disabled, // state form belum valid
           disabledForegroundColor: AppColors.light,
+          // Height 1.5 = line height bawaan Poppins, sama seperti di Figma.
+          // Dengan 1.0 teks jadi ±2 lebih tinggi dari tengah tombol.
           textStyle: AppTypography.style(
             size: AppTypography.body,
             weight: AppTypography.semiBold,
+            height: 1.5,
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 12), // 24 + 12 x 2 = 48
           minimumSize: const Size(double.infinity, 48),
           // Bentuk pill, sesuai contoh Login.
           shape: RoundedRectangleBorder(
@@ -54,14 +57,16 @@ class AppTheme {
       // ===== Tombol outline (misal: "Login dengan Google") =====
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.border),
+          foregroundColor: AppColors.textMuted,
+          side: const BorderSide(color: AppColors.outline),
           textStyle: AppTypography.style(
             size: AppTypography.caption,
-            weight: AppTypography.regular,
+            weight: AppTypography.medium,
+            height: 1.5, // alasan sama dengan tombol solid
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          minimumSize: const Size(double.infinity, 48),
+          // Tinggi 49 sesuai desain: ikon Google 22 + padding 13.5 x 2.
+          padding: const EdgeInsets.symmetric(vertical: 13.5),
+          minimumSize: const Size(double.infinity, 49),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -78,7 +83,7 @@ class AppTheme {
           weight: AppTypography.regular,
           color: AppColors.textSecondary,
         ),
-        suffixIconColor: AppColors.textSecondary, // icon mata di password
+        suffixIconColor: AppColors.outline, // icon mata di password
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 14,
