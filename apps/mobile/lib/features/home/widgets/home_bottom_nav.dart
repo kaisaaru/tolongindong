@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -13,8 +12,9 @@ import '../home_metrics.dart';
 /// dengan tombol buat pesanan di tengah.
 enum HomeTab { beranda, cariHelper, percakapan, profil }
 
-/// Bilah navigasi mengambang berbentuk pil kaca: konten di belakangnya
-/// tetap terlihat samar, seperti desain.
+/// Bilah navigasi mengambang berbentuk kaca buram: konten di belakangnya
+/// tetap terlihat samar, persis seperti desain. Tab aktif ditandai lingkaran
+/// putih pekat di belakang ikonnya.
 ///
 /// Dipasang lewat `Scaffold.bottomNavigationBar` dengan `extendBody: true`,
 /// jadi latarnya sendiri harus transparan.
@@ -37,71 +37,77 @@ class HomeBottomNav extends StatelessWidget {
       HomeMetrics.navHeight +
       16;
 
-  static const _radius = HomeMetrics.navHeight / 2;
+  static const _height = HomeMetrics.navHeight;
+  static const _radius = _height / 2;
 
-  // Di desain semua ikon berwarna gelap; tab aktif (Beranda) dibedakan oleh
-  // ikonnya yang terisi, bukan oleh warna.
-  static const _iconColor = AppColors.textPrimary;
+  // Warna diambil dari SVG ekspor Figma: ikon aktif hitam, sisanya #3F3F3F.
+  static const _activeColor = Color(0xFF000000);
+  static const _inactiveColor = Color(0xFF3F3F3F);
 
   @override
   Widget build(BuildContext context) {
     const center = HomeMetrics.navWidth / 2;
     final offsets = HomeMetrics.navIconOffsets;
-
-    final items = <(HomeTab, Widget, String)>[
-      (HomeTab.beranda, const _HomeIcon(), 'Beranda'),
-      (
-        HomeTab.cariHelper,
-        const Icon(CupertinoIcons.briefcase, size: 24, color: _iconColor),
-        'Cari Helper',
-      ),
-      (HomeTab.percakapan, const _SvgIcon(HomeAssets.navChat), 'Percakapan'),
-      (HomeTab.profil, const _SvgIcon(HomeAssets.navProfile), 'Profil'),
+    const tabs = [
+      (HomeTab.beranda, 'Beranda'),
+      (HomeTab.cariHelper, 'Cari Helper'),
+      (HomeTab.percakapan, 'Percakapan'),
+      (HomeTab.profil, 'Profil'),
     ];
+    final activeIndex = tabs.indexWhere((t) => t.$1 == current);
 
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.only(bottom: HomeMetrics.navBottomGap),
       child: Center(
         heightFactor: 1,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(_radius),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_radius),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(
-                width: HomeMetrics.navWidth,
-                height: HomeMetrics.navHeight,
-                color: AppColors.light.withValues(alpha: 0.8),
-                child: Stack(
-                  children: [
-                    for (var i = 0; i < items.length; i++)
-                      _positioned(
-                        centerX: center + offsets[i],
-                        size: 44,
-                        child: _NavItem(
-                          icon: items[i].$2,
-                          label: items[i].$3,
-                          onTap: () => onSelected(items[i].$1),
+        // Tanpa bayangan: di balik kaca yang transparan, bayangan ikut tembus
+        // dan membuat bilah tampak abu-abu. Desain juga tidak memakainya.
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_radius),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+            child: Container(
+              width: HomeMetrics.navWidth,
+              height: _height,
+              color: AppColors.light.withValues(alpha: 0.7),
+              child: Stack(
+                children: [
+                  // Lingkaran putih pekat di belakang tab aktif, setinggi bilah.
+                  if (activeIndex >= 0)
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      left: center + offsets[activeIndex] - _radius,
+                      top: 0,
+                      width: _height,
+                      height: _height,
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.light,
+                          shape: BoxShape.circle,
                         ),
                       ),
-                    _positioned(
-                      centerX: center,
-                      size: HomeMetrics.navFabSize,
-                      child: _CreateOrderButton(onTap: onCreateOrder),
                     ),
-                  ],
-                ),
+                  for (var i = 0; i < tabs.length; i++)
+                    _positioned(
+                      centerX: center + offsets[i],
+                      size: 44,
+                      child: _NavItem(
+                        label: tabs[i].$2,
+                        onTap: () => onSelected(tabs[i].$1),
+                        icon: _iconFor(
+                          tabs[i].$1,
+                          i == activeIndex ? _activeColor : _inactiveColor,
+                        ),
+                      ),
+                    ),
+                  _positioned(
+                    centerX: center,
+                    size: HomeMetrics.navFabSize,
+                    child: _CreateOrderButton(onTap: onCreateOrder),
+                  ),
+                ],
               ),
             ),
           ),
@@ -110,25 +116,34 @@ class HomeBottomNav extends StatelessWidget {
     );
   }
 
+  /// Ukuran ikon disesuaikan dengan ukuran tintanya di desain:
+  /// rumah 18,6 x 18, tas 21 x 21, chat 21 x 21, profil 15 x 19,2 (dp).
+  static Widget _iconFor(HomeTab tab, Color color) => switch (tab) {
+        HomeTab.beranda => _HomeIcon(color: color),
+        HomeTab.cariHelper => CustomPaint(
+            size: const Size.square(24),
+            painter: _BagIconPainter(color),
+          ),
+        HomeTab.percakapan => _SvgIcon(HomeAssets.navChat, 21.6, color),
+        HomeTab.profil => _SvgIcon(HomeAssets.navProfile, 20.4, color),
+      };
+
   static Widget _positioned({
     required double centerX,
     required double size,
     required Widget child,
-  }) => Positioned(
-    left: centerX - size / 2,
-    top: (HomeMetrics.navHeight - size) / 2,
-    width: size,
-    height: size,
-    child: child,
-  );
+  }) =>
+      Positioned(
+        left: centerX - size / 2,
+        top: (_height - size) / 2,
+        width: size,
+        height: size,
+        child: child,
+      );
 }
 
 class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+  const _NavItem({required this.icon, required this.label, required this.onTap});
 
   final Widget icon;
   final String label;
@@ -149,19 +164,18 @@ class _NavItem extends StatelessWidget {
 }
 
 class _SvgIcon extends StatelessWidget {
-  const _SvgIcon(this.asset);
+  const _SvgIcon(this.asset, this.height, this.color);
 
   final String asset;
+  final double height;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return SvgPicture.asset(
       asset,
-      height: 21,
-      colorFilter: const ColorFilter.mode(
-        HomeBottomNav._iconColor,
-        BlendMode.srcIn,
-      ),
+      height: height,
+      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
     );
   }
 }
@@ -172,7 +186,9 @@ class _SvgIcon extends StatelessWidget {
 /// terpisah yang tidak ikut terekspor, jadi digambar di sini dengan ukuran
 /// hasil pengukuran (rumah 18,6 x 18 dp, pintu 6,6 x 7,8 dp).
 class _HomeIcon extends StatelessWidget {
-  const _HomeIcon();
+  const _HomeIcon({required this.color});
+
+  final Color color;
 
   static const _size = 19.0;
 
@@ -182,7 +198,12 @@ class _HomeIcon extends StatelessWidget {
       dimension: _size,
       child: Stack(
         children: [
-          const _SvgIconSized(HomeAssets.navHome, _size),
+          SvgPicture.asset(
+            HomeAssets.navHome,
+            width: _size,
+            height: _size,
+            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+          ),
           Positioned(
             // Viewbox 21 menyisakan 0,5 di tepi; alas rumah di 20,5/21.
             bottom: _size * 0.5 / 21,
@@ -202,24 +223,53 @@ class _HomeIcon extends StatelessWidget {
   }
 }
 
-class _SvgIconSized extends StatelessWidget {
-  const _SvgIconSized(this.asset, this.size);
+/// Ikon tas "Cari Helper", digambar mengikuti peta piksel ikon di desain:
+/// badan membulat, gagang di atas, garis tutup melengkung, dan kancing kecil
+/// di tengahnya. Belum ada ekspor SVG-nya; kalau nanti tersedia, ganti saja.
+class _BagIconPainter extends CustomPainter {
+  const _BagIconPainter(this.color);
 
-  final String asset;
-  final double size;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      asset,
-      width: size,
-      height: size,
-      colorFilter: const ColorFilter.mode(
-        HomeBottomNav._iconColor,
-        BlendMode.srcIn,
-      ),
+  void paint(Canvas canvas, Size size) {
+    // Koordinat dalam dp pada kotak tinta 21,6 x 22,2, dipusatkan di 24 x 24.
+    canvas.translate((size.width - 21.6) / 2, (size.height - 22.2) / 2);
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.9
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Badan tas.
+    canvas.drawRRect(
+      RRect.fromLTRBR(0.9, 5.7, 20.7, 21.3, const Radius.circular(3.3)),
+      stroke,
     );
+    // Gagang: kaki lurus turun ke badan, sudut atas membulat.
+    canvas.drawPath(
+      Path()
+        ..moveTo(6.9, 5.7)
+        ..lineTo(6.9, 2.7)
+        ..arcToPoint(const Offset(8.7, 0.9), radius: const Radius.circular(1.8))
+        ..lineTo(12.9, 0.9)
+        ..arcToPoint(const Offset(14.7, 2.7), radius: const Radius.circular(1.8))
+        ..lineTo(14.7, 5.7),
+      stroke,
+    );
+    // Garis tutup melengkung dan kancingnya.
+    canvas.drawPath(
+      Path()
+        ..moveTo(4.2, 9.9)
+        ..quadraticBezierTo(10.5, 14.0, 16.8, 9.9),
+      stroke,
+    );
+    canvas.drawLine(const Offset(10.5, 11.9), const Offset(10.5, 13.8), stroke);
   }
+
+  @override
+  bool shouldRepaint(_BagIconPainter old) => old.color != color;
 }
 
 class _CreateOrderButton extends StatelessWidget {
@@ -234,8 +284,8 @@ class _CreateOrderButton extends StatelessWidget {
       label: 'Buat pesanan',
       child: GestureDetector(
         onTap: onTap,
-        // Asetnya sudah berupa lingkaran bergradasi merah dengan tanda
-        // tambah, jadi tidak diberi warna ulang.
+        // Asetnya sudah berupa lingkaran bergradasi merah (#FF4B4B ke
+        // #FF7A7A) dengan tanda tambah, jadi tidak diberi warna ulang.
         child: SvgPicture.asset(
           HomeAssets.navCreateOrder,
           width: HomeMetrics.navFabSize,

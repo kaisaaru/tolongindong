@@ -42,12 +42,18 @@ class HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final safeTop = MediaQuery.paddingOf(context).top;
     final sheetTop = sheetTopOf(context);
+    final height = sheetTop + HomeMetrics.sheetRadius;
 
     return SizedBox(
-      height: sheetTop + HomeMetrics.sheetRadius,
+      height: height,
       child: ClipRect(
-        child: ColoredBox(
-          color: AppColors.primary,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: _backgroundGradient(
+              height,
+              MediaQuery.sizeOf(context).height,
+            ),
+          ),
           child: CustomPaint(
             painter: _HeaderBandsPainter(
               shift: sheetTop - HomeMetrics.designSheetTop,
@@ -105,6 +111,25 @@ class HomeHeader extends StatelessWidget {
     );
   }
 
+  /// Latar frame beranda di Figma adalah gradien vertikal `#FF4B4B` ->
+  /// `#992D2D` sepanjang tinggi layar penuh (dicek terhadap 12 titik di
+  /// desain, galat maksimal 1/255). Header hanya menempati bagian atasnya,
+  /// jadi warna di tepi bawah header dihitung dari posisinya di layar.
+  static const _gradientTop = AppColors.primary;
+  static const _gradientBottom = Color(0xFF992D2D);
+
+  static LinearGradient _backgroundGradient(
+    double boxHeight,
+    double screenHeight,
+  ) {
+    final t = screenHeight <= 0 ? 0.0 : (boxHeight / screenHeight).clamp(0.0, 1.0);
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [_gradientTop, Color.lerp(_gradientTop, _gradientBottom, t)!],
+    );
+  }
+
   static String _firstName(String fullName) {
     final trimmed = fullName.trim();
     if (trimmed.isEmpty) return '';
@@ -131,8 +156,12 @@ class _HeaderBandsPainter extends CustomPainter {
   static const _innerShadow = Color(0x40000000); // hitam 25%
 
   // Koordinat frame desain (dp), titik asal = sudut kiri-atas sebelum diputar.
+  //
+  // 22525 diambil dari Dev Mode Figma (Left -19.77, Top 2.55). Top di sana
+  // adalah tepi atas kotak pembatas, jadi y asal = 2,55 + 314,64 x sin(19,78°).
+  // Dua pita lainnya masih hasil pengukuran piksel dari screenshot desain.
   static const _bands = [
-    _Band(-19.7676, 107.346, 314.642, 98.3669, 22), // Rectangle 22525
+    _Band(-19.77, 109.04, 314.64, 98.37, 22), // Rectangle 22525 (Dev Mode)
     _Band(66.4629, 196.391, 480.232, 143, 27), // Rectangle 22524
     _Band(287.859, -18.5127, 314.642, 113.828, 22), // Rectangle 22526
   ];
@@ -249,7 +278,7 @@ class _LocationPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 4, 14, 4),
+      padding: const EdgeInsets.fromLTRB(8, 3.6, 14, 3.6),
       decoration: BoxDecoration(
         // Hitam transparan, jadi warnanya ikut gelap-terang pita di belakangnya.
         color: Colors.black.withValues(alpha: 0.6),

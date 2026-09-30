@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 /// Ukuran beranda, diukur per piksel dari desain Figma (frame Android
 /// Compact, lebar 412 dp) lalu dikonversi ke dp. Semua angka di satu tempat
 /// supaya penyetelan tidak perlu menyisir widget satu per satu.
@@ -15,7 +17,7 @@ class HomeMetrics {
   static const avatarTextGap = 19.0;
   static const greetingSize = 15.5;
   static const greetingPillGap = 7.0;
-  static const locationSize = 11.5;
+  static const locationSize = 12.0; // Regular
   static const bellSize = 34.0;
 
   /// Lonceng di desain 9 dp lebih tinggi dari garis tengah avatar.
@@ -44,7 +46,7 @@ class HomeMetrics {
   static const tileSize = 69.0;
   static const tileGap = 20.5;
   static const tileRadius = 14.0;
-  static const tileLabelGap = 13.0;
+  static const tileLabelGap = 12.4;
   static const tileLabelSize = 12.0;
   static const tileRowGap = 21.2;
 
@@ -67,6 +69,10 @@ class HomeMetrics {
   static const foodCardGap = 13.3;
   static const foodCardPadding = 5.5;
   static const foodImageHeight = 93.6;
+  static const foodTitleSize = 13.5; // Regular
+  static const foodRatingSize = 9.0; // Medium
+  static const foodRatingColor = Color(0xFF8A8A8A);
+  static const foodStarSize = 11.0;
 
   // ── Navigasi bawah ────────────────────────────────────────────────────
   static const navWidth = 316.0;

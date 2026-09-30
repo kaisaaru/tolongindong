@@ -32,7 +32,7 @@ class CategoryTile {
     VoidCallback? onTap,
   }) =>
       CategoryTile(
-        label: category.name,
+        label: HomeAssets.displayName(category.code, category.name),
         assetPath: HomeAssets.categoryIcon(category.code),
         onTap: onTap,
       );
@@ -100,15 +100,15 @@ class _Tile extends StatelessWidget {
         child: Column(
           children: [
             DecoratedBox(
-              // Bayangan halus di sekeliling kartu, seperti desain. Bentuknya
-              // mengikuti sudut kartu supaya tidak tampak kotak di pojok.
+              // Bayangan merata di keempat sisi, sesuai profil yang diukur
+              // dari Figma: tanpa offset, sigma ~4,2 dp, hitam 15%.
+              // blurRadius 6,4 -> sigma = 6,4 x 0,577 + 0,5 = 4,2 dp.
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(HomeMetrics.tileRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.07),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 6.4,
                   ),
                 ],
               ),

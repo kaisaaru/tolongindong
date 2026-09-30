@@ -12,31 +12,37 @@ class HomeAssets {
   /// Ilustrasi kategori, dikunci ke `code` dari backend — bukan ke nama
   /// tampilan, supaya tidak rusak kalau admin mengubah nama kategori.
   ///
-  /// Laundry = mesin cuci, Household = keranjang berisi deterjen dan tisu.
-  /// Label di Figma untuk dua ubin ini tertukar, jadi jangan dicocokkan ke
-  /// label di desain.
+  /// Mengikuti Figma: Laundry = keranjang berisi deterjen dan tisu,
+  /// Household = mesin cuci.
   static const _categoryIcons = <String, String>{
     'food_run': 'assets/icons/categories/ic_food_run.png',
     'delivery': 'assets/icons/categories/ic_delivery.png',
     'moving': 'assets/icons/categories/ic_moving.png',
     'personal': 'assets/icons/categories/ic_personal.png',
-    'household': 'assets/icons/categories/ic_household.png',
     'laundry': 'assets/icons/categories/ic_laundry.png',
+    'household': 'assets/icons/categories/ic_household.png',
   };
 
   /// Null berarti belum ada ilustrasinya — ubin menggambar penanda.
   static String? categoryIcon(String code) => _categoryIcons[code];
 
-  /// Urutan tampil sesuai FR-HLP-001 (Household sebelum Laundry). Ditulis
-  /// eksplisit supaya tidak bergantung pada urutan balasan server. Kode yang
-  /// tidak dikenal ditaruh paling akhir.
+  /// Nama tampilan yang berbeda dari data server. Seeder backend menulis
+  /// "Food Run", sedangkan FR-HLP-001 dan desain menulis "Food run".
+  /// Idealnya diperbaiki di seeder; sampai itu terjadi, diluruskan di sini.
+  static const _displayNames = <String, String>{'food_run': 'Food run'};
+
+  static String displayName(String code, String serverName) =>
+      _displayNames[code] ?? serverName;
+
+  /// Urutan tampil mengikuti Figma (Laundry sebelum Household), yang berbeda
+  /// dari urutan id di backend. Kode yang tidak dikenal ditaruh paling akhir.
   static const displayOrder = [
     'food_run',
     'delivery',
     'moving',
     'personal',
-    'household',
     'laundry',
+    'household',
   ];
 
   static int orderOf(String code) {

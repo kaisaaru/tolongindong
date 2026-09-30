@@ -10,6 +10,7 @@ class FavoriteFood {
     required this.name,
     required this.rating,
     required this.ratingCount,
+    this.imageAsset,
     this.imageUrl,
   });
 
@@ -17,16 +18,18 @@ class FavoriteFood {
   final double rating;
   final String ratingCount;
 
-  /// Belum ada foto makanan di folder aset, jadi untuk sekarang selalu null
-  /// dan kartu menampilkan latar penanda.
+  /// Foto lokal di `assets/`, untuk data contoh.
+  final String? imageAsset;
+
+  /// Foto dari server, untuk data sungguhan nanti.
   final String? imageUrl;
 }
 
 /// Daftar mendatar rekomendasi makanan.
 ///
-/// Data masih contoh. Bagian ini menunggu modul pesanan di backend —
-/// tabelnya belum ada, jadi belum ada yang bisa diambil. Struktur kartunya
-/// sudah final, tinggal ganti sumber datanya.
+/// Belum ada sumber data: backend belum punya tabel produk atau pesanan, dan
+/// foto makanan di desain belum diekspor ke `assets/`. Jadi untuk sekarang
+/// isinya contoh tanpa foto, dan kartu menampilkan penanda "belum ada foto".
 class FavoriteFoodSection extends StatelessWidget {
   const FavoriteFoodSection({super.key, this.items = _sample, this.onTap});
 
@@ -87,18 +90,18 @@ class _FoodCard extends StatelessWidget {
               child: SizedBox(
                 height: HomeMetrics.foodImageHeight,
                 width: double.infinity,
-                child: _FoodImage(url: item.imageUrl),
+                child: _FoodImage(item: item),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 9),
             Text(
               item.name,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.style(
-                size: AppTypography.small,
-                weight: AppTypography.semiBold,
-                height: 1.3,
+                size: HomeMetrics.foodTitleSize,
+                weight: AppTypography.regular,
+                height: 1.33,
               ),
             ),
             const Spacer(),
@@ -106,25 +109,25 @@ class _FoodCard extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.star_rounded,
-                  size: 14,
+                  size: HomeMetrics.foodStarSize,
                   color: AppColors.primary,
                 ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    '${item.rating} · ${item.ratingCount} rating',
+                    '${item.rating.toStringAsFixed(1)} · ${item.ratingCount} rating',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.style(
-                      size: AppTypography.tiny,
-                      weight: AppTypography.regular,
-                      color: AppColors.textDescription,
+                      size: HomeMetrics.foodRatingSize,
+                      weight: AppTypography.medium,
+                      color: HomeMetrics.foodRatingColor,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
           ],
         ),
       ),
@@ -132,31 +135,75 @@ class _FoodCard extends StatelessWidget {
   }
 }
 
+/// Foto kartu dengan tiga keadaan yang bisa dibedakan sekilas:
+/// belum ada foto (ikon alat makan), sedang memuat (spinner), dan gagal
+/// dimuat (ikon gambar rusak).
 class _FoodImage extends StatelessWidget {
-  const _FoodImage({required this.url});
+  const _FoodImage({required this.item});
 
-  final String? url;
+  final FavoriteFood item;
 
   @override
   Widget build(BuildContext context) {
-    final source = url;
-    if (source == null || source.isEmpty) {
-      return const ColoredBox(
-        color: AppColors.primaryLight,
-        child: Center(
-          child: Icon(
-            Icons.restaurant_rounded,
-            color: AppColors.primary,
-            size: 28,
-          ),
-        ),
+    final asset = item.imageAsset;
+    if (asset != null) {
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        // Berkas aset yang belum ditambahkan sama artinya dengan belum ada foto.
+        errorBuilder: (_, _, _) => const _ImageState.empty(),
       );
     }
 
-    return Image.network(
-      source,
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => const ColoredBox(color: AppColors.primaryLight),
+    final url = item.imageUrl;
+    if (url != null && url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : const _ImageState.loading(),
+        errorBuilder: (_, _, _) => const _ImageState.error(),
+      );
+    }
+
+    return const _ImageState.empty();
+  }
+}
+
+class _ImageState extends StatelessWidget {
+  const _ImageState.empty() : _kind = _Kind.empty;
+  const _ImageState.loading() : _kind = _Kind.loading;
+  const _ImageState.error() : _kind = _Kind.error;
+
+  final _Kind _kind;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.primaryLight,
+      child: Center(
+        child: switch (_kind) {
+          _Kind.empty => const Icon(
+              Icons.restaurant_rounded,
+              color: AppColors.primary,
+              size: 28,
+            ),
+          _Kind.loading => const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            ),
+          _Kind.error => const Icon(
+              Icons.broken_image_outlined,
+              color: AppColors.textDescription,
+              size: 26,
+            ),
+        },
+      ),
     );
   }
 }
+
+enum _Kind { empty, loading, error }
