@@ -2,41 +2,41 @@ import 'dart:ui' show Color;
 
 /// Pemetaan aset beranda.
 ///
-/// Ilustrasi kategori aslinya satu lembar sprite 1536x1024 berisi enam ikon
-/// (`Group 56.svg`, `Group 56-1.svg`, `Rectangle 22518.svg`,
-/// `Rectangle 22518-1.svg`, dan `Rectangle 22520.svg` semuanya memuat lembar
-/// yang sama, masing-masing ~1,5 MB). Latar kotak-kotak "transparan" di lembar
-/// itu ternyata piksel sungguhan, jadi kartu-kartunya sudah dipotong ulang ke
-/// `assets/icons/categories/` dengan latar yang benar-benar transparan.
+/// Ilustrasi kategori di `assets/icons/categories/` dipotong dari satu lembar
+/// sprite ekspor Figma berisi enam ikon. Latar kotak-kotak "transparan" di
+/// lembar itu ternyata piksel sungguhan, jadi saat dipotong latarnya dibuat
+/// benar-benar transparan. Berkas sprite aslinya (~10 MB) sudah dihapus.
 class HomeAssets {
   const HomeAssets._();
 
   /// Ilustrasi kategori, dikunci ke `code` dari backend — bukan ke nama
   /// tampilan, supaya tidak rusak kalau admin mengubah nama kategori.
   ///
-  /// Catatan: di desain, **Laundry** memakai keranjang dan **Household**
-  /// memakai mesin cuci. Pemetaan ini mengikuti desain.
+  /// Laundry = mesin cuci, Household = keranjang berisi deterjen dan tisu.
+  /// Label di Figma untuk dua ubin ini tertukar, jadi jangan dicocokkan ke
+  /// label di desain.
   static const _categoryIcons = <String, String>{
     'food_run': 'assets/icons/categories/ic_food_run.png',
     'delivery': 'assets/icons/categories/ic_delivery.png',
     'moving': 'assets/icons/categories/ic_moving.png',
     'personal': 'assets/icons/categories/ic_personal.png',
-    'laundry': 'assets/icons/categories/ic_laundry.png',
     'household': 'assets/icons/categories/ic_household.png',
+    'laundry': 'assets/icons/categories/ic_laundry.png',
   };
 
   /// Null berarti belum ada ilustrasinya — ubin menggambar penanda.
   static String? categoryIcon(String code) => _categoryIcons[code];
 
-  /// Urutan tampil mengikuti desain (Laundry sebelum Household), yang berbeda
-  /// dari urutan id di backend. Kode yang tidak dikenal ditaruh paling akhir.
+  /// Urutan tampil sesuai FR-HLP-001 (Household sebelum Laundry). Ditulis
+  /// eksplisit supaya tidak bergantung pada urutan balasan server. Kode yang
+  /// tidak dikenal ditaruh paling akhir.
   static const displayOrder = [
     'food_run',
     'delivery',
     'moving',
     'personal',
-    'laundry',
     'household',
+    'laundry',
   ];
 
   static int orderOf(String code) {

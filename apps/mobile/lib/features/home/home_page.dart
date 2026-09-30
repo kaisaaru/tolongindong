@@ -86,11 +86,20 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: AppColors.light,
         // Konten menggulir di balik bilah navigasi yang mengambang.
         extendBody: true,
+        // Semua anak diposisikan, jadi Stack mengambil ukuran layar penuh.
+        // Kalau header dibiarkan tidak diposisikan, tinggi Stack ikut tinggi
+        // header dan lembar putih di bawahnya terpotong.
         body: Stack(
+          fit: StackFit.expand,
           children: [
-            HomeHeader(
-              user: _user,
-              onNotificationTap: () => _soon('Notifikasi'),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: HomeHeader(
+                user: _user,
+                onNotificationTap: () => _soon('Notifikasi'),
+              ),
             ),
             Positioned.fill(
               top: sheetTop,
@@ -257,7 +266,7 @@ class _SearchBar extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 18),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               textAlignVertical: TextAlignVertical.center,

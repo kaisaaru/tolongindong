@@ -15,7 +15,7 @@ class HomeMetrics {
   static const avatarTextGap = 19.0;
   static const greetingSize = 15.5;
   static const greetingPillGap = 7.0;
-  static const locationSize = 11.0;
+  static const locationSize = 11.5;
   static const bellSize = 34.0;
 
   /// Lonceng di desain 9 dp lebih tinggi dari garis tengah avatar.
@@ -70,8 +70,8 @@ class HomeMetrics {
 
   // ── Navigasi bawah ────────────────────────────────────────────────────
   static const navWidth = 316.0;
-  static const navHeight = 62.0;
-  static const navBottomGap = 10.0;
+  static const navHeight = 56.0;
+  static const navBottomGap = 31.0; // minimal; ikut safe area kalau lebih besar
   static const navFabSize = 46.0;
 
   /// Pusat tiap ikon relatif terhadap pusat bilah: Beranda, Cari Helper,

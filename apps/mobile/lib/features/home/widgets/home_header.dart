@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
 import '../../../models/auth_user.dart';
@@ -271,7 +272,7 @@ class _LocationPill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: AppTypography.style(
                 size: HomeMetrics.locationSize,
-                weight: AppTypography.bold,
+                weight: AppTypography.regular,
                 color: AppColors.light,
               ),
             ),
@@ -301,9 +302,10 @@ class _NotificationButton extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: [
+              // Garis tipis seperti desain; ikon Material terlalu tebal.
               const Icon(
-                Icons.notifications_none_rounded,
-                size: 20,
+                CupertinoIcons.bell,
+                size: 21,
                 color: AppColors.textPrimary,
               ),
               // Badge dot merah kalau ada notifikasi belum dibaca (FR-NOT-001).
