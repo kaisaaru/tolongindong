@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Enums\HelperAvailability;
 use App\Models\HelperProfile;
 use App\Models\User;
 use App\Models\VerificationRequest;
@@ -57,7 +58,7 @@ class HelperRepository implements HelperRepositoryInterface
                 [
                     'hourly_rate' => $data['hourly_rate'],
                     'max_advance_limit' => $data['max_advance_limit'],
-                    'is_available' => false,
+                    'is_available' => HelperAvailability::UNAVAILABLE,
                 ]
             );
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
 use App\Http\Controllers\Api\AuthController;
@@ -25,6 +26,9 @@ Route::post('/google', [AuthController::class, 'google'])->name('auth.google');
 Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->name('auth.password.forgot');
 Route::post('/password/reset', [AuthController::class, 'resetPassword'])->name('auth.password.reset');
 
+
+// 1B. Public Auth Admin (FR-ADM-001, API-ADM-01)
+Route::post('/admin/auth/login', [AdminAuthController::class, 'login'])->name('admin.auth.login');
 // 2. Public Kategori Layanan
 Route::get('/service-categories', [ServiceCategoryController::class, 'index'])->name('service_categories.index');
 
@@ -47,8 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [HelperController::class, 'dashboard'])->name('dashboard');
     });
 
-    // Modul Admin
-    Route::prefix('admin')->name('admin.')->group(function () {
+    // Modul Admin (FR-ADM-002)
+    Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/verifications', [AdminVerificationController::class, 'index'])->name('verifications.index');
         Route::post('/verifications/{id}/approve', [AdminVerificationController::class, 'approve'])->name('verifications.approve');

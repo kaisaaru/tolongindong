@@ -2,6 +2,9 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Enums\HelperAvailability;
+use App\Enums\AdminActionType;
+use App\Models\AdminActionLog;
 use App\Models\User;
 use App\Models\VerificationRequest;
 use App\Repositories\Contracts\VerificationRepositoryInterface;
@@ -65,7 +68,18 @@ class VerificationRepository implements VerificationRepositoryInterface
             if ($user->helperProfile) {
                 $user->helperProfile->update([
                     'approved_at' => $now,
-                    'is_available' => true,
+                    'is_available' => HelperAvailability::AVAILABLE,
+                ]);
+            }
+
+            if ($admin) {
+                AdminActionLog::create([
+                    'admin_user_id' => $admin->id,
+                    'action_type' => AdminActionType::APPROVE_VERIFICATION,
+                    'target_entity' => 'verification_requests',
+                    'target_id' => (string) $verification->id,
+                    'note' => 'Pengajuan verifikasi helper disetujui.',
+                    'created_at' => $now,
                 ]);
             }
 
@@ -76,7 +90,7 @@ class VerificationRepository implements VerificationRepositoryInterface
                     'review_status' => 'approved',
                     'user_id' => $user->id,
                     'verification_status' => $user->verification_status,
-                    'is_available' => $user->helperProfile?->is_available ?? false,
+                    'is_available' => $user->helperProfile?->is_available?->value ?? HelperAvailability::UNAVAILABLE->value,
                 ],
             ];
         });
@@ -123,7 +137,18 @@ class VerificationRepository implements VerificationRepositoryInterface
             if ($user->helperProfile) {
                 $user->helperProfile->update([
                     'approved_at' => null,
-                    'is_available' => false,
+                    'is_available' => HelperAvailability::UNAVAILABLE,
+                ]);
+            }
+
+            if ($admin) {
+                AdminActionLog::create([
+                    'admin_user_id' => $admin->id,
+                    'action_type' => AdminActionType::REJECT_VERIFICATION,
+                    'target_entity' => 'verification_requests',
+                    'target_id' => (string) $verification->id,
+                    'note' => $reason,
+                    'created_at' => $now,
                 ]);
             }
 

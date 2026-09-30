@@ -23,8 +23,10 @@ class ServiceCategorySeeder extends Seeder
                     'base_fee' => $config['base_fee'],
                     'requires_advance' => $config['requires_advance'],
                     'requires_proof_photo' => $config['requires_proof_photo'],
+                    'requires_pickup_photo' => $config['requires_pickup_photo'],
                     'requires_pickup_address' => $config['requires_pickup_address'],
                     'requires_destination_address' => $config['requires_destination_address'],
+                    'is_dispute_eligible' => $config['is_dispute_eligible'],
                 ]
             );
         }

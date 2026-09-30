@@ -18,6 +18,12 @@ class ServiceCategory extends Model
         'requires_proof_photo',
         'requires_pickup_address',
         'requires_destination_address',
+        'requires_pickup_photo',
+        'is_dispute_eligible',
+    ];
+
+    protected $appends = [
+        'location_label',
     ];
 
     protected function casts(): array
@@ -28,6 +34,8 @@ class ServiceCategory extends Model
             'requires_proof_photo' => 'boolean',
             'requires_pickup_address' => 'boolean',
             'requires_destination_address' => 'boolean',
+            'requires_pickup_photo' => 'boolean',
+            'is_dispute_eligible' => 'boolean',
         ];
     }
 
@@ -42,5 +50,23 @@ class ServiceCategory extends Model
             'service_category_id',
             'helper_profile_id'
         );
+    }
+
+    /**
+     * Label lokasi pengerjaan / tujuan sesuai DEC-16 & 12_class-diagram.md.
+     */
+    public function locationLabel(): string
+    {
+        return in_array($this->code, ['personal', 'household'])
+            ? 'Lokasi pengerjaan'
+            : 'Alamat tujuan';
+    }
+
+    /**
+     * Accessor untuk serialization JSON location_label.
+     */
+    public function getLocationLabelAttribute(): string
+    {
+        return $this->locationLabel();
     }
 }

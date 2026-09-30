@@ -29,4 +29,12 @@ class Wallet extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Periksa apakah saldo mencukupi (12_class-diagram.md).
+     */
+    public function canCover(int $amount): bool
+    {
+        return $this->available_balance >= $amount;
+    }
 }

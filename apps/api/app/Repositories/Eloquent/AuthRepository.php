@@ -310,6 +310,80 @@ class AuthRepository implements AuthRepositoryInterface
     }
 
     /**
+     * Lakukan autentikasi khusus admin (FR-ADM-001, API-ADM-01).
+     */
+    public function attemptAdminLogin(string $identifier, string $password): array
+    {
+        $throttleKey = 'admin_login:' . Str::lower($identifier);
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return [
+                'success' => false,
+                'error_code' => 'ACCOUNT_LOCKED',
+                'message' => "Terlalu banyak percobaan login gagal. Akun dikunci sementara. Silakan coba lagi dalam {$seconds} detik.",
+                'detail' => ['lockout_seconds' => $seconds],
+                'status_code' => 429,
+            ];
+        }
+
+        $user = User::where('email', $identifier)
+            ->orWhere('phone_number', $identifier)
+            ->first();
+
+        if (!$user || !Hash::check($password, $user->password)) {
+            RateLimiter::hit($throttleKey, 900);
+            $remaining = 5 - RateLimiter::attempts($throttleKey);
+
+            return [
+                'success' => false,
+                'error_code' => 'INVALID_CREDENTIALS',
+                'message' => 'Email / nomor telepon atau kata sandi admin salah.',
+                'detail' => ['remaining_attempts' => max(0, $remaining)],
+                'status_code' => 401,
+            ];
+        }
+
+        if (!$user->is_admin) {
+            return [
+                'success' => false,
+                'error_code' => 'FORBIDDEN',
+                'message' => 'Akses ditolak. Akun ini tidak memiliki hak akses administrator.',
+                'status_code' => 403,
+            ];
+        }
+
+        if ($user->is_suspended) {
+            return [
+                'success' => false,
+                'error_code' => 'ACCOUNT_SUSPENDED',
+                'message' => 'Akun administrator Anda sedang dinonaktifkan: ' . ($user->suspended_reason ?? 'Pelanggaran ketentuan'),
+                'status_code' => 403,
+            ];
+        }
+
+        RateLimiter::clear($throttleKey);
+
+        $token = $user->createToken('admin_token')->plainTextToken;
+
+        return [
+            'success' => true,
+            'data' => [
+                'token' => $token,
+                'user' => [
+                    'id' => $user->id,
+                    'full_name' => $user->full_name,
+                    'email' => $user->email,
+                    'phone_number' => $user->phone_number,
+                    'photo_url' => $user->photo_url,
+                    'is_admin' => true,
+                    'verification_status' => $user->verification_status,
+                ],
+            ],
+        ];
+    }
+
+    /**
      * Tangani autentikasi Google OAuth dengan ID Token.
      */
     public function handleGoogleSignIn(string $idToken): array
