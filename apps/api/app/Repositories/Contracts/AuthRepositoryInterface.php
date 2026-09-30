@@ -27,6 +27,11 @@ interface AuthRepositoryInterface
     public function attemptLogin(string $identifier, string $password): array;
 
     /**
+     * Lakukan autentikasi khusus admin (FR-ADM-001, API-ADM-01).
+     */
+    public function attemptAdminLogin(string $identifier, string $password): array;
+
+    /**
      * Tangani autentikasi Google OAuth dengan ID Token.
      */
     public function handleGoogleSignIn(string $idToken): array;

@@ -86,6 +86,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user has registered as a helper.
+     */
+    public function isHelper(): bool
+    {
+        return $this->helperProfile !== null;
+    }
+
+    /**
      * Check if user is an approved helper.
      */
     public function isVerifiedHelper(): bool
@@ -93,6 +101,21 @@ class User extends Authenticatable
         return $this->verification_status === 'verified' &&
             $this->helperProfile !== null &&
             $this->helperProfile->isApproved();
+    }
+
+    /**
+     * Masked phone number (DEC-14 no 11, NFR-SEC-04).
+     */
+    public function maskedPhone(): ?string
+    {
+        if (!$this->phone_number) {
+            return null;
+        }
+        $len = strlen($this->phone_number);
+        if ($len <= 8) {
+            return $this->phone_number;
+        }
+        return substr($this->phone_number, 0, 4) . 'xxxx' . substr($this->phone_number, -4);
     }
 }
 
