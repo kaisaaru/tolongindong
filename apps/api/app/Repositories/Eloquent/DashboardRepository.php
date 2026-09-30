@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Enums\HelperAvailability;
 use App\Models\HelperProfile;
 use App\Models\ServiceCategory;
 use App\Models\User;
@@ -32,7 +33,7 @@ class DashboardRepository implements DashboardRepositoryInterface
                 'currency' => $user->wallet?->currency ?? 'IDR',
             ],
             'service_categories_count' => ServiceCategory::count(),
-            'active_helpers_count' => HelperProfile::where('is_available', true)->whereNotNull('approved_at')->count(),
+            'active_helpers_count' => HelperProfile::where('is_available', HelperAvailability::AVAILABLE->value)->whereNotNull('approved_at')->count(),
         ];
     }
 
