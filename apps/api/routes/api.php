@@ -4,10 +4,12 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\Admin\DisputeController as AdminDisputeController;
+use App\Http\Controllers\Api\Admin\VoucherController as AdminVoucherController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\VoucherController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientController;
@@ -92,6 +94,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/profile', [HelperController::class, 'updateProfile'])->name('profile.update');
     });
 
+    // Modul Voucher Pengguna (FR-WLT-010)
+    Route::get('/vouchers', [VoucherController::class, 'index'])->name('vouchers.index');
+    Route::post('/vouchers/claim', [VoucherController::class, 'claim'])->name('vouchers.claim');
 
 
     // Modul Admin (FR-ADM-002)
@@ -106,5 +111,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/users/{id}/suspend', [AdminUserController::class, 'suspend'])->name('users.suspend');
         Route::post('/users/{id}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
         Route::post('/orders/{id}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
+        // Manajemen Voucher Admin (API-ADM-11, API-ADM-12, API-ADM-13, FR-ADM-012)
+        Route::get('/vouchers', [AdminVoucherController::class, 'index'])->name('vouchers.index');
+        Route::post('/vouchers', [AdminVoucherController::class, 'store'])->name('vouchers.store');
+        Route::patch('/vouchers/{id}', [AdminVoucherController::class, 'update'])->name('vouchers.update');
     });
 });

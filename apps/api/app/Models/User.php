@@ -112,6 +112,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Voucher yang dimiliki pengguna (FR-WLT-010).
+     */
+    public function userVouchers(): HasMany
+    {
+        return $this->hasMany(UserVoucher::class);
+    }
+
+
+    /**
      * Memeriksa apakah pengguna memiliki pesanan aktif (12_class-diagram.md).
      */
     public function hasActiveOrders(): bool
