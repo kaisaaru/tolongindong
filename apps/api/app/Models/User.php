@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -80,9 +81,25 @@ class User extends Authenticatable
     /**
      * User can submit verification requests.
      */
-    public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function verificationRequests(): HasMany
     {
         return $this->hasMany(VerificationRequest::class);
+    }
+
+    /**
+     * Daftar alamat pengguna (FR-PRF-002).
+     */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
+
+    /**
+     * Alamat utama pengguna (FR-PRF-003).
+     */
+    public function primaryAddress(): HasOne
+    {
+        return $this->hasOne(Address::class)->where('is_primary', true);
     }
 
     /**

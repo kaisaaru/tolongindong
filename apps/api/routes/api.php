@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
@@ -43,6 +44,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('client')->name('client.')->group(function () {
         Route::get('/dashboard', [ClientController::class, 'dashboard'])->name('dashboard');
     });
+
+    // Modul Alamat Pengguna (FR-PRF-002, FR-PRF-003)
+    Route::prefix('addresses')->name('addresses.')->group(function () {
+        Route::get('/', [AddressController::class, 'index'])->name('index');
+        Route::post('/', [AddressController::class, 'store'])->name('store');
+        Route::get('/{id}', [AddressController::class, 'show'])->name('show');
+        Route::put('/{id}', [AddressController::class, 'update'])->name('update');
+        Route::delete('/{id}', [AddressController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/primary', [AddressController::class, 'setPrimary'])->name('set_primary');
+    });
+
 
     // Modul Helper
     Route::prefix('helper')->name('helper.')->group(function () {

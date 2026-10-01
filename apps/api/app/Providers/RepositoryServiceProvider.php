@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Repositories\Contracts\AddressRepositoryInterface;
 use App\Repositories\Contracts\AuthRepositoryInterface;
 use App\Repositories\Contracts\DashboardRepositoryInterface;
 use App\Repositories\Contracts\HelperRepositoryInterface;
 use App\Repositories\Contracts\VerificationRepositoryInterface;
+use App\Repositories\Eloquent\AddressRepository;
 use App\Repositories\Eloquent\AuthRepository;
 use App\Repositories\Eloquent\DashboardRepository;
 use App\Repositories\Eloquent\HelperRepository;
@@ -23,6 +25,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(HelperRepositoryInterface::class, HelperRepository::class);
         $this->app->bind(VerificationRepositoryInterface::class, VerificationRepository::class);
         $this->app->bind(DashboardRepositoryInterface::class, DashboardRepository::class);
+        $this->app->bind(AddressRepositoryInterface::class, AddressRepository::class);
     }
 
     /**
