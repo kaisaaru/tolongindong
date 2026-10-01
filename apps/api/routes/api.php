@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Api\Admin\DisputeController as AdminDisputeController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
@@ -66,6 +68,24 @@ Route::middleware('auth:sanctum')->group(function () {
     // Pencarian & Katalog Helper (API-HLP-01, FR-HLP-002 s/d 006)
     Route::get('/helpers', [HelperController::class, 'index'])->name('helpers.index');
 
+    // Modul Siklus Hidup Pesanan & Bidding (API-ORD-01 s/d 09)
+    Route::prefix('orders')->name('orders.')->group(function () {
+        Route::post('/estimate', [OrderController::class, 'estimate'])->name('estimate');
+        Route::post('/', [OrderController::class, 'store'])->name('store');
+        Route::get('/', [OrderController::class, 'index'])->name('index');
+        Route::get('/{id}', [OrderController::class, 'show'])->name('show');
+        Route::post('/{id}/offers', [OrderController::class, 'submitOffer'])->name('offers.submit');
+        Route::post('/{id}/offers/{offer_id}/select', [OrderController::class, 'selectOffer'])->name('offers.select');
+        Route::post('/{id}/offers/{offer_id}/confirm', [OrderController::class, 'confirmOffer'])->name('offers.confirm');
+        Route::post('/{id}/status', [OrderController::class, 'updateStatus'])->name('status.update');
+        Route::post('/{id}/confirm', [OrderController::class, 'confirmCompletion'])->name('confirm');
+        Route::post('/{id}/cancel', [OrderController::class, 'cancel'])->name('cancel');
+        Route::post('/{id}/adjustments', [OrderController::class, 'uploadAdjustment'])->name('adjustments.upload');
+        Route::post('/{id}/adjustments/{adj_id}/respond', [OrderController::class, 'respondAdjustment'])->name('adjustments.respond');
+        Route::post('/{id}/disputes', [OrderController::class, 'raiseDispute'])->name('disputes.raise');
+        Route::post('/{id}/rating', [OrderController::class, 'submitRating'])->name('rating.submit');
+    });
+
     // Modul Helper
     Route::prefix('helper')->name('helper.')->group(function () {
         Route::post('/register', [HelperController::class, 'register'])->name('register');
@@ -80,5 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/verifications', [AdminVerificationController::class, 'index'])->name('verifications.index');
         Route::post('/verifications/{id}/approve', [AdminVerificationController::class, 'approve'])->name('verifications.approve');
         Route::post('/verifications/{id}/reject', [AdminVerificationController::class, 'reject'])->name('verifications.reject');
+        Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
+        Route::post('/disputes/{id}/resolve', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
     });
 });
