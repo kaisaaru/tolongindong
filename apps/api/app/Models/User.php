@@ -119,6 +119,13 @@ class User extends Authenticatable
         return $this->hasMany(UserVoucher::class);
     }
 
+    /**
+     * Notifikasi milik pengguna (FR-NOT-001).
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
 
     /**
      * Memeriksa apakah pengguna memiliki pesanan aktif (12_class-diagram.md).

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\ChatController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
@@ -84,6 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/adjustments/{adj_id}/respond', [OrderController::class, 'respondAdjustment'])->name('adjustments.respond');
         Route::post('/{id}/disputes', [OrderController::class, 'raiseDispute'])->name('disputes.raise');
         Route::post('/{id}/rating', [OrderController::class, 'submitRating'])->name('rating.submit');
+        Route::get('/{id}/messages', [ChatController::class, 'index'])->name('messages.index');
+        Route::post('/{id}/messages', [ChatController::class, 'store'])->name('messages.store');
     });
 
     // Modul Helper
@@ -98,6 +102,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/vouchers', [VoucherController::class, 'index'])->name('vouchers.index');
     Route::post('/vouchers/claim', [VoucherController::class, 'claim'])->name('vouchers.claim');
 
+    // Modul Notifikasi Pengguna (FR-NOT-001 s/d 005)
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read_all');
 
     // Modul Admin (FR-ADM-002)
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {

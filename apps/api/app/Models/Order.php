@@ -119,6 +119,11 @@ class Order extends Model
         return $this->hasOne(Rating::class);
     }
 
+    public function chatRoom(): HasOne
+    {
+        return $this->hasOne(ChatRoom::class);
+    }
+
     public function isBroadcast(): bool
     {
         return $this->booking_type === BookingType::BROADCAST;
