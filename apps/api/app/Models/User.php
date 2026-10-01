@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -100,6 +101,35 @@ class User extends Authenticatable
     public function primaryAddress(): HasOne
     {
         return $this->hasOne(Address::class)->where('is_primary', true);
+    }
+
+    /**
+     * Daftar pesanan yang dibuat pengguna sebagai Client.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'client_id');
+    }
+
+    /**
+     * Memeriksa apakah pengguna memiliki pesanan aktif (12_class-diagram.md).
+     */
+    public function hasActiveOrders(): bool
+    {
+        $activeStatuses = [
+            OrderStatus::PENDING_CONFIRMATION->value,
+            OrderStatus::ACCEPTED->value,
+            OrderStatus::ON_THE_WAY->value,
+            OrderStatus::ARRIVED->value,
+            OrderStatus::IN_PROGRESS->value,
+            OrderStatus::PRICE_ADJUSTMENT->value,
+            OrderStatus::AWAITING_CONFIRMATION->value,
+        ];
+
+        $clientHas = $this->orders()->whereIn('status', $activeStatuses)->exists();
+        $helperHas = $this->helperProfile && $this->helperProfile->orders()->whereIn('status', $activeStatuses)->exists();
+
+        return $clientHas || $helperHas;
     }
 
     /**

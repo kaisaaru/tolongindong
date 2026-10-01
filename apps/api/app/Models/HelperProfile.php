@@ -55,6 +55,22 @@ class HelperProfile extends Model
     }
 
     /**
+     * Pesanan yang dikerjakan sebagai Helper.
+     */
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Order::class, 'helper_id');
+    }
+
+    /**
+     * Penilaian yang diterima dari client (FR-RTG-001).
+     */
+    public function ratings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Rating::class, 'helper_id');
+    }
+
+    /**
      * Helper status approved check.
      */
     public function isApproved(): bool
@@ -98,5 +114,19 @@ class HelperProfile extends Model
     public function coversAdvanceLimit(int $advanceLimit): bool
     {
         return $this->max_advance_limit >= $advanceLimit;
+    }
+
+    /**
+     * Hitung ulang rating rata-rata dari seluruh penilaian (DEC-09, 12_class-diagram.md).
+     */
+    public function recalculateRating(): void
+    {
+        $avg = (float) $this->ratings()->avg('score') ?: 0.0;
+        $count = $this->ratings()->count();
+
+        $this->update([
+            'rating_average' => round($avg, 2),
+            'rating_count' => $count,
+        ]);
     }
 }
