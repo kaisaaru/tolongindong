@@ -21,4 +21,5 @@ Thumbs.db
 *.pdf
 
 # API Docs
-apps/api/docs/
+apps/api/docs/*
+!apps/api/docs/dokumentasi-api.md

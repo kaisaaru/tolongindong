@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -80,9 +82,70 @@ class User extends Authenticatable
     /**
      * User can submit verification requests.
      */
-    public function verificationRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function verificationRequests(): HasMany
     {
         return $this->hasMany(VerificationRequest::class);
+    }
+
+    /**
+     * Daftar alamat pengguna (FR-PRF-002).
+     */
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
+
+    /**
+     * Alamat utama pengguna (FR-PRF-003).
+     */
+    public function primaryAddress(): HasOne
+    {
+        return $this->hasOne(Address::class)->where('is_primary', true);
+    }
+
+    /**
+     * Daftar pesanan yang dibuat pengguna sebagai Client.
+     */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class, 'client_id');
+    }
+
+    /**
+     * Voucher yang dimiliki pengguna (FR-WLT-010).
+     */
+    public function userVouchers(): HasMany
+    {
+        return $this->hasMany(UserVoucher::class);
+    }
+
+    /**
+     * Notifikasi milik pengguna (FR-NOT-001).
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * Memeriksa apakah pengguna memiliki pesanan aktif (12_class-diagram.md).
+     */
+    public function hasActiveOrders(): bool
+    {
+        $activeStatuses = [
+            OrderStatus::PENDING_CONFIRMATION->value,
+            OrderStatus::ACCEPTED->value,
+            OrderStatus::ON_THE_WAY->value,
+            OrderStatus::ARRIVED->value,
+            OrderStatus::IN_PROGRESS->value,
+            OrderStatus::PRICE_ADJUSTMENT->value,
+            OrderStatus::AWAITING_CONFIRMATION->value,
+        ];
+
+        $clientHas = $this->orders()->whereIn('status', $activeStatuses)->exists();
+        $helperHas = $this->helperProfile && $this->helperProfile->orders()->whereIn('status', $activeStatuses)->exists();
+
+        return $clientHas || $helperHas;
     }
 
     /**

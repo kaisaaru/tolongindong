@@ -84,4 +84,59 @@ class HelperController extends Controller
 
         return $this->successResponse($dashboard, 'Ringkasan dashboard helper.');
     }
+
+    /**
+     * Katalog dan pencarian helper dalam radius 10 km (API-HLP-01, FR-HLP-002 s/d 006).
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'category_id' => 'nullable|integer|exists:service_categories,id',
+            'sort_by' => 'nullable|string|in:distance,rating,rate',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse('Parameter pencarian tidak valid.', 'VALIDATION_ERROR', $validator->errors(), 422);
+        }
+
+        $result = $this->helperRepo->findHelpers($validator->validated(), $request->user());
+
+        return $this->successResponse($result['data'], 'Daftar helper terdekat berhasil dimuat.');
+    }
+
+    /**
+     * Perbarui ketersediaan, tarif, dan kategori layanan helper (FR-HLP-008, FR-HLP-009).
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'is_available' => 'nullable|string|in:available,unavailable',
+            'hourly_rate' => 'nullable|integer|min:0',
+            'max_advance_limit' => 'nullable|integer|min:0',
+            'category_ids' => 'nullable|array|min:1|max:6',
+            'category_ids.*' => 'required|integer|exists:service_categories,id',
+        ], [
+            'category_ids.min' => 'Pilih minimal satu kategori layanan.',
+            'category_ids.max' => 'Pilihan kategori maksimal 6 kategori.',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse('Validasi pembaruan profil helper gagal.', 'VALIDATION_ERROR', $validator->errors(), 422);
+        }
+
+        $result = $this->helperRepo->updateHelperProfile($request->user(), $validator->validated());
+
+        if (!$result['success']) {
+            return $this->errorResponse(
+                $result['message'],
+                $result['error_code'],
+                $result['detail'] ?? null,
+                $result['status_code'] ?? 400
+            );
+        }
+
+        return $this->successResponse($result['data'], $result['message']);
+    }
 }
