@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
 use App\Http\Controllers\Api\AuthController;
@@ -55,6 +56,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/primary', [AddressController::class, 'setPrimary'])->name('set_primary');
     });
 
+    // Modul Dompet TD-Wallet (API-WLT-01, API-WLT-02, API-WLT-03)
+    Route::prefix('wallet')->name('wallet.')->group(function () {
+        Route::get('/', [WalletController::class, 'show'])->name('show');
+        Route::get('/transactions', [WalletController::class, 'transactions'])->name('transactions');
+        Route::post('/topup', [WalletController::class, 'topup'])->name('topup');
+    });
 
     // Modul Helper
     Route::prefix('helper')->name('helper.')->group(function () {
