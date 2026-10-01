@@ -1,4 +1,4 @@
-FROM php:8.3-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 # Install system dependencies & PostgreSQL dev libraries
 RUN apk add --no-cache \
@@ -30,7 +30,7 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 
 # Install Composer dependencies without running scripts
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --ignore-platform-reqs
 
 # Copy application source code
 COPY . .
