@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\Admin\DisputeController as AdminDisputeController;
+use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\Admin\VerificationController as AdminVerificationController;
@@ -13,11 +15,7 @@ use App\Http\Controllers\Api\HelperController;
 use App\Http\Controllers\Api\ServiceCategoryController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes - TolonginDong (Direct Endpoints without /api/ or /v1/ prefix)
-|--------------------------------------------------------------------------
-*/
+// API Routes
 
 // 1. Public Auth & Umum
 Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
@@ -94,6 +92,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/profile', [HelperController::class, 'updateProfile'])->name('profile.update');
     });
 
+
+
     // Modul Admin (FR-ADM-002)
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
@@ -102,5 +102,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/verifications/{id}/reject', [AdminVerificationController::class, 'reject'])->name('verifications.reject');
         Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
         Route::post('/disputes/{id}/resolve', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
+        Route::get('/commission-summary', [AdminDashboardController::class, 'commissionSummary'])->name('commission_summary');
+        Route::post('/users/{id}/suspend', [AdminUserController::class, 'suspend'])->name('users.suspend');
+        Route::post('/users/{id}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate');
+        Route::post('/orders/{id}/cancel', [AdminOrderController::class, 'cancel'])->name('orders.cancel');
     });
 });
