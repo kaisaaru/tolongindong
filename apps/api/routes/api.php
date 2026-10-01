@@ -63,11 +63,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/topup', [WalletController::class, 'topup'])->name('topup');
     });
 
+    // Pencarian & Katalog Helper (API-HLP-01, FR-HLP-002 s/d 006)
+    Route::get('/helpers', [HelperController::class, 'index'])->name('helpers.index');
+
     // Modul Helper
     Route::prefix('helper')->name('helper.')->group(function () {
         Route::post('/register', [HelperController::class, 'register'])->name('register');
         Route::get('/status', [HelperController::class, 'status'])->name('status');
         Route::get('/dashboard', [HelperController::class, 'dashboard'])->name('dashboard');
+        Route::put('/profile', [HelperController::class, 'updateProfile'])->name('profile.update');
     });
 
     // Modul Admin (FR-ADM-002)
