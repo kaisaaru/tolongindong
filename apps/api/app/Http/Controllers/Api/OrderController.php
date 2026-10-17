@@ -180,6 +180,44 @@ class OrderController extends Controller
     }
 
     /**
+     * Helper menerima pesanan marketplace langsung (Direct Booking Acceptance).
+     */
+    public function accept(Request $request, int $id): JsonResponse
+    {
+        $result = $this->orderRepo->acceptOrder($request->user(), $id);
+
+        if (!$result['success']) {
+            return $this->errorResponse(
+                $result['message'],
+                $result['error_code'],
+                $result['detail'] ?? null,
+                $result['status_code'] ?? 400
+            );
+        }
+
+        return $this->successResponse($result['data'], $result['message']);
+    }
+
+    /**
+     * Helper menolak pesanan marketplace langsung (Direct Booking Rejection).
+     */
+    public function reject(Request $request, int $id): JsonResponse
+    {
+        $result = $this->orderRepo->rejectOrder($request->user(), $id, $request->input('reason'));
+
+        if (!$result['success']) {
+            return $this->errorResponse(
+                $result['message'],
+                $result['error_code'],
+                $result['detail'] ?? null,
+                $result['status_code'] ?? 400
+            );
+        }
+
+        return $this->successResponse($result['data'], $result['message']);
+    }
+
+    /**
      * Helper memajukan tahapan progres pekerjaan (API-ORD-05, FR-ORD-009).
      */
     public function updateStatus(Request $request, int $id): JsonResponse

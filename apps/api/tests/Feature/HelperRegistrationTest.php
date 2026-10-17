@@ -32,7 +32,7 @@ class HelperRegistrationTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonCount(6, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJsonStructure([
                 'success',
                 'message',
@@ -66,7 +66,7 @@ class HelperRegistrationTest extends TestCase
             'verification_status' => 'unverified',
         ]);
 
-        $categories = ServiceCategory::whereIn('code', ['food_run', 'delivery'])->pluck('id')->toArray();
+        $categories = ServiceCategory::whereIn('code', ['delivery', 'personal'])->pluck('id')->toArray();
 
         $payload = [
             'category_ids' => $categories,

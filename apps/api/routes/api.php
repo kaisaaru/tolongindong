@@ -79,6 +79,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/offers', [OrderController::class, 'submitOffer'])->name('offers.submit');
         Route::post('/{id}/offers/{offer_id}/select', [OrderController::class, 'selectOffer'])->name('offers.select');
         Route::post('/{id}/offers/{offer_id}/confirm', [OrderController::class, 'confirmOffer'])->name('offers.confirm');
+        Route::post('/{id}/accept', [OrderController::class, 'accept'])->name('accept');
+        Route::post('/{id}/reject', [OrderController::class, 'reject'])->name('reject');
         Route::post('/{id}/status', [OrderController::class, 'updateStatus'])->name('status.update');
         Route::post('/{id}/confirm', [OrderController::class, 'confirmCompletion'])->name('confirm');
         Route::post('/{id}/cancel', [OrderController::class, 'cancel'])->name('cancel');
@@ -88,6 +90,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/rating', [OrderController::class, 'submitRating'])->name('rating.submit');
         Route::get('/{id}/messages', [ChatController::class, 'index'])->name('messages.index');
         Route::post('/{id}/messages', [ChatController::class, 'store'])->name('messages.store');
+    });
+
+    // Modul Obrolan / Chat Terpadu (Pre-Order Consultation & Active Order)
+    Route::prefix('chats')->name('chats.')->group(function () {
+        Route::get('/', [ChatController::class, 'rooms'])->name('rooms');
+        Route::post('/helpers/{helperId}', [ChatController::class, 'startWithHelper'])->name('start_with_helper');
+        Route::get('/rooms/{roomId}/messages', [ChatController::class, 'showRoomMessages'])->name('room_messages');
+        Route::post('/rooms/{roomId}/messages', [ChatController::class, 'sendMessageToRoom'])->name('send_room_message');
     });
 
     // Modul Helper

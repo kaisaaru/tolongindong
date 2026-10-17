@@ -85,9 +85,9 @@ Seluruh endpoint mematuhi format seragam trait `ApiResponse`:
 | 2   | `wallets`                          | Bigint      | `user_id` (UUID)                                                  | Dompet TD-Wallet. Constraint `chk_wallet_nonneg`: `available_balance >= 0 AND held_balance >= 0`.           |
 | 3   | `wallet_transactions`              | Bigint      | `wallet_id`, `order_id` (nullable)                                | Buku besar mutasi atomik (*append-only*). Membawa `idempotency_key UK` (`INV-04`).                          |
 | 4   | `otps`                             | Bigint      | -                                                                 | Penyimpanan kode OTP verifikasi HP 6-digit (TTL 300 detik) untuk registrasi & reset sandi.              |
-| 5   | `service_categories`               | Bigint      | -                                                                 | 6 Kategori resmi platform. Memuat flag `requires_advance`, `requires_pickup_photo`, `is_dispute_eligible`.  |
+| 5   | `service_categories`               | Bigint      | -                                                                 | 3 Kategori resmi platform (`delivery`, `personal`, `household`). Kategori `food_run`, `moving`, & `laundry` dihapus per revisi SA. |
 | 6   | `helper_profiles`                  | UUID v4     | `user_id` (UUID)                                                  | Profil operasional helper. Memuat `hourly_rate`, `is_available` (`available`/`unavailable`), `approved_at`. |
-| 7   | `helper_service_category`          | Composite   | `helper_profile_id`, `service_category_id`                        | Pivot many-to-many keahlian helper (1 sampai 6 kategori, `FR-HLP-008`).                                     |
+| 7   | `helper_service_category`          | Composite   | `helper_profile_id`, `service_category_id`                        | Pivot many-to-many keahlian helper (1 sampai 3 kategori aktif).                                             |
 | 8   | `verification_requests`            | UUID v4     | `user_id`, `reviewed_by_admin_id`                                 | Tiket KYC identitas (KTP + selfie). Partial unique index: maksimal 1 tiket `pending` per user.              |
 | 9   | `addresses`                        | Bigint      | `user_id` (UUID)                                                  | Alamat client (max 10 alamat, `DEC-14 no 9`). Koordinat lat/lon, landmark, dan `is_primary`.                |
 | 10  | `orders`                           | Bigint      | `client_id`, `helper_id`, `category_id`, `pickup/dest_address_id` | Entitas transaksi inti. Memuat 4 konsep uang (`DEC-15`), `order_number UK`, 17 status lifecycle.            |
@@ -99,7 +99,7 @@ Seluruh endpoint mematuhi format seragam trait `ApiResponse`:
 | 16  | `ratings`                          | Bigint      | `order_id`, `client_id`, `helper_id`                              | Penilaian satu arah client ke helper (skor 1–5). Unique index: 1 rating per order (`INV-08`).               |
 | 17  | `vouchers`                         | Bigint      | `category_id` (nullable)                                          | Voucher promo platform. Validasi keras komisi 10x dan 10% (`DEC-23`).                                       |
 | 18  | `user_vouchers`                    | Bigint      | `user_id`, `voucher_id`, `used_order_id` (nullable)               | Kepemilikan voucher. Partial unique index: maksimal 1 voucher per pesanan (`INV-12`).                       |
-| 19  | `chat_rooms` & `chat_messages` | Bigint      | `order_id`, `chat_room_id`, `sender_user_id`                      | Obrolan terikat pesanan. Chat room dibuat otomatis saat pesanan `accepted` (`DEC-14 no 10`).                |
+| 19  | `chat_rooms` & `chat_messages` | Bigint      | `client_id`, `helper_id`, `order_id` (nullable), `sender_user_id`  | Obrolan pengguna. Mendukung chat pra-pesanan (pre-order inquiry) maupun obrolan pesanan aktif berjalan.      |
 | 20  | `notifications`                    | Bigint      | `user_id`, `reference_order_id` (nullable)                        | Pusat notifikasi aktivitas, mutasi saldo, tawaran masuk, dan promo.                                         |
 | 21  | `admin_action_logs`                | Bigint      | `admin_user_id` (UUID)                                            | Buku besar audit seluruh aksi administrator operasional (`FR-ADM-008`).                                     |
 
@@ -391,6 +391,19 @@ Semua endpoint membutuhkan header `Authorization: Bearer <token>`.
 - **Route**: `POST /orders/{id}/offers/{offer_id}/confirm` (`API-ORD-04D`)
 - **Efek**: Menahan saldo escrow client (`HOLD`), pesanan menjadi `accepted`, chat room aktif.
 
+
+#### 5b. Helper Menerima Pesanan Marketplace Langsung (Direct Booking Acceptance)
+
+- **Route**: `POST /orders/{id}/accept`
+- **Akses**: Helper Terverifikasi yang dituju
+- **Efek**: Menahan saldo pemesan (`HOLD`) via EscrowService secara atomik, pesanan beralih ke `accepted`, notifikasi diterbitkan.
+
+#### 5c. Helper Menolak Pesanan Marketplace Langsung (Direct Booking Rejection)
+
+- **Route**: `POST /orders/{id}/reject`
+- **Akses**: Helper Terverifikasi yang dituju
+- **Body**: `{ "reason": "Jadwal sedang penuh" }` (Opsional)
+- **Efek**: Pesanan beralih ke `cancelled_by_helper`, tidak ada saldo pemesan yang tertahan.
 #### 6. Helper Memajukan Tahapan Progres
 
 - **Route**: `POST /orders/{id}/status` (`API-ORD-05`)
@@ -463,17 +476,22 @@ Khusus pesanan kategori **Delivery** dalam 24 jam pasca selesai:
 
 ---
 
-### 6.10 Ruang Obrolan Terikat Pesanan (Chat)
+### 6.10 Ruang Obrolan Terpadu (Chat Pre-Order & Active Order)
 
-- **`GET /orders/{id}/messages`** (`FR-CHT-002`): Riwayat obrolan (hanya aktif jika pesanan sudah `accepted`, otomatis menandai pesan lawan bicara sebagai dibaca).
-- **`POST /orders/{id}/messages`** (`FR-CHT-001`): Kirim pesan teks dan lampiran URL opsional:
+Sistem mendukung komunikasi dua arah baik **sebelum order dibuat** (tanya jawab kesiapan helper / negosiasi) maupun **selama pesanan aktif**:
+
+- **`GET /chats`**: Daftar semua ruang obrolan milik pengguna aktif (Inbox), memuat pesan terakhir dan angka `unread_count`.
+- **`POST /chats/helpers/{helperId}`**: Membuka / menginisiasi ruang obrolan langsung dengan helper dari halaman profil/katalog (Pre-Order Chat).
+- **`GET /chats/rooms/{roomId}/messages`**: Riwayat pesan dalam suatu ruang obrolan (otomatis menandai pesan lawan bicara sebagai dibaca).
+- **`POST /chats/rooms/{roomId}/messages`**: Kirim pesan baru ke ruang obrolan:
   ```json
   {
-    "content": "Halo, saya sudah sampai di depan gang ya kak.",
+    "content": "Halo kak, apakah besok pagi bisa bantu antarkan paket?",
     "attachment_url": null
   }
   ```
-
+- **`GET /orders/{id}/messages`** (`FR-CHT-002`): Riwayat obrolan terikat ID pesanan (kompatibilitas lama).
+- **`POST /orders/{id}/messages`** (`FR-CHT-001`): Kirim pesan teks dan lampiran URL opsional terikat ID pesanan.
 ---
 
 ### 6.11 Pusat Notifikasi Akun

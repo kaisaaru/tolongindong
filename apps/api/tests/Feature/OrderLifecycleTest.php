@@ -83,7 +83,7 @@ class OrderLifecycleTest extends TestCase
     public function test_order_cost_estimation_endpoint(): void
     {
         $client = $this->createClient();
-        $category = ServiceCategory::where('code', 'food_run')->first();
+        $category = ServiceCategory::where('code', 'delivery')->first();
 
         $response = $this->actingAs($client, 'sanctum')
             ->postJson('/orders/estimate', [
@@ -107,7 +107,7 @@ class OrderLifecycleTest extends TestCase
         $client = $this->createClient(100000); // Saldo 100.000
         [$helperUser, $helperProfile] = $this->createHelper(100000);
 
-        $category = ServiceCategory::where('code', 'food_run')->first();
+        $category = ServiceCategory::where('code', 'delivery')->first();
 
         // 1. Client membuat pesanan broadcast (searching)
         $createRes = $this->actingAs($client, 'sanctum')
@@ -188,7 +188,7 @@ class OrderLifecycleTest extends TestCase
     {
         $client = $this->createClient(100000);
         [$helperUser, $helperProfile] = $this->createHelper(50000);
-        $category = ServiceCategory::where('code', 'moving')->first();
+        $category = ServiceCategory::where('code', 'personal')->first();
 
         // 1. Client membuat pesanan direct booking ke helper tertentu
         $createRes = $this->actingAs($client, 'sanctum')
@@ -235,7 +235,7 @@ class OrderLifecycleTest extends TestCase
 
         // User membuat pesanan sebagai client
         $order = Order::create([
-            'order_number' => 'ORD-TEST-OWN',
+            'order_number' => 'ORD-TEST-OWN-' . Str::random(8),
             'client_id' => $user->id,
             'category_id' => $category->id,
             'booking_type' => 'broadcast',
@@ -263,11 +263,12 @@ class OrderLifecycleTest extends TestCase
         // Helper punya batas talangan maksimal hanya 20.000
         [$helperUser, $helperProfile] = $this->createHelper(20000);
 
-        $category = ServiceCategory::where('code', 'food_run')->first();
+        $category = ServiceCategory::where('code', 'delivery')->first();
+        $category->update(['requires_advance' => true]);
 
         // Pesanan butuh talangan 50.000
         $order = Order::create([
-            'order_number' => 'ORD-TEST-ADV',
+            'order_number' => 'ORD-TEST-ADV-' . Str::random(8),
             'client_id' => $client->id,
             'category_id' => $category->id,
             'booking_type' => 'broadcast',
@@ -297,7 +298,7 @@ class OrderLifecycleTest extends TestCase
 
         // Pesanan aktif dengan total harga 40.000
         $order = Order::create([
-            'order_number' => 'ORD-TEST-CANCEL',
+            'order_number' => 'ORD-TEST-CANCEL-' . Str::random(8),
             'client_id' => $client->id,
             'helper_id' => $helperProfile->id,
             'category_id' => $category->id,
@@ -332,5 +333,61 @@ class OrderLifecycleTest extends TestCase
         // Client menerima refund 30.000 (dari 40.000 yang ditahan)
         $this->assertEquals(90000, $clientWallet->fresh()->available_balance); // 60k + 30k
         $this->assertEquals(0, $clientWallet->fresh()->held_balance);
+    }
+
+    /**
+     * Test Marketplace Gojek-style: Helper dapat langsung menerima atau menolak pesanan direct.
+     */
+    public function test_helper_can_directly_accept_and_reject_marketplace_order(): void
+    {
+        $client = $this->createClient(100000);
+        [$helperUser, $helperProfile] = $this->createHelper();
+        $category = ServiceCategory::where('code', 'personal')->first();
+        $helperProfile->serviceCategories()->sync([$category->id]);
+
+        // 1. Client membuat pesanan langsung memilih Helper (Marketplace)
+        $createRes = $this->actingAs($client, 'sanctum')
+            ->postJson('/orders', [
+                'category_id' => $category->id,
+                'booking_type' => 'direct',
+                'helper_id' => $helperProfile->id,
+                'task_description' => 'Antar paket dokumen ke kantor',
+                'client_estimated_price' => 30000,
+            ]);
+
+        $createRes->assertStatus(201);
+        $orderId = $createRes->json('data.id');
+
+        // 2. Helper langsung menerima pesanan (Accept)
+        $acceptRes = $this->actingAs($helperUser, 'sanctum')
+            ->postJson("/orders/{$orderId}/accept");
+
+        $acceptRes->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', OrderStatus::ACCEPTED->value);
+
+        // Escrow client otomatis ditahan Rp 30.000
+        $this->assertEquals(30000, $client->wallet->fresh()->held_balance);
+
+        // 3. Tes penolakan (Reject) pada pesanan lain
+        $createRes2 = $this->actingAs($client, 'sanctum')
+            ->postJson('/orders', [
+                'category_id' => $category->id,
+                'booking_type' => 'direct',
+                'helper_id' => $helperProfile->id,
+                'task_description' => 'Antar paket kedua',
+                'client_estimated_price' => 20000,
+            ]);
+
+        $orderId2 = $createRes2->json('data.id');
+
+        $rejectRes = $this->actingAs($helperUser, 'sanctum')
+            ->postJson("/orders/{$orderId2}/reject", [
+                'reason' => 'Sedang ada keperluan mendadak',
+            ]);
+
+        $rejectRes->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', OrderStatus::CANCELLED_BY_HELPER->value);
     }
 }

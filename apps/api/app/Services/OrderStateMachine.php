@@ -23,12 +23,15 @@ class OrderStateMachine
             OrderStatus::ACCEPTED->value,
             OrderStatus::EXPIRED->value,
             OrderStatus::CANCELLED_BY_CLIENT->value,
+            OrderStatus::CANCELLED_BY_HELPER->value,
+            OrderStatus::CANCELLED_BY_ADMIN->value,
         ],
         OrderStatus::PENDING_CONFIRMATION->value => [
             OrderStatus::ACCEPTED->value,
             OrderStatus::SEARCHING->value,
             OrderStatus::EXPIRED->value,
             OrderStatus::CANCELLED_BY_CLIENT->value,
+            OrderStatus::CANCELLED_BY_HELPER->value,
             OrderStatus::CANCELLED_BY_ADMIN->value,
         ],
         OrderStatus::ACCEPTED->value => [

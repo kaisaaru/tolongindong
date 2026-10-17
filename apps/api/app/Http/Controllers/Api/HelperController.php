@@ -23,15 +23,15 @@ class HelperController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'category_ids' => 'required|array|min:1|max:6',
+            'category_ids' => 'required|array|min:1|max:3',
             'category_ids.*' => 'required|integer|exists:service_categories,id',
             'hourly_rate' => 'required|integer|min:0',
-            'max_advance_limit' => 'required|integer|min:0',
+            'max_advance_limit' => 'nullable|integer|min:0',
             'id_card_photo' => 'required|file|mimes:jpeg,png,jpg|max:5120',
             'selfie_photo' => 'required|file|mimes:jpeg,png,jpg|max:5120',
         ], [
             'category_ids.min' => 'Pilih minimal satu kategori layanan yang Anda kuasai.',
-            'category_ids.max' => 'Pilihan kategori layanan maksimal 6 kategori.',
+            'category_ids.max' => 'Pilihan kategori layanan maksimal 3 kategori.',
             'id_card_photo.required' => 'Foto e-KTP wajib diunggah untuk verifikasi identitas.',
             'selfie_photo.required' => 'Foto selfie memegang e-KTP wajib diunggah.',
             'id_card_photo.max' => 'Ukuran file foto e-KTP maksimal 5MB.',
@@ -115,11 +115,11 @@ class HelperController extends Controller
             'is_available' => 'nullable|string|in:available,unavailable',
             'hourly_rate' => 'nullable|integer|min:0',
             'max_advance_limit' => 'nullable|integer|min:0',
-            'category_ids' => 'nullable|array|min:1|max:6',
+            'category_ids' => 'nullable|array|min:1|max:3',
             'category_ids.*' => 'required|integer|exists:service_categories,id',
         ], [
             'category_ids.min' => 'Pilih minimal satu kategori layanan.',
-            'category_ids.max' => 'Pilihan kategori maksimal 6 kategori.',
+            'category_ids.max' => 'Pilihan kategori maksimal 3 kategori.',
         ]);
 
         if ($validator->fails()) {
