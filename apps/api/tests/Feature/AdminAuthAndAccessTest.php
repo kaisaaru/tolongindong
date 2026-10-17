@@ -185,14 +185,14 @@ class AdminAuthAndAccessTest extends TestCase
 
         $categories = collect($response->json('data'));
         $delivery = $categories->firstWhere('code', 'delivery');
-        $foodRun = $categories->firstWhere('code', 'food_run');
+        $personal = $categories->firstWhere('code', 'personal');
 
         $this->assertNotNull($delivery);
         $this->assertTrue($delivery['requires_pickup_photo']);
         $this->assertTrue($delivery['is_dispute_eligible']);
 
-        $this->assertNotNull($foodRun);
-        $this->assertFalse($foodRun['requires_pickup_photo']);
-        $this->assertFalse($foodRun['is_dispute_eligible']);
+        $this->assertNotNull($personal);
+        $this->assertFalse($personal['requires_pickup_photo']);
+        $this->assertFalse($personal['is_dispute_eligible']);
     }
 }

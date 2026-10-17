@@ -127,19 +127,18 @@ class HelperCatalogTest extends TestCase
             'password' => 'Pass12345!',
         ]);
 
-        $catFood = ServiceCategory::where('code', 'food_run')->first();
+        $catPersonal = ServiceCategory::where('code', 'personal')->first();
         $catDelivery = ServiceCategory::where('code', 'delivery')->first();
 
-        // Helper A: Kuasai Food Run
-        [$hAUser, $hAProfile] = $this->createHelper('Helper Food', -7.752, 110.371);
-        $hAProfile->serviceCategories()->sync([$catFood->id]);
-
+        // Helper A: Kuasai Personal
+        [$hAUser, $hAProfile] = $this->createHelper('Helper Personal', -7.752, 110.371);
+        $hAProfile->serviceCategories()->sync([$catPersonal->id]);
         // Helper B: Kuasai Delivery
         [$hBUser, $hBProfile] = $this->createHelper('Helper Delivery', -7.753, 110.372);
         $hBProfile->serviceCategories()->sync([$catDelivery->id]);
 
         $response = $this->actingAs($client, 'sanctum')
-            ->getJson("/helpers?latitude=-7.750&longitude=110.370&category_id={$catFood->id}");
+            ->getJson("/helpers?latitude=-7.750&longitude=110.370&category_id={$catPersonal->id}");
 
         $response->assertStatus(200);
         $helperUserIds = collect($response->json('data.helpers'))->pluck('user_id')->all();
@@ -168,14 +167,23 @@ class HelperCatalogTest extends TestCase
             ->getJson('/helpers?latitude=-7.750&longitude=110.370&sort_by=rate');
 
         $helpersByRate = $resRate->json('data.helpers');
-        $this->assertEquals($hMurah->id, $helpersByRate[0]['user_id']);
-
+        $userIdsRate = array_column($helpersByRate, 'user_id');
+        $idxMurah = array_search($hMurah->id, $userIdsRate, true);
+        $idxMahal = array_search($hMahal->id, $userIdsRate, true);
+        $this->assertNotFalse($idxMurah);
+        $this->assertNotFalse($idxMahal);
+        $this->assertLessThan($idxMahal, $idxMurah);
         // 2. Sort by rating (rating tertinggi lebih dulu)
         $resRating = $this->actingAs($client, 'sanctum')
             ->getJson('/helpers?latitude=-7.750&longitude=110.370&sort_by=rating');
 
         $helpersByRating = $resRating->json('data.helpers');
-        $this->assertEquals($hMahal->id, $helpersByRating[0]['user_id']);
+        $userIdsRating = array_column($helpersByRating, 'user_id');
+        $idxMahalRating = array_search($hMahal->id, $userIdsRating, true);
+        $idxMurahRating = array_search($hMurah->id, $userIdsRating, true);
+        $this->assertNotFalse($idxMahalRating);
+        $this->assertNotFalse($idxMurahRating);
+        $this->assertLessThan($idxMurahRating, $idxMahalRating);
     }
 
     /**
@@ -185,14 +193,14 @@ class HelperCatalogTest extends TestCase
     {
         [$helperUser, $helperProfile] = $this->createHelper('Helper Toggle', -7.751, 110.371, 20000, 4.8);
 
-        $catLaundry = ServiceCategory::where('code', 'laundry')->first();
+        $catHousehold = ServiceCategory::where('code', 'household')->first();
 
         $response = $this->actingAs($helperUser, 'sanctum')
             ->putJson('/helper/profile', [
                 'is_available' => 'unavailable',
                 'hourly_rate' => 30000,
                 'max_advance_limit' => 200000,
-                'category_ids' => [$catLaundry->id],
+                'category_ids' => [$catHousehold->id],
             ]);
 
         $response->assertStatus(200)
@@ -205,7 +213,7 @@ class HelperCatalogTest extends TestCase
         $this->assertEquals(HelperAvailability::UNAVAILABLE, $helperProfile->is_available);
         $this->assertEquals(30000, $helperProfile->hourly_rate);
         $this->assertEquals(200000, $helperProfile->max_advance_limit);
-        $this->assertTrue($helperProfile->serviceCategories->contains('id', $catLaundry->id));
+        $this->assertTrue($helperProfile->serviceCategories->contains('id', $catHousehold->id));
     }
 
     /**

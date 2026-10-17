@@ -12,6 +12,8 @@ class ChatRoom extends Model
     use HasFactory;
 
     protected $fillable = [
+        'client_id',
+        'helper_id',
         'order_id',
         'is_read_only',
         'closed_at',
@@ -23,6 +25,16 @@ class ChatRoom extends Model
             'is_read_only' => 'boolean',
             'closed_at' => 'datetime',
         ];
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'client_id');
+    }
+
+    public function helper(): BelongsTo
+    {
+        return $this->belongsTo(HelperProfile::class, 'helper_id');
     }
 
     public function order(): BelongsTo

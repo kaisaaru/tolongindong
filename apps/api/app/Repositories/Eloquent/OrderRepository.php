@@ -556,6 +556,131 @@ class OrderRepository implements OrderRepositoryInterface
     }
 
     /**
+     * Helper menerima pesanan marketplace langsung (Direct Booking Acceptance).
+     */
+    public function acceptOrder(User $helperUser, int $orderId): array
+    {
+        $order = Order::with(['client', 'helper.user'])->find($orderId);
+
+        if (!$order) {
+            return [
+                'success' => false,
+                'error_code' => 'NOT_FOUND',
+                'message' => 'Pesanan tidak ditemukan.',
+                'status_code' => 404,
+            ];
+        }
+
+        if (!$order->helper || $order->helper->user_id !== $helperUser->id) {
+            return [
+                'success' => false,
+                'error_code' => 'FORBIDDEN',
+                'message' => 'Anda bukan helper yang dituju untuk pesanan ini.',
+                'status_code' => 403,
+            ];
+        }
+
+        if (!in_array($order->status, [OrderStatus::AWAITING_QUOTE, OrderStatus::PENDING_CONFIRMATION, OrderStatus::SEARCHING])) {
+            return [
+                'success' => false,
+                'error_code' => 'INVALID_ORDER_STATE',
+                'message' => 'Pesanan ini tidak dalam status menunggu penerimaan helper.',
+                'status_code' => 422,
+            ];
+        }
+
+        $price = $order->total_amount > 0 ? $order->total_amount : ($order->client_estimated_price ?: $order->base_fee);
+        $holdCalc = $this->calculator->calculateHold($price, 0, $order->voucher_discount ?? 0);
+
+        return DB::transaction(function () use ($order, $helperUser, $holdCalc, $price) {
+            // Tahan dana pemesan via EscrowService
+            $holdRes = $this->escrowService->holdFunds($order->client, $order, $holdCalc['held_amount']);
+            if (!$holdRes['success']) {
+                return $holdRes;
+            }
+
+            $fromStatus = $order->status;
+            $order->update([
+                'status' => OrderStatus::ACCEPTED,
+                'accepted_at' => now(),
+                'total_amount' => $price,
+                'held_amount' => $holdCalc['held_amount'],
+                'service_client_charge' => $holdCalc['service_client_charge'],
+                'platform_commission' => $holdCalc['gross_commission'],
+                'helper_payout' => $price - $holdCalc['gross_commission'],
+            ]);
+
+            OrderStatusHistory::create([
+                'order_id' => $order->id,
+                'from_status' => $fromStatus,
+                'to_status' => OrderStatus::ACCEPTED,
+                'changed_by_user_id' => $helperUser->id,
+                'note' => 'Helper menerima pesanan marketplace, dana escrow ditahan',
+            ]);
+
+            return [
+                'success' => true,
+                'data' => $order->fresh(['client', 'helper.user', 'serviceCategory']),
+                'message' => 'Pesanan berhasil diterima dan mulai berjalan.',
+            ];
+        });
+    }
+
+    /**
+     * Helper menolak pesanan marketplace langsung (Direct Booking Rejection).
+     */
+    public function rejectOrder(User $helperUser, int $orderId, ?string $reason = null): array
+    {
+        $order = Order::with(['client', 'helper.user'])->find($orderId);
+
+        if (!$order) {
+            return [
+                'success' => false,
+                'error_code' => 'NOT_FOUND',
+                'message' => 'Pesanan tidak ditemukan.',
+                'status_code' => 404,
+            ];
+        }
+
+        if (!$order->helper || $order->helper->user_id !== $helperUser->id) {
+            return [
+                'success' => false,
+                'error_code' => 'FORBIDDEN',
+                'message' => 'Anda bukan helper yang dituju untuk pesanan ini.',
+                'status_code' => 403,
+            ];
+        }
+
+        if (!in_array($order->status, [OrderStatus::AWAITING_QUOTE, OrderStatus::PENDING_CONFIRMATION, OrderStatus::SEARCHING])) {
+            return [
+                'success' => false,
+                'error_code' => 'INVALID_ORDER_STATE',
+                'message' => 'Pesanan ini tidak dalam status menunggu respon helper.',
+                'status_code' => 422,
+            ];
+        }
+
+        return DB::transaction(function () use ($order, $helperUser, $reason) {
+            $fromStatus = $order->status;
+            $order->update(['status' => OrderStatus::CANCELLED_BY_HELPER]);
+
+            OrderStatusHistory::create([
+                'order_id' => $order->id,
+                'from_status' => $fromStatus,
+                'to_status' => OrderStatus::CANCELLED_BY_HELPER,
+                'changed_by_user_id' => $helperUser->id,
+                'note' => $reason ?: 'Helper menolak pesanan marketplace.',
+            ]);
+
+            return [
+                'success' => true,
+                'data' => $order->fresh(),
+                'message' => 'Pesanan telah ditolak oleh helper.',
+            ];
+        });
+    }
+
+    /**
      * Helper memajukan status tahapan pesanan (API-ORD-05, FR-ORD-009).
      */
     public function updateStatus(User $user, int $orderId, OrderStatus $targetStatus): array

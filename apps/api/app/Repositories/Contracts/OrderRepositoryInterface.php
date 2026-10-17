@@ -42,6 +42,16 @@ interface OrderRepositoryInterface
      */
     public function confirmOffer(User $helperUser, int $orderId, int $offerId): array;
 
+
+    /**
+     * Helper menerima pesanan marketplace langsung (Direct Booking Acceptance).
+     */
+    public function acceptOrder(User $helperUser, int $orderId): array;
+
+    /**
+     * Helper menolak pesanan marketplace langsung (Direct Booking Rejection).
+     */
+    public function rejectOrder(User $helperUser, int $orderId, ?string $reason = null): array;
     /**
      * Helper memajukan status tahapan pesanan (API-ORD-05, FR-ORD-009).
      */

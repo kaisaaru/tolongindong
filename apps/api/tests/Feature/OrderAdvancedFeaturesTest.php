@@ -91,7 +91,7 @@ class OrderAdvancedFeaturesTest extends TestCase
     {
         $client = $this->createClient();
         [$helperUser, $helperProfile] = $this->createHelper();
-        $cat = ServiceCategory::where('code', 'food_run')->first();
+        $cat = ServiceCategory::where('code', 'delivery')->first();
 
         $order = Order::create([
             'order_number' => 'ORD-' . Str::random(10),
@@ -128,7 +128,7 @@ class OrderAdvancedFeaturesTest extends TestCase
     {
         $client = $this->createClient();
         [$helperUser, $helperProfile] = $this->createHelper();
-        $cat = ServiceCategory::where('code', 'food_run')->first();
+        $cat = ServiceCategory::where('code', 'delivery')->first();
 
         $order = Order::create([
             'order_number' => 'ORD-' . Str::random(10),
@@ -163,7 +163,7 @@ class OrderAdvancedFeaturesTest extends TestCase
     {
         $client = $this->createClient(100000); // 100k tersedia
         [$helperUser, $helperProfile] = $this->createHelper();
-        $cat = ServiceCategory::where('code', 'food_run')->first();
+        $cat = ServiceCategory::where('code', 'delivery')->first();
 
         $order = Order::create([
             'order_number' => 'ORD-' . Str::random(10),
@@ -209,7 +209,7 @@ class OrderAdvancedFeaturesTest extends TestCase
     {
         $client = $this->createClient();
         [$helperUser, $helperProfile] = $this->createHelper();
-        $cat = ServiceCategory::where('code', 'food_run')->first();
+        $cat = ServiceCategory::where('code', 'delivery')->first();
 
         $order = Order::create([
             'order_number' => 'ORD-' . Str::random(10),
@@ -285,7 +285,7 @@ class OrderAdvancedFeaturesTest extends TestCase
     {
         $client = $this->createClient();
         [$helperUser, $helperProfile] = $this->createHelper();
-        $foodCat = ServiceCategory::where('code', 'food_run')->first();
+        $foodCat = ServiceCategory::where('code', 'personal')->first();
 
         $order = Order::create([
             'order_number' => 'ORD-' . Str::random(10),

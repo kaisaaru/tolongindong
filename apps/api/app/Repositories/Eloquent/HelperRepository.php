@@ -57,7 +57,7 @@ class HelperRepository implements HelperRepositoryInterface
                 ['user_id' => $user->id],
                 [
                     'hourly_rate' => $data['hourly_rate'],
-                    'max_advance_limit' => $data['max_advance_limit'],
+                    'max_advance_limit' => $data['max_advance_limit'] ?? 0,
                     'is_available' => HelperAvailability::UNAVAILABLE,
                 ]
             );

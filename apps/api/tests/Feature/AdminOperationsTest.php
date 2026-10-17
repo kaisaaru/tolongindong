@@ -229,7 +229,7 @@ class AdminOperationsTest extends TestCase
     {
         $admin = $this->createAdmin();
         $client = $this->createClient();
-        $cat = ServiceCategory::where('code', 'food_run')->first();
+        $cat = ServiceCategory::where('code', 'delivery')->first();
 
         // Pesanan completed dengan komisi platform 5.000
         Order::create([

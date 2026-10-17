@@ -57,29 +57,48 @@ class ChatAndNotificationTest extends TestCase
     }
 
     /**
-     * Test DEC-14 no 10 & FR-CHT-001: Chat belum aktif sebelum pesanan berstatus accepted.
+     * Test Pre-Order Chat: Client dapat memulai obrolan langsung dengan Helper sebelum membuat pesanan.
      */
-    public function test_chat_not_available_before_order_accepted(): void
+    public function test_client_can_chat_with_helper_before_order(): void
     {
         $client = $this->createClient();
-        $cat = ServiceCategory::first();
+        [$helperUser, $helperProfile] = $this->createHelper();
 
-        // Pesanan masih searching (mencari helper)
-        $order = Order::create([
-            'order_number' => 'ORD-' . Str::random(10),
-            'client_id' => $client->id,
-            'category_id' => $cat->id,
-            'booking_type' => 'broadcast',
-            'status' => OrderStatus::SEARCHING,
-            'task_description' => 'Pesanan belum ada helper',
-            'total_amount' => 25000,
-        ]);
+        // 1. Client memulai chat dengan helper
+        $startRes = $this->actingAs($client, 'sanctum')
+            ->postJson("/chats/helpers/{$helperProfile->id}");
 
-        $response = $this->actingAs($client, 'sanctum')
-            ->getJson("/orders/{$order->id}/messages");
+        $startRes->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure(['data' => ['room_id', 'client', 'helper']]);
 
-        $response->assertStatus(422)
-            ->assertJsonPath('error.code', 'CHAT_NOT_AVAILABLE');
+        $roomId = $startRes->json('data.room_id');
+
+        // 2. Client mengirim pesan pra-pesanan
+        $msgRes = $this->actingAs($client, 'sanctum')
+            ->postJson("/chats/rooms/{$roomId}/messages", [
+                'content' => 'Halo kak, apakah besok pagi ada waktu luang?',
+            ]);
+
+        $msgRes->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.content', 'Halo kak, apakah besok pagi ada waktu luang?');
+
+        // 3. Helper membalas pesan pra-pesanan
+        $replyRes = $this->actingAs($helperUser, 'sanctum')
+            ->postJson("/chats/rooms/{$roomId}/messages", [
+                'content' => 'Halo, bisa kak! Butuh bantuan untuk pekerjaan apa?',
+            ]);
+
+        $replyRes->assertStatus(201)
+            ->assertJsonPath('data.content', 'Halo, bisa kak! Butuh bantuan untuk pekerjaan apa?');
+
+        // 4. Verifikasi riwayat pesan di room
+        $historyRes = $this->actingAs($client, 'sanctum')
+            ->getJson("/chats/rooms/{$roomId}/messages");
+
+        $historyRes->assertStatus(200)
+            ->assertJsonCount(2, 'data.messages');
     }
 
     /**
