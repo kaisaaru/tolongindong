@@ -1,7 +1,7 @@
 /// Kategori layanan dari `GET /service-categories` (FR-HLP-001).
 ///
-/// Enam kategori ini ditanam backend lewat seeder, jadi jumlah dan kodenya
-/// tetap. Yang bisa berubah dari waktu ke waktu cuma tarif dan aturannya.
+/// Kategori ditanam backend lewat seeder, jadi jumlah dan kodenya tetap.
+/// Yang bisa berubah dari waktu ke waktu cuma tarif dan aturannya.
 class ServiceCategory {
   const ServiceCategory({
     required this.id,
@@ -16,7 +16,7 @@ class ServiceCategory {
 
   final int id;
 
-  /// `food_run`, `delivery`, `moving`, `personal`, `household`, `laundry`.
+  /// `delivery`, `personal`, `household`.
   /// Dipakai untuk memilih ikon, jadi jangan dicocokkan lewat [name].
   final String code;
 

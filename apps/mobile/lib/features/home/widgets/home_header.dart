@@ -139,11 +139,11 @@ class HomeHeader extends StatelessWidget {
 
 /// Tiga pita miring di latar header.
 ///
-/// Geometrinya diambil dari `assets/shape/Rectangle 22524/22525/22526.svg`
-/// (persegi panjang `#E22C2C` diputar -19,78° dengan inner shadow), lalu
-/// diposisikan sesuai pengukuran desain. Digambar langsung alih-alih memakai
-/// berkas SVG-nya karena `flutter_svg` tidak mendukung elemen `<filter>`,
-/// sehingga inner shadow-nya akan hilang.
+/// Geometrinya diambil dari ekspor SVG Figma (persegi panjang `#E22C2C`
+/// diputar -19,78° dengan inner shadow), lalu diposisikan sesuai pengukuran
+/// desain. Digambar langsung alih-alih memakai berkas SVG-nya karena
+/// `flutter_svg` tidak mendukung elemen `<filter>`, sehingga inner shadow-nya
+/// akan hilang.
 class _HeaderBandsPainter extends CustomPainter {
   const _HeaderBandsPainter({required this.shift});
 

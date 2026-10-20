@@ -12,15 +12,15 @@ import 'catalog_repository.dart';
 import 'home_assets.dart';
 import 'home_metrics.dart';
 import 'widgets/category_grid.dart';
-import 'widgets/favorite_food_section.dart';
 import 'widgets/home_bottom_nav.dart';
 import 'widgets/home_header.dart';
 import 'widgets/promo_carousel.dart';
+import 'widgets/service_offer_section.dart';
 
 /// Beranda client (FR-PRF-004, FR-HLP-001, FR-NOT-001, FR-WLT-010).
 ///
-/// Tab selain Beranda belum punya isi: modul pesanan, percakapan, dan
-/// pencarian helper masih menunggu tabelnya dibuat di backend.
+/// Tab selain Beranda belum punya isi. Endpoint-nya (`/orders`, `/chats`)
+/// sudah ada di backend, tinggal layarnya dibangun.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
@@ -84,8 +84,6 @@ class _HomePageState extends State<HomePage> {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: AppColors.light,
-        // Konten menggulir di balik bilah navigasi yang mengambang.
-        extendBody: true,
         // Semua anak diposisikan, jadi Stack mengambil ukuran layar penuh.
         // Kalau header dibiarkan tidak diposisikan, tinggi Stack ikut tinggi
         // header dan lembar putih di bawahnya terpotong.
@@ -120,7 +118,6 @@ class _HomePageState extends State<HomePage> {
         bottomNavigationBar: HomeBottomNav(
           current: _tab,
           onSelected: (tab) => setState(() => _tab = tab),
-          onCreateOrder: () => _soon('Buat pesanan'),
         ),
       ),
     );
@@ -148,29 +145,41 @@ class _HomePageState extends State<HomePage> {
               categories: _categories,
               onRetry: () =>
                   setState(() => _categories = _catalogRepo.categories()),
-              onCategoryTap: _soon,
+              // Pesanan dimulai dari kategori (tidak ada tombol di nav).
+              onCategoryTap: (category) =>
+                  _soon('Buat pesanan ${category.name}'),
+              onHelperTap: () => _soon('Cari helper'),
             ),
           ),
-          const SizedBox(height: HomeMetrics.promoTopGap),
+          const SizedBox(height: HomeMetrics.sectionTopGap),
+          const _SectionTitle('Jasa tersedia'),
+          const SizedBox(height: HomeMetrics.titleToContent),
+          ServiceOfferSection(onTap: (offer) => _soon(offer.title)),
+          const SizedBox(height: HomeMetrics.sectionTopGap),
           const _SectionTitle('Penawaran Spesial'),
-          const SizedBox(height: HomeMetrics.titleToBanner),
+          const SizedBox(height: HomeMetrics.titleToContent),
           PromoCarousel(onTap: (_) => _soon('Voucher')),
-          const SizedBox(height: HomeMetrics.foodTopGap),
-          const _SectionTitle('Makanan Favorit'),
-          const SizedBox(height: HomeMetrics.titleToCards),
-          FavoriteFoodSection(onTap: (food) => _soon(food.name)),
+          const SizedBox(height: HomeMetrics.sectionTopGap),
+          const _SectionTitle('Seputar TolongDong'),
+          const SizedBox(height: HomeMetrics.titleToContent),
+          // Isi seksi ini terpotong di desain dan backend belum punya
+          // endpoint artikel, jadi sementara penanda saja.
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: HomeMetrics.bodyPadding),
+            child: _ComingSoonCard('Info dan tips TolongDong segera hadir.'),
+          ),
         ],
       ),
     );
   }
 
   /// Isi sementara untuk tab yang modulnya belum dibangun. Tombol keluar
-  /// ditaruh di Profil supaya tetap terjangkau.
+  /// ditaruh di Akun supaya tetap terjangkau.
   Widget _buildPlaceholder() {
     final label = switch (_tab) {
-      HomeTab.cariHelper => 'Cari Helper',
-      HomeTab.percakapan => 'Percakapan',
-      HomeTab.profil => 'Profil',
+      HomeTab.aktifitas => 'Aktifitas',
+      HomeTab.obrolan => 'Obrolan',
+      HomeTab.akun => 'Akun',
       HomeTab.beranda => 'Beranda',
     };
 
@@ -202,7 +211,7 @@ class _HomePageState extends State<HomePage> {
                 color: AppColors.textDescription,
               ),
             ),
-            if (_tab == HomeTab.profil) ...[
+            if (_tab == HomeTab.akun) ...[
               const SizedBox(height: 28),
               Text(
                 _user.email,
@@ -235,6 +244,33 @@ class _SectionTitle extends StatelessWidget {
         style: AppTypography.style(
           size: HomeMetrics.sectionTitleSize,
           weight: AppTypography.bold,
+        ),
+      ),
+    );
+  }
+}
+
+class _ComingSoonCard extends StatelessWidget {
+  const _ComingSoonCard(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(HomeMetrics.offerCardRadius),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: AppTypography.style(
+          size: AppTypography.small,
+          weight: AppTypography.regular,
+          color: AppColors.textDescription,
         ),
       ),
     );
@@ -283,17 +319,19 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-/// Grid kategori beserta keadaan memuat dan gagal.
+/// Baris kategori beserta keadaan memuat dan gagal.
 class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.categories,
     required this.onRetry,
     required this.onCategoryTap,
+    required this.onHelperTap,
   });
 
   final Future<List<ServiceCategory>> categories;
   final VoidCallback onRetry;
-  final ValueChanged<String> onCategoryTap;
+  final ValueChanged<ServiceCategory> onCategoryTap;
+  final VoidCallback onHelperTap;
 
   @override
   Widget build(BuildContext context) {
@@ -343,19 +381,14 @@ class _CategorySection extends StatelessWidget {
           for (final category in sorted)
             CategoryTile.fromCategory(
               category,
-              onTap: () => onCategoryTap(category.name),
+              onTap: () => onCategoryTap(category),
             ),
-          // Dua ubin terakhir bukan kategori layanan, jadi ditambahkan di sini
+          // Ubin terakhir bukan kategori layanan, jadi ditambahkan di sini
           // dan tidak ikut bergantung pada data server.
           CategoryTile(
             label: 'Helper',
             assetPath: HomeAssets.helperTile,
-            onTap: () => onCategoryTap('Cari Helper'),
-          ),
-          CategoryTile(
-            label: 'Lainnya',
-            assetPath: HomeAssets.lainnyaTile,
-            onTap: () => onCategoryTap('Kategori lainnya'),
+            onTap: onHelperTap,
           ),
         ];
 

@@ -6,17 +6,17 @@ import '../home_metrics.dart';
 
 /// Banner promo yang bisa digeser mendatar (FR-WLT-010).
 ///
-/// Isinya masih statis: backend belum punya tabel voucher, jadi belum ada
-/// endpoint untuk diambil. Begitu tersedia, cukup ganti [_banners] dengan
-/// data dari server — bentuk widget-nya tidak perlu berubah.
+/// Isinya masih statis. `GET /vouchers` sudah ada, tapi voucher tidak punya
+/// gambar banner dan hanya berisi voucher yang sudah diklaim user, jadi
+/// belum cocok untuk etalase promo.
 class PromoCarousel extends StatelessWidget {
   const PromoCarousel({super.key, this.onTap});
 
   final ValueChanged<int>? onTap;
 
   static const _banners = [
-    HomeAssets.promoBanner,
-    HomeAssets.promoBanner,
+    HomeAssets.promoVoucher,
+    HomeAssets.promoVoucher,
   ];
 
   @override

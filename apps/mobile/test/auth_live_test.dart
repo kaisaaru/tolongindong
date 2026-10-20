@@ -48,8 +48,11 @@ void main() {
         .get('/service-categories');
 
     expect(data, isA<List>());
-    expect((data as List).length, 6);
-    expect(data.first['code'], 'food_run');
+    // Backend memangkas kategori jadi tiga (commit 8bfe592).
+    expect(
+      (data as List).map((e) => e['code']).toSet(),
+      {'delivery', 'personal', 'household'},
+    );
   });
 
   test('login benar menghasilkan AuthUser dan menyimpan token', () async {

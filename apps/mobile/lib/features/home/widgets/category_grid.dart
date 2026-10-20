@@ -7,8 +7,8 @@ import '../../../theme/app_typography.dart';
 import '../home_assets.dart';
 import '../home_metrics.dart';
 
-/// Satu ubin di grid kategori. Dipakai untuk kategori dari server maupun
-/// dua ubin statis di akhir (Helper dan Lainnya).
+/// Satu ubin di baris kategori. Dipakai untuk kategori dari server maupun
+/// ubin statis Helper di akhir.
 class CategoryTile {
   const CategoryTile({
     required this.label,
@@ -32,14 +32,14 @@ class CategoryTile {
     VoidCallback? onTap,
   }) =>
       CategoryTile(
-        label: HomeAssets.displayName(category.code, category.name),
+        label: category.name,
         assetPath: HomeAssets.categoryIcon(category.code),
         onTap: onTap,
       );
 }
 
-/// Grid 4 kolom berisi enam kategori layanan (FR-HLP-001) ditambah pintasan
-/// Helper dan Lainnya.
+/// Satu baris berisi tiga kategori layanan (FR-HLP-001) ditambah pintasan
+/// Helper.
 ///
 /// Ubin berukuran tetap 69 dp dengan jarak tetap, bukan dibagi rata ke lebar
 /// layar — di desain ukurannya memang tidak berubah mengikuti lebar.
@@ -48,37 +48,19 @@ class CategoryGrid extends StatelessWidget {
 
   final List<CategoryTile> tiles;
 
-  static const _perRow = 4;
-
-  /// Tinggi total dua baris, dipakai penanda memuat supaya layar tidak
-  /// melompat saat kategori selesai dimuat.
-  static const height = 2 *
-          (HomeMetrics.tileSize +
-              HomeMetrics.tileLabelGap +
-              HomeMetrics.tileLabelSize) +
-      HomeMetrics.tileRowGap;
+  /// Tinggi satu baris, dipakai penanda memuat supaya layar tidak melompat
+  /// saat kategori selesai dimuat.
+  static const height =
+      HomeMetrics.tileSize + HomeMetrics.tileLabelGap + HomeMetrics.tileLabelSize;
 
   @override
   Widget build(BuildContext context) {
-    final rows = <List<CategoryTile>>[
-      for (var i = 0; i < tiles.length; i += _perRow)
-        tiles.sublist(i, (i + _perRow).clamp(0, tiles.length)),
-    ];
-
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var r = 0; r < rows.length; r++) ...[
-          if (r > 0) const SizedBox(height: HomeMetrics.tileRowGap),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var c = 0; c < rows[r].length; c++) ...[
-                if (c > 0) const SizedBox(width: HomeMetrics.tileGap),
-                _Tile(tile: rows[r][c]),
-              ],
-            ],
-          ),
+        for (var i = 0; i < tiles.length; i++) ...[
+          if (i > 0) const SizedBox(width: HomeMetrics.tileGap),
+          _Tile(tile: tiles[i]),
         ],
       ],
     );
