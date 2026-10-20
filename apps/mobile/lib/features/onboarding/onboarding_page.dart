@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/storage/app_preferences.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../auth/login_page.dart';
@@ -40,6 +43,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   ];
 
   final _pageController = PageController();
+  final _prefs = AppPreferences();
   int _currentPage = 0;
 
   bool get _isLastPage => _currentPage == _slides.length - 1;
@@ -52,7 +56,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   void _next() {
     if (_isLastPage) {
-      _finish();
+      unawaited(_finish());
       return;
     }
     _pageController.nextPage(
@@ -61,8 +65,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  void _finish() {
-    // TODO: simpan status onboarding sudah dilihat supaya tidak muncul lagi.
+  Future<void> _finish() async {
+    // Ditandai supaya splash tidak menampilkan onboarding lagi di buka
+    // berikutnya. Gagal menyimpan tidak boleh menahan pengguna di sini.
+    await _prefs.markOnboardingSeen();
+    if (!mounted) return;
     final route = MaterialPageRoute<void>(builder: (_) => const LoginPage());
     Navigator.of(context).pushReplacement(route);
   }

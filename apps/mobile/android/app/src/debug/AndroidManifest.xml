@@ -4,4 +4,10 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Backend lokal dilayani lewat http:// polos (php artisan serve).
+         Sejak Android 9 lalu lintas non-HTTPS diblokir secara bawaan.
+         Izin ini sengaja hanya ada di varian debug; build release tetap
+         menolak HTTP polos. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

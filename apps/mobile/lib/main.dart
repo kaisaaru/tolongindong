@@ -16,6 +16,7 @@ class MyApp extends StatelessWidget {
       title: 'Tolongin Dong',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      // Penentuan halaman awal ada di SplashPage, bukan di sini.
       home: const SplashPage(),
     );
   }

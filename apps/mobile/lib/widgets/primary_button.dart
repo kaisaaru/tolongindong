@@ -9,14 +9,19 @@ class PrimaryButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
 
+  /// Saat true tombol mati dan berganti spinner. Ini yang mencegah satu
+  /// permintaan terkirim dua kali gara-gara tap ganda.
+  final bool isLoading;
+
   @override
   Widget build(BuildContext context) {
-    final enabled = onPressed != null;
+    final enabled = onPressed != null && !isLoading;
 
     return AnimatedContainer(
       duration: kThemeChangeDuration,
@@ -32,7 +37,18 @@ class PrimaryButton extends StatelessWidget {
           ),
         ],
       ),
-      child: ElevatedButton(onPressed: onPressed, child: Text(label)),
+      child: ElevatedButton(
+        onPressed: enabled ? onPressed : null,
+        child: isLoading
+            ? const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(AppColors.light),
+                ),
+              )
+            : Text(label),
+      ),
     );
   }
 }

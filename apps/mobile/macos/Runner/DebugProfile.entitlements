@@ -8,5 +8,9 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<!-- Wajib: tanpa ini app sandbox memblokir semua koneksi keluar,
+	     termasuk ke backend. Gejalanya request gagal tanpa pesan jelas. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>
