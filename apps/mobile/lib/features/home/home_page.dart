@@ -46,7 +46,31 @@ class _HomePageState extends State<HomePage> {
   late Future<List<ServiceCategory>> _categories = _catalogRepo.categories();
   late AuthUser _user = widget.user;
 
+  /// Null = belum dimuat atau user belum punya alamat.
+  String? _address;
+  int _unreadCount = 0;
+
   HomeTab _tab = HomeTab.beranda;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHeader();
+  }
+
+  /// Alamat dan notifikasi dimuat terpisah: kalau salah satu gagal, yang
+  /// lain tetap tampil, dan header memakai nilai terakhirnya. Kegagalan apa
+  /// pun ditelan — isi header bukan alasan beranda error.
+  Future<void> _loadHeader() async {
+    await Future.wait([
+      _catalogRepo.primaryAddress().then((address) {
+        if (mounted) setState(() => _address = address);
+      }).catchError((_) {}),
+      _catalogRepo.unreadNotificationCount().then((count) {
+        if (mounted) setState(() => _unreadCount = count);
+      }).catchError((_) {}),
+    ]);
+  }
 
   Future<void> _refresh() async {
     final reloaded = _catalogRepo.categories();
@@ -59,7 +83,10 @@ class _HomePageState extends State<HomePage> {
       // Profil gagal dimuat ulang bukan alasan mengosongkan beranda —
       // data lama tetap dipakai.
     }
-    await reloaded.catchError((_) => <ServiceCategory>[]);
+    await Future.wait([
+      _loadHeader(),
+      reloaded.catchError((_) => <ServiceCategory>[]),
+    ]);
   }
 
   Future<void> _logout() async {
@@ -96,6 +123,8 @@ class _HomePageState extends State<HomePage> {
               right: 0,
               child: HomeHeader(
                 user: _user,
+                location: _address ?? 'Atur alamat',
+                hasUnreadNotification: _unreadCount > 0,
                 onNotificationTap: () => _soon('Notifikasi'),
               ),
             ),

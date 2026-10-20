@@ -18,14 +18,14 @@ class HomeHeader extends StatelessWidget {
   const HomeHeader({
     super.key,
     required this.user,
-    this.location = 'Jln. Karya Jaya',
+    required this.location,
     this.hasUnreadNotification = false,
     this.onNotificationTap,
   });
 
   final AuthUser user;
 
-  /// Sementara teks statis. Nanti dari GPS + alamat tersimpan (FR-PRF-002).
+  /// Alamat utama tersimpan (FR-PRF-002), atau ajakan mengatur alamat.
   final String location;
 
   final bool hasUnreadNotification;
