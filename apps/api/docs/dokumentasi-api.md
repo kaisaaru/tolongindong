@@ -2,6 +2,16 @@
 
 Dokumen ini disusun sebagai panduan arsitektur, basis data, aturan bisnis, dan kontrak endpoint resmi bagi seluruh anggota tim (**System Analyst / SA**, **Quality Assurance / QA**, dan **Frontend Mobile / Flutter Developer**).
 
+
+> 🚀 **DEPLOYMENT SERVER (LIVE CLOUD)**:
+> - **Base URL**: `https://tolongindong.onrender.com`
+> - **Health Check**: `GET https://tolongindong.onrender.com/up`
+>
+> 📌 **CATATAN REVISI SYSTEM ANALYST (OKTOBER 2026)**:
+> 1. **Pemangkasan Kategori**: Layanan aktif kini hanya 3 kategori: `delivery`, `personal`, dan `household` (`food_run`, `moving`, dan `laundry` dihapus).
+> 2. **Penghapusan Talangan Belanja**: Fitur talangan uang tunai ditiadakan. Seluruh transaksi murni upah jasa (90% Payout Helper, 10% Komisi Platform).
+> 3. **Alur Pemesanan Marketplace (Gojek-Style)**: Client langsung memilih helper di awal (`helper_id`), helper langsung menerima via `POST /orders/{id}/accept` atau menolak via `POST /orders/{id}/reject`.
+> 4. **Obrolan Pra-Pesanan (Pre-Order Consultation)**: Client dapat berkonsultasi/chat langsung dengan helper sebelum membuat order via `POST /chats/helpers/{helperId}` atau melihat seluruh pesan di inbox `GET /chats`.
 ---
 
 ## DAFTAR ISI
