@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/format/rupiah.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../home_metrics.dart';
@@ -164,7 +165,7 @@ class _OfferCard extends StatelessWidget {
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: _rupiah(item.price),
+                      text: rupiah(item.price),
                       style: AppTypography.style(
                         size: HomeMetrics.offerPriceSize,
                         weight: AppTypography.semiBold,
@@ -186,15 +187,5 @@ class _OfferCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// 30000 -> "Rp 30.000".
-  static String _rupiah(int value) {
-    final digits = value.toString();
-    final grouped = digits.replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (_) => '.',
-    );
-    return 'Rp $grouped';
   }
 }

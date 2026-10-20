@@ -8,6 +8,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../auth/auth_repository.dart';
 import '../auth/login_page.dart';
+import '../order/category_helpers_page.dart';
 import 'catalog_repository.dart';
 import 'home_assets.dart';
 import 'home_metrics.dart';
@@ -175,8 +176,11 @@ class _HomePageState extends State<HomePage> {
               onRetry: () =>
                   setState(() => _categories = _catalogRepo.categories()),
               // Pesanan dimulai dari kategori (tidak ada tombol di nav).
-              onCategoryTap: (category) =>
-                  _soon('Buat pesanan ${category.name}'),
+              onCategoryTap: (category) => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CategoryHelpersPage(category: category),
+                ),
+              ),
               onHelperTap: () => _soon('Cari helper'),
             ),
           ),

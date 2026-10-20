@@ -1,0 +1,261 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/format/rupiah.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/primary_button.dart';
+import 'checkout_page.dart';
+import 'order_models.dart';
+import 'order_style.dart';
+import 'widgets/order_widgets.dart';
+
+/// Profil helper: tentang, keahlian, review, dan tombol pesan.
+class HelperDetailPage extends StatelessWidget {
+  const HelperDetailPage({super.key, required this.helper});
+
+  final HelperListing helper;
+
+  void _soon(BuildContext context, String feature) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$feature belum tersedia.')),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: OrderStyle.background,
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _Header(
+              helper: helper,
+              // Endpoint chat pre-order sudah ada (POST /chats/helpers/{id}),
+              // tinggal layar obrolannya.
+              onChat: () => _soon(context, 'Obrolan'),
+              onFavorite: () => _soon(context, 'Favorit'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(26, 24, 26, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SectionTitle('Tentang'),
+                  const SizedBox(height: 8),
+                  Text(
+                    helper.about,
+                    style: AppTypography.style(
+                      size: 13,
+                      weight: AppTypography.regular,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const _SectionTitle('Jasa'),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final tag in helper.tags) TagChip.skill(tag),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  const _SectionTitle('Review'),
+                  const SizedBox(height: 12),
+                  if (helper.reviews.isEmpty)
+                    Text(
+                      'Belum ada review.',
+                      style: AppTypography.style(
+                        size: AppTypography.small,
+                        weight: AppTypography.regular,
+                        color: AppColors.textDescription,
+                      ),
+                    ),
+                  for (final review in helper.reviews) ...[
+                    _ReviewCard(review: review),
+                    const SizedBox(height: 12),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        bottomNavigationBar: OrderBottomBar(
+          caption: 'Mulai dari',
+          amount: rupiah(helper.price),
+          button: PrimaryButton(
+            label: 'Pesan Sekarang',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CheckoutPage(helper: helper),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.helper,
+    required this.onChat,
+    required this.onFavorite,
+  });
+
+  final HelperListing helper;
+  final VoidCallback onChat;
+  final VoidCallback onFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.primary,
+      padding: EdgeInsets.fromLTRB(
+        22,
+        MediaQuery.paddingOf(context).top + 24,
+        22,
+        30,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              SquareIconButton.back(context, size: 32),
+              const Spacer(),
+              SquareIconButton(
+                label: 'Chat helper',
+                size: 32,
+                onTap: onChat,
+                child: const OrderIcon(
+                  OrderStyle.iconChat,
+                  size: 16,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              SquareIconButton(
+                label: 'Simpan ke favorit',
+                size: 32,
+                onTap: onFavorite,
+                child: const OrderIcon(
+                  OrderStyle.iconHeart,
+                  size: 15,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              HelperAvatar(name: helper.name, photoUrl: helper.photoUrl, size: 66),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      helper.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.style(
+                        size: 17,
+                        weight: AppTypography.semiBold,
+                        color: AppColors.light,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    HelperStats(
+                      rating: helper.rating,
+                      completedCount: helper.completedCount,
+                      pill: true,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: AppTypography.style(size: 14, weight: AppTypography.semiBold),
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({required this.review});
+
+  final HelperReview review;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
+      decoration: BoxDecoration(
+        color: AppColors.light,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: OrderStyle.shadow, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  review.author,
+                  style: AppTypography.style(
+                    size: 12,
+                    weight: AppTypography.medium,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              Text(
+                review.timeAgo,
+                style: AppTypography.style(
+                  size: 9,
+                  weight: AppTypography.regular,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          StarRow(rating: review.rating.toDouble(), size: 10, gap: 2),
+          const SizedBox(height: 12),
+          Text(
+            review.text,
+            style: AppTypography.style(
+              size: 11,
+              weight: AppTypography.medium,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
