@@ -66,7 +66,9 @@ class ServiceOfferSection extends StatelessWidget {
       height: HomeMetrics.offerCardHeight,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: HomeMetrics.bodyPadding),
+        padding: const EdgeInsets.symmetric(
+          horizontal: HomeMetrics.bodyPadding,
+        ),
         itemCount: items.length,
         separatorBuilder: (_, _) =>
             const SizedBox(width: HomeMetrics.offerCardGap),
@@ -106,11 +108,12 @@ class _OfferCard extends StatelessWidget {
             Container(
               height: HomeMetrics.offerPanelHeight,
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(11, 12, 11, 10),
+              padding: const EdgeInsets.fromLTRB(11, 15, 11, 15),
               decoration: BoxDecoration(
                 color: item.color,
-                borderRadius:
-                    BorderRadius.circular(HomeMetrics.offerPanelRadius),
+                borderRadius: BorderRadius.circular(
+                  HomeMetrics.offerPanelRadius,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +185,7 @@ class _OfferCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 9),
           ],
         ),
       ),

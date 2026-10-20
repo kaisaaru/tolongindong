@@ -53,15 +53,15 @@ class HomeMetrics {
   static const titleToContent = 17.8; // judul seksi -> isinya
 
   // ── Kartu jasa (Jasa tersedia) ────────────────────────────────────────
-  // Diukur dari screenshot desain 554 px = 412 dp (faktor 1,345).
-  static const offerCardWidth = 235.0;
-  static const offerCardHeight = 148.0;
-  static const offerCardGap = 12.0;
+  // Diukur dari frame desain Android Compact (412 dp).
+  static const offerCardWidth = 245.0;
+  static const offerCardHeight = 156.0;
+  static const offerCardGap = 15.0;
   static const offerCardPadding = 5.5;
   static const offerCardRadius = 15.0;
-  static const offerPanelHeight = 93.0;
+  static const offerPanelHeight = 106.0;
   static const offerPanelRadius = 10.0;
-  static const offerTitleSize = 16.0; // SemiBold
+  static const offerTitleSize = 18.0; // SemiBold
   static const offerMetaSize = 10.0; // Regular
   static const offerPriceSize = 12.5;
 

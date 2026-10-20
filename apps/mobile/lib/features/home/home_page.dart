@@ -7,8 +7,12 @@ import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../auth/auth_repository.dart';
+import '../activity/activity_view.dart';
 import '../auth/login_page.dart';
+import '../household/active_order_page.dart';
+import '../household/household_page.dart';
 import '../order/category_helpers_page.dart';
+import '../order/order_store.dart';
 import 'catalog_repository.dart';
 import 'home_assets.dart';
 import 'home_metrics.dart';
@@ -20,14 +24,15 @@ import 'widgets/service_offer_section.dart';
 
 /// Beranda client (FR-PRF-004, FR-HLP-001, FR-NOT-001, FR-WLT-010).
 ///
-/// Tab selain Beranda belum punya isi. Endpoint-nya (`/orders`, `/chats`)
-/// sudah ada di backend, tinggal layarnya dibangun.
+/// Obrolan dan Akun belum punya isi. Endpoint-nya (`/chats`, `/me`) sudah
+/// ada di backend, tinggal layarnya dibangun.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     required this.user,
     this.authRepo,
     this.catalogRepo,
+    this.orderStore,
   });
 
   final AuthUser user;
@@ -35,6 +40,7 @@ class HomePage extends StatefulWidget {
   /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
   final AuthRepository? authRepo;
   final CatalogRepository? catalogRepo;
+  final OrderStore? orderStore;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -43,6 +49,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late final _authRepo = widget.authRepo ?? AuthRepository();
   late final _catalogRepo = widget.catalogRepo ?? CatalogRepository();
+  late final _orderStore = widget.orderStore ?? OrderStore.instance;
 
   late Future<List<ServiceCategory>> _categories = _catalogRepo.categories();
   late AuthUser _user = widget.user;
@@ -64,12 +71,18 @@ class _HomePageState extends State<HomePage> {
   /// pun ditelan — isi header bukan alasan beranda error.
   Future<void> _loadHeader() async {
     await Future.wait([
-      _catalogRepo.primaryAddress().then((address) {
-        if (mounted) setState(() => _address = address);
-      }).catchError((_) {}),
-      _catalogRepo.unreadNotificationCount().then((count) {
-        if (mounted) setState(() => _unreadCount = count);
-      }).catchError((_) {}),
+      _catalogRepo
+          .primaryAddress()
+          .then((address) {
+            if (mounted) setState(() => _address = address);
+          })
+          .catchError((_) {}),
+      _catalogRepo
+          .unreadNotificationCount()
+          .then((count) {
+            if (mounted) setState(() => _unreadCount = count);
+          })
+          .catchError((_) {}),
     ]);
   }
 
@@ -99,12 +112,38 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _soon(String feature) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$feature belum tersedia.')),
-      );
+  void _soon(String feature) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
+
+  void _openCategory(ServiceCategory category) {
+    // Household punya alur sendiri (pilih kebutuhan -> form); kategori lain
+    // masih daftar helper.
+    final page = category.code == 'household'
+        ? HouseholdPage(category: category)
+        : CategoryHelpersPage(category: category);
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
 
   @override
   Widget build(BuildContext context) {
+    final nav = HomeBottomNav(
+      current: _tab,
+      onSelected: (tab) => setState(() => _tab = tab),
+    );
+
+    // Aktifitas tidak memakai header merah: halaman putih penuh.
+    if (_tab == HomeTab.aktifitas) {
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          backgroundColor: AppColors.light,
+          body: ActivityView(store: _orderStore),
+          bottomNavigationBar: nav,
+        ),
+      );
+    }
+
     final sheetTop = HomeHeader.sheetTopOf(context);
 
     // Ikon status bar putih di atas header merah.
@@ -143,12 +182,34 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            // Banner pesanan aktif melayang di atas bilah navigasi.
+            if (_tab == HomeTab.beranda)
+              ListenableBuilder(
+                listenable: _orderStore,
+                builder: (context, _) {
+                  if (_orderStore.active == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: 10,
+                    child: ActiveOrderTile(
+                      title: 'Household',
+                      status: activeStatusLabel(_orderStore),
+                      elevated: true,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => ActiveOrderPage(store: _orderStore),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
           ],
         ),
-        bottomNavigationBar: HomeBottomNav(
-          current: _tab,
-          onSelected: (tab) => setState(() => _tab = tab),
-        ),
+        bottomNavigationBar: nav,
       ),
     );
   }
@@ -176,11 +237,7 @@ class _HomePageState extends State<HomePage> {
               onRetry: () =>
                   setState(() => _categories = _catalogRepo.categories()),
               // Pesanan dimulai dari kategori (tidak ada tombol di nav).
-              onCategoryTap: (category) => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => CategoryHelpersPage(category: category),
-                ),
-              ),
+              onCategoryTap: _openCategory,
               onHelperTap: () => _soon('Cari helper'),
             ),
           ),
@@ -334,7 +391,11 @@ class _SearchBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 18),
+          const Icon(
+            Icons.search_rounded,
+            color: AppColors.textSecondary,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -398,7 +459,10 @@ class _CategorySection extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextButton(onPressed: onRetry, child: const Text('Coba lagi')),
+                  TextButton(
+                    onPressed: onRetry,
+                    child: const Text('Coba lagi'),
+                  ),
                 ],
               ),
             ),
@@ -407,8 +471,11 @@ class _CategorySection extends StatelessWidget {
 
         // Urutan tampil mengikuti desain, bukan urutan id dari server.
         final sorted = [...?snapshot.data]
-          ..sort((a, b) =>
-              HomeAssets.orderOf(a.code).compareTo(HomeAssets.orderOf(b.code)));
+          ..sort(
+            (a, b) => HomeAssets.orderOf(
+              a.code,
+            ).compareTo(HomeAssets.orderOf(b.code)),
+          );
 
         final tiles = [
           for (final category in sorted)

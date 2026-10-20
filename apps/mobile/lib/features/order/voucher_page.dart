@@ -34,41 +34,14 @@ class VoucherPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 28, 22, 0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Kembali',
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Vocher',
-                      style: AppTypography.style(
-                        size: 20,
-                        weight: AppTypography.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
+              const ArrowTitleBar('Vocher'),
+              const SizedBox(height: 18),
               Expanded(
                 child: Container(
                   width: double.infinity,
-                  margin: const EdgeInsets.symmetric(horizontal: 22),
-                  padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
-                  decoration: BoxDecoration(
-                    color: AppColors.light,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(18),
-                    ),
-                    boxShadow: const [
-                      BoxShadow(color: OrderStyle.shadow, blurRadius: 10),
-                    ],
-                  ),
+                  margin: const EdgeInsets.fromLTRB(23, 0, 23, 16),
+                  padding: const EdgeInsets.fromLTRB(24, 19, 24, 0),
+                  decoration: OrderStyle.card(),
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [

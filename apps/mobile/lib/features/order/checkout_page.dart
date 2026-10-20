@@ -5,15 +5,18 @@ import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
+import '../household/household_models.dart';
 import 'order_models.dart';
 import 'order_style.dart';
 import 'order_success_page.dart';
+import 'payment_method_page.dart';
 import 'voucher_page.dart';
 import 'widgets/order_widgets.dart';
 
 /// Ringkasan pesanan sebelum dibuat: voucher, metode pembayaran, rincian.
 ///
 /// Belum mengirim apa pun ke backend. `POST /orders` belum menerima voucher,
+/// metode pembayaran selain TD-Wallet belum ada,
 /// dan alur direct booking di sana meminta quote helper dulu sebelum dana
 /// ditahan — beda dengan desain yang harganya sudah tetap.
 class CheckoutPage extends StatefulWidget {
@@ -26,11 +29,8 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  /// Backend hanya punya TD-Wallet (saldo ditahan sebagai escrow).
-  static const _paymentMethods = ['TD-Wallet'];
-
   Voucher? _voucher;
-  String? _payment;
+  PaymentMethod? _payment;
 
   int get _price => widget.helper.price;
   int get _discount => _voucher?.discountFor(_price) ?? 0;
@@ -44,51 +44,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _pickPayment() async {
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: AppColors.light,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-              child: Text(
-                'Metode Pembayaran',
-                style: AppTypography.style(
-                  size: 15,
-                  weight: AppTypography.semiBold,
-                ),
-              ),
-            ),
-            for (final method in _paymentMethods)
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                leading: const OrderIcon(
-                  OrderStyle.iconPaymentCard,
-                  size: 18,
-                  color: AppColors.textPrimary,
-                ),
-                title: Text(
-                  method,
-                  style: AppTypography.style(
-                    size: AppTypography.small,
-                    weight: AppTypography.medium,
-                  ),
-                ),
-                trailing: method == _payment
-                    ? const Icon(Icons.check_rounded, color: AppColors.primary)
-                    : null,
-                onTap: () => Navigator.of(context).pop(method),
-              ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+    final picked = await Navigator.of(context).push<PaymentMethod>(
+      MaterialPageRoute(builder: (_) => PaymentMethodPage(selected: _payment)),
     );
     if (picked != null && mounted) setState(() => _payment = picked);
   }
@@ -118,90 +75,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
         backgroundColor: AppColors.light,
         body: SafeArea(
           bottom: false,
+          // Jarak diukur dari desain: tiap bagian (judul + pilihan) 87 dp,
+          // baris rincian berjarak 32 dp.
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _ShadowBox(child: SquareIconButton.back(context, size: 32)),
-              ),
-              const SizedBox(height: 22),
-              Row(
-                children: [
-                  HelperAvatar(
-                    name: helper.name,
-                    photoUrl: helper.photoUrl,
-                    size: 68,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          helper.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.style(
-                            size: 17,
-                            weight: AppTypography.semiBold,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: HelperStats(
-                            rating: helper.rating,
-                            completedCount: helper.completedCount,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Divider(height: 1),
-              _OptionRow(
-                title: 'Masukkan vocher',
-                icon: OrderStyle.iconVoucher,
-                value: voucher == null
-                    ? 'Gunakan Vocher'
-                    : '${voucher.title} · ${voucher.description}',
-                onTap: _pickVoucher,
-              ),
-              const Divider(height: 1),
-              _OptionRow(
-                title: 'Metode Pembayaran',
-                icon: OrderStyle.iconPaymentCard,
-                value: _payment ?? 'Pilih metode pembayaran',
-                onTap: _pickPayment,
-              ),
-              const Divider(height: 1),
-              const SizedBox(height: 18),
-              Text(
-                'Rincian Pembayaran',
-                style: AppTypography.style(
-                  size: 14,
-                  weight: AppTypography.semiBold,
-                ),
-              ),
-              const SizedBox(height: 18),
-              _PriceRow(label: 'Jasa', value: rupiah(_price, spaced: false)),
-              if (_discount > 0) ...[
-                const SizedBox(height: 12),
-                _PriceRow(
-                  label: 'Vocher',
-                  value: rupiah(-_discount, spaced: false),
-                  valueColor: AppColors.primary,
-                ),
-              ],
-              const SizedBox(height: 12),
-              _PriceRow(
-                label: 'Total',
-                value: rupiah(_total, spaced: false),
-                bold: true,
+              const SquareTitleBar(null, shadow: true),
+              const SizedBox(height: 21),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: _content(helper, voucher),
               ),
             ],
           ),
@@ -214,24 +97,86 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
     );
   }
-}
 
-/// Tombol kembali di halaman putih diberi bayangan tipis supaya terlihat.
-class _ShadowBox extends StatelessWidget {
-  const _ShadowBox({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: const [
-          BoxShadow(color: OrderStyle.shadow, blurRadius: 6, offset: Offset(0, 1)),
+  Widget _content(HelperListing helper, Voucher? voucher) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            HelperAvatar(
+              name: helper.name,
+              photoUrl: helper.photoUrl,
+              size: 68,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    helper.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.style(
+                      size: 18,
+                      weight: AppTypography.semiBold,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: HelperStats(
+                      rating: helper.rating,
+                      completedCount: helper.completedCount,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 34),
+        const Divider(height: 1),
+        _OptionRow(
+          title: 'Masukkan vocher',
+          icon: OrderStyle.iconVoucher,
+          value: voucher == null
+              ? 'Gunakan Vocher'
+              : '${voucher.title} · ${voucher.description}',
+          onTap: _pickVoucher,
+        ),
+        const Divider(height: 1),
+        _OptionRow(
+          title: 'Metode Pembayaran',
+          icon: OrderStyle.iconPaymentCard,
+          value: _payment?.name ?? 'Pilih metode pembayaran',
+          onTap: _pickPayment,
+        ),
+        const Divider(height: 1),
+        const SizedBox(height: 21),
+        Text(
+          'Rincian Pembayaran',
+          style: AppTypography.style(size: 14, weight: AppTypography.semiBold),
+        ),
+        const SizedBox(height: 26),
+        _PriceRow(label: 'Jasa', value: rupiah(_price, spaced: false)),
+        if (_discount > 0) ...[
+          const SizedBox(height: 20),
+          _PriceRow(
+            label: 'Vocher',
+            value: rupiah(-_discount, spaced: false),
+            valueColor: AppColors.primary,
+          ),
         ],
-      ),
-      child: child,
+        const SizedBox(height: 20),
+        _PriceRow(
+          label: 'Total',
+          value: rupiah(_total, spaced: false),
+          bold: true,
+        ),
+      ],
     );
   }
 }
@@ -254,7 +199,7 @@ class _OptionRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
+        padding: const EdgeInsets.symmetric(vertical: 20),
         child: Row(
           children: [
             Expanded(
@@ -268,7 +213,7 @@ class _OptionRow extends StatelessWidget {
                       weight: AppTypography.semiBold,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 19),
                   Row(
                     children: [
                       OrderIcon(icon, size: 14, color: AppColors.textPrimary),
@@ -322,12 +267,16 @@ class _PriceRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: AppTypography.style(size: 11, weight: weight),
+            style: AppTypography.style(size: 12, weight: weight),
           ),
         ),
         Text(
           value,
-          style: AppTypography.style(size: 11, weight: weight, color: valueColor),
+          style: AppTypography.style(
+            size: 12,
+            weight: weight,
+            color: valueColor,
+          ),
         ),
       ],
     );

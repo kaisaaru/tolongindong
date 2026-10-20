@@ -1,0 +1,219 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import '../household/household_models.dart';
+import 'order_models.dart';
+
+enum ActiveStatus {
+  /// Helper menuju lokasi. Selama [OrderStore.cancelWindow] pertama,
+  /// pesanan masih bisa dibatalkan.
+  onTheWay,
+
+  /// Helper sedang bekerja; durasi berjalan mundur.
+  working,
+
+  /// Durasi habis, tinggal memberi rating.
+  finished,
+}
+
+/// Pesanan yang sedang berjalan.
+class ActiveOrder {
+  ActiveOrder({
+    required this.draft,
+    required this.payment,
+    required this.placedAt,
+    this.voucher,
+  });
+
+  final HouseholdOrderDraft draft;
+  final PaymentMethod payment;
+  final Voucher? voucher;
+
+  /// Waktu "dunia pesanan" saat dibuat. Lihat [OrderStore.now].
+  final DateTime placedAt;
+
+  final List<int> extraHours = [];
+
+  PriceBreakdown get price => PriceBreakdown(
+    hourlyRate: draft.helper.hourlyRate,
+    baseHours: draft.hours,
+    extraHours: List.unmodifiable(extraHours),
+    voucher: voucher,
+  );
+
+  int get totalHours => extraHours.fold(draft.hours, (sum, h) => sum + h);
+
+  /// Pesanan "Sekarang" dianggap tiba 30 menit setelah dibuat; pesanan
+  /// terjadwal tiba di awal slotnya.
+  DateTime get arriveAt =>
+      draft.slot?.start ?? placedAt.add(OrderStore.travelTime);
+
+  DateTime get finishAt => arriveAt.add(Duration(hours: totalHours));
+
+  DateTime get cancelDeadline => placedAt.add(OrderStore.cancelWindow);
+}
+
+enum HistoryOutcome { completed, cancelled }
+
+class OrderRecord {
+  const OrderRecord({
+    required this.service,
+    required this.date,
+    required this.total,
+    required this.outcome,
+    this.rating,
+  });
+
+  final HouseholdService service;
+  final DateTime date;
+  final int total;
+  final HistoryOutcome outcome;
+  final int? rating;
+
+  String get title => 'Household - ${service.label}';
+}
+
+/// Satu-satunya sumber pesanan aktif dan riwayat, dipakai bersama beranda,
+/// tab Aktifitas, dan halaman pesanan.
+///
+/// SIMULASI: backend belum dipakai. Status dihitung dari jam, dan jam
+/// "dunia pesanan" berjalan [speed] kali lebih cepat supaya alurnya bisa
+/// dicoba tanpa menunggu berjam-jam (1 detik = 1 menit). Saat disambung ke
+/// backend, ganti dengan polling `GET /orders/{id}` dan baca `order.status`.
+class OrderStore extends ChangeNotifier {
+  OrderStore({this.speed = 60, DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
+
+  static final instance = OrderStore();
+
+  static const travelTime = Duration(minutes: 30);
+  static const cancelWindow = Duration(minutes: 10);
+
+  final int speed;
+  final DateTime Function() _clock;
+
+  /// Pasangan titik acuan jam nyata dan jam dunia pesanan.
+  DateTime? _realAnchor;
+  DateTime? _worldAnchor;
+  Timer? _ticker;
+
+  ActiveOrder? _active;
+  final List<OrderRecord> _history = [];
+
+  ActiveOrder? get active => _active;
+  List<OrderRecord> get history => List.unmodifiable(_history.reversed);
+
+  /// Jam dunia pesanan. Tanpa pesanan aktif, sama dengan jam nyata.
+  DateTime get now {
+    final real = _clock();
+    final realAnchor = _realAnchor;
+    final worldAnchor = _worldAnchor;
+    if (realAnchor == null || worldAnchor == null) return real;
+    return worldAnchor.add(real.difference(realAnchor) * speed);
+  }
+
+  ActiveStatus? get status {
+    final order = _active;
+    if (order == null) return null;
+    final t = now;
+    if (t.isBefore(order.arriveAt)) return ActiveStatus.onTheWay;
+    if (t.isBefore(order.finishAt)) return ActiveStatus.working;
+    return ActiveStatus.finished;
+  }
+
+  bool get canCancel {
+    final order = _active;
+    return order != null && now.isBefore(order.cancelDeadline);
+  }
+
+  /// Sisa durasi kerja; nol kalau belum mulai atau sudah selesai.
+  Duration get remaining {
+    final order = _active;
+    if (order == null || status != ActiveStatus.working) return Duration.zero;
+    return order.finishAt.difference(now);
+  }
+
+  /// Hanya satu pesanan aktif dalam satu waktu.
+  void place({
+    required HouseholdOrderDraft draft,
+    required PaymentMethod payment,
+    Voucher? voucher,
+  }) {
+    assert(_active == null, 'Masih ada pesanan aktif.');
+    final real = _clock();
+    _realAnchor = real;
+    _worldAnchor = real;
+    _active = ActiveOrder(
+      draft: draft,
+      payment: payment,
+      voucher: voucher,
+      placedAt: real,
+    );
+    _startTicker();
+    notifyListeners();
+  }
+
+  void cancel() {
+    final order = _active;
+    if (order == null) return;
+    _archive(order, HistoryOutcome.cancelled);
+  }
+
+  void addHours(int hours) {
+    final order = _active;
+    if (order == null) return;
+    order.extraHours.add(hours);
+    notifyListeners();
+  }
+
+  /// Menutup pesanan yang sudah selesai, dengan atau tanpa rating.
+  void complete({int? rating}) {
+    final order = _active;
+    if (order == null) return;
+    _archive(order, HistoryOutcome.completed, rating: rating);
+  }
+
+  void _archive(ActiveOrder order, HistoryOutcome outcome, {int? rating}) {
+    _history.add(
+      OrderRecord(
+        service: order.draft.service,
+        date: order.placedAt,
+        total: order.price.total,
+        outcome: outcome,
+        rating: rating,
+      ),
+    );
+    _active = null;
+    _realAnchor = null;
+    _worldAnchor = null;
+    _ticker?.cancel();
+    _ticker = null;
+    notifyListeners();
+  }
+
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      notifyListeners();
+    });
+  }
+
+  /// Untuk pengujian.
+  @visibleForTesting
+  void reset() {
+    _ticker?.cancel();
+    _ticker = null;
+    _active = null;
+    _realAnchor = null;
+    _worldAnchor = null;
+    _history.clear();
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+}

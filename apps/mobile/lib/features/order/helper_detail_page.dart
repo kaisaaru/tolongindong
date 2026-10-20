@@ -16,10 +16,9 @@ class HelperDetailPage extends StatelessWidget {
 
   final HelperListing helper;
 
-  void _soon(BuildContext context, String feature) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$feature belum tersedia.')),
-      );
+  void _soon(BuildContext context, String feature) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
 
   @override
   Widget build(BuildContext context) {
@@ -37,24 +36,26 @@ class HelperDetailPage extends StatelessWidget {
               onChat: () => _soon(context, 'Obrolan'),
               onFavorite: () => _soon(context, 'Favorit'),
             ),
+            // Ukuran dari desain: margin 16 dp, teks Tentang 14 dp dengan
+            // jarak baris 24 dp, kartu review berjarak 14 dp.
             Padding(
-              padding: const EdgeInsets.fromLTRB(26, 24, 26, 24),
+              padding: const EdgeInsets.fromLTRB(16, 25, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _SectionTitle('Tentang'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 15),
                   Text(
                     helper.about,
                     style: AppTypography.style(
-                      size: 13,
+                      size: 14,
                       weight: AppTypography.regular,
-                      height: 1.6,
+                      height: 24 / 14,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 19),
                   const _SectionTitle('Jasa'),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 13),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -62,9 +63,9 @@ class HelperDetailPage extends StatelessWidget {
                       for (final tag in helper.tags) TagChip.skill(tag),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
                   const _SectionTitle('Review'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   if (helper.reviews.isEmpty)
                     Text(
                       'Belum ada review.',
@@ -76,7 +77,7 @@ class HelperDetailPage extends StatelessWidget {
                     ),
                   for (final review in helper.reviews) ...[
                     _ReviewCard(review: review),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                   ],
                 ],
               ),
@@ -115,21 +116,23 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.primary,
+      // Dari desain: pusat tombol 24 dp di bawah status bar, avatar 69 dp
+      // berpusat 100 dp di bawahnya, header berakhir 165 dp di bawahnya.
       padding: EdgeInsets.fromLTRB(
-        22,
-        MediaQuery.paddingOf(context).top + 24,
-        22,
+        16,
+        MediaQuery.paddingOf(context).top + 24 - OrderStyle.backSize / 2,
+        16,
         30,
       ),
       child: Column(
         children: [
           Row(
             children: [
-              SquareIconButton.back(context, size: 32),
+              SquareIconButton.back(context, size: OrderStyle.backSize),
               const Spacer(),
               SquareIconButton(
                 label: 'Chat helper',
-                size: 32,
+                size: OrderStyle.backSize,
                 onTap: onChat,
                 child: const OrderIcon(
                   OrderStyle.iconChat,
@@ -140,7 +143,7 @@ class _Header extends StatelessWidget {
               const SizedBox(width: 14),
               SquareIconButton(
                 label: 'Simpan ke favorit',
-                size: 32,
+                size: OrderStyle.backSize,
                 onTap: onFavorite,
                 child: const OrderIcon(
                   OrderStyle.iconHeart,
@@ -150,10 +153,14 @@ class _Header extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 24),
           Row(
             children: [
-              HelperAvatar(name: helper.name, photoUrl: helper.photoUrl, size: 66),
+              HelperAvatar(
+                name: helper.name,
+                photoUrl: helper.photoUrl,
+                size: 69,
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -164,7 +171,7 @@ class _Header extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.style(
-                        size: 17,
+                        size: 18,
                         weight: AppTypography.semiBold,
                         color: AppColors.light,
                         height: 1.4,
@@ -210,14 +217,8 @@ class _ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
-      decoration: BoxDecoration(
-        color: AppColors.light,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: OrderStyle.shadow, blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
+      decoration: OrderStyle.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -249,9 +250,9 @@ class _ReviewCard extends StatelessWidget {
           Text(
             review.text,
             style: AppTypography.style(
-              size: 11,
+              size: 13,
               weight: AppTypography.medium,
-              height: 1.6,
+              height: 1.3,
             ),
           ),
         ],

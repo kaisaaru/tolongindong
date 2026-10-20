@@ -105,8 +105,9 @@ void main() {
   });
 
   testWidgets('checkout menolak pesan tanpa metode pembayaran', (tester) async {
-    final helper = OrderSamples.listingsFor('personal')
-        .firstWhere((h) => h.price == 40000);
+    final helper = OrderSamples.listingsFor(
+      'personal',
+    ).firstWhere((h) => h.price == 40000);
     await pumpPage(tester, CheckoutPage(helper: helper));
     await tester.pumpAndSettle();
 

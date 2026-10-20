@@ -48,8 +48,115 @@ class SquareIconButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-          child: SizedBox.square(dimension: size, child: Center(child: child)),
+          child: SizedBox.square(
+            dimension: size,
+            child: Center(child: child),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// Baris judul halaman putih: panah kembali lalu judul tebal. Pusat panah
+/// [OrderStyle.backCenter] di bawah status bar, sama seperti tombol kotak di
+/// halaman lain. Dipasang di dalam SafeArea.
+class ArrowTitleBar extends StatelessWidget {
+  const ArrowTitleBar(this.title, {super.key, this.leading});
+
+  final String title;
+
+  /// Pengganti judul teks, misal kolom pencarian alamat.
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      // IconButton setinggi 48, jadi pusatnya 24 dari tepi atasnya.
+      padding: const EdgeInsets.fromLTRB(8, OrderStyle.backCenter - 24, 22, 0),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Kembali',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child:
+                leading ??
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.style(
+                    size: 20,
+                    weight: AppTypography.bold,
+                  ),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Baris judul dengan tombol kotak putih: dipakai halaman berlatar pink
+/// (Personal, Daftar Helper) dan Checkout. Dipasang di dalam SafeArea.
+class SquareTitleBar extends StatelessWidget {
+  const SquareTitleBar(this.title, {super.key, this.shadow = false});
+
+  /// Null berarti hanya tombol kembali (Checkout).
+  final String? title;
+
+  /// Bayangan tipis untuk tombol di atas latar putih.
+  final bool shadow;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = SquareIconButton.back(context, size: OrderStyle.backSize);
+    final text = title;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        22,
+        OrderStyle.backCenter - OrderStyle.backSize / 2,
+        22,
+        0,
+      ),
+      child: Row(
+        children: [
+          if (shadow)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(
+                    color: OrderStyle.shadow,
+                    blurRadius: 6,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: button,
+            )
+          else
+            button,
+          if (text != null) ...[
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.style(
+                  size: OrderStyle.pageTitleSize,
+                  weight: AppTypography.semiBold,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -137,7 +244,12 @@ class _Initial extends StatelessWidget {
 
 /// Deretan lima bintang merah. Bintang di atas [rating] dibuat pudar.
 class StarRow extends StatelessWidget {
-  const StarRow({super.key, required this.rating, this.size = 16, this.gap = 3});
+  const StarRow({
+    super.key,
+    required this.rating,
+    this.size = 16,
+    this.gap = 3,
+  });
 
   final double rating;
   final double size;
@@ -174,10 +286,10 @@ class TagChip extends StatelessWidget {
 
   /// Versi besar untuk bagian "Jasa" di halaman detail.
   const TagChip.skill(this.label, {super.key})
-      : background = OrderStyle.skillBackground,
-        foreground = AppColors.light,
-        fontSize = 13,
-        padding = const EdgeInsets.symmetric(horizontal: 10, vertical: 3);
+    : background = OrderStyle.skillBackground,
+      foreground = AppColors.light,
+      fontSize = 13,
+      padding = const EdgeInsets.symmetric(horizontal: 10, vertical: 3);
 
   final String label;
   final Color background;
@@ -231,7 +343,11 @@ class HelperStats extends StatelessWidget {
     Widget item(Widget icon, String text) {
       final content = Row(
         mainAxisSize: MainAxisSize.min,
-        children: [icon, const SizedBox(width: 6), Text(text, style: style)],
+        children: [
+          icon,
+          const SizedBox(width: 6),
+          Text(text, style: style),
+        ],
       );
       if (!pill) return content;
       return Container(
@@ -272,11 +388,15 @@ class OrderBottomBar extends StatelessWidget {
     required this.caption,
     required this.amount,
     required this.button,
+    this.enabled = true,
   });
 
   final String caption;
   final String amount;
   final Widget button;
+
+  /// False saat form belum lengkap: teks total ikut pudar seperti desain.
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -301,14 +421,20 @@ class OrderBottomBar extends StatelessWidget {
                       style: AppTypography.style(
                         size: AppTypography.small,
                         weight: AppTypography.regular,
+                        color: enabled
+                            ? AppColors.textPrimary
+                            : AppColors.disabled,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       amount,
                       style: AppTypography.style(
-                        size: 19,
+                        size: 20,
                         weight: AppTypography.bold,
+                        color: enabled
+                            ? AppColors.textPrimary
+                            : AppColors.disabled,
                       ),
                     ),
                   ],

@@ -23,7 +23,8 @@ class OrderSamples {
     author: 'Jarwo',
     timeAgo: '4h lalu',
     rating: 5,
-    text: 'Harganya terjangkau untuk mahasiswa, kerjanya teliti per nomor, '
+    text:
+        'Harganya terjangkau untuk mahasiswa, kerjanya teliti per nomor, '
         'dan nggak asal ngasih jawaban. Bakal repeat order lagi buat tugas '
         'minggu depan.',
   );
@@ -86,6 +87,8 @@ class OrderSamples {
   static List<HelperListing> listingsFor(String categoryCode) =>
       _listings[categoryCode] ?? const [];
 
+  /// Desain Household: 20% dari Rp40.000 = -Rp8.000, jadi batasnya di atas
+  /// itu. (Desain checkout Personal menulis -Rp2.000; dianggap salah ketik.)
   static const vouchers = [
     Voucher(
       id: 'voucher-1',
@@ -93,7 +96,7 @@ class OrderSamples {
       description: 'Diskon untuk pengguna baru',
       validUntil: '07-11-2026',
       percent: 20,
-      maxDiscount: 2000,
+      maxDiscount: 10000,
     ),
     Voucher(
       id: 'voucher-2',
@@ -101,7 +104,7 @@ class OrderSamples {
       description: 'Diskon untuk pengguna baru',
       validUntil: '07-12-2026',
       percent: 20,
-      maxDiscount: 2000,
+      maxDiscount: 10000,
     ),
   ];
 }

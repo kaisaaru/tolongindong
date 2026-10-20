@@ -66,34 +66,17 @@ class _CategoryHelpersPageState extends State<CategoryHelpersPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Jarak diukur dari desain: search 15 dp di bawah judul, chip
+              // 20 dp di bawah search, kartu 26 dp di bawah chip.
+              SquareTitleBar(widget.category.name),
+              const SizedBox(height: 15),
               Padding(
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 0),
-                child: Row(
-                  children: [
-                    SquareIconButton.back(context),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Text(
-                        widget.category.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.style(
-                          size: 26,
-                          weight: AppTypography.semiBold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 35),
                 child: _SearchField(
                   onChanged: (value) => setState(() => _query = value),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 15),
               if (_filters.length > 1)
                 _FilterChips(
                   filters: _filters,
@@ -102,12 +85,14 @@ class _CategoryHelpersPageState extends State<CategoryHelpersPage> {
                 ),
               Expanded(
                 child: visible.isEmpty
-                    ? _EmptyState(hasFilter: _query.isNotEmpty || _selected != _all)
+                    ? _EmptyState(
+                        hasFilter: _query.isNotEmpty || _selected != _all,
+                      )
                     : ListView.separated(
                         padding: EdgeInsets.fromLTRB(
-                          30,
-                          20,
-                          30,
+                          22,
+                          21,
+                          22,
                           24 + MediaQuery.paddingOf(context).bottom,
                         ),
                         itemCount: visible.length,
@@ -147,7 +132,7 @@ class _SearchField extends StatelessWidget {
     );
 
     return Container(
-      height: 40,
+      height: 37,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: AppColors.light,
@@ -156,7 +141,11 @@ class _SearchField extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
+          const Icon(
+            Icons.search_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: TextField(
@@ -190,11 +179,11 @@ class _FilterChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      // Ruang ekstra untuk bayangan chip aktif.
-      height: 46,
+      // Chip setinggi 27 dp, ditambah ruang 5 dp untuk bayangan chip aktif.
+      height: 37,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 5),
         itemCount: filters.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
@@ -261,7 +250,7 @@ class _HelperCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 22, 16, 22),
           child: Row(
             children: [
-              HelperAvatar(name: item.name, photoUrl: item.photoUrl),
+              HelperAvatar(name: item.name, photoUrl: item.photoUrl, size: 68),
               const SizedBox(width: 18),
               Expanded(
                 child: Column(
