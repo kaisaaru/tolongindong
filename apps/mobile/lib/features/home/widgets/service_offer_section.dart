@@ -118,17 +118,21 @@ class _OfferCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.style(
-                      size: HomeMetrics.offerTitleSize,
-                      weight: AppTypography.semiBold,
-                      height: 1.35,
+                  // Judul mengisi sisa panel di atas baris nama helper. Panel
+                  // setinggi tetap, jadi saat font HP diperbesar judul yang
+                  // menyesuaikan, bukan panelnya yang meluap.
+                  Expanded(
+                    child: Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.style(
+                        size: HomeMetrics.offerTitleSize,
+                        weight: AppTypography.semiBold,
+                        height: 1.35,
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   Row(
                     children: [
                       Flexible(

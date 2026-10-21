@@ -66,16 +66,20 @@ class HomeHeader extends StatelessWidget {
               ),
               child: Align(
                 alignment: Alignment.topCenter,
-                child: SizedBox(
-                  height: HomeMetrics.avatarSize,
+                // Setinggi avatar seperti desain, tapi boleh tumbuh saat
+                // ukuran font HP diperbesar supaya sapaan tidak terpotong.
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: HomeMetrics.avatarSize,
+                  ),
                   child: Row(
                     children: [
                       _Avatar(photoUrl: user.photoUrl, name: user.fullName),
                       const SizedBox(width: HomeMetrics.avatarTextGap),
                       Expanded(
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               'Hallo, ${_firstName(user.fullName)}',

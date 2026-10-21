@@ -43,6 +43,10 @@ class CategoryTile {
 ///
 /// Ubin berukuran tetap 69 dp dengan jarak tetap, bukan dibagi rata ke lebar
 /// layar — di desain ukurannya memang tidak berubah mengikuti lebar.
+///
+/// Baris selebar 337,5 dp ini muat di frame desain (412 dp), tapi tidak di
+/// layar 360 dp. Di layar sesempit itu seluruh baris diperkecil utuh supaya
+/// proporsi ubin, jarak, dan label tetap sama dengan desain.
 class CategoryGrid extends StatelessWidget {
   const CategoryGrid({super.key, required this.tiles});
 
@@ -55,14 +59,23 @@ class CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < tiles.length; i++) ...[
-          if (i > 0) const SizedBox(width: HomeMetrics.tileGap),
-          _Tile(tile: tiles[i]),
-        ],
-      ],
+    // Sisi kanan diberi jarak yang sama dengan padding kiri beranda.
+    return Padding(
+      padding: const EdgeInsets.only(right: HomeMetrics.bodyPadding),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: HomeMetrics.tileGap),
+              _Tile(tile: tiles[i]),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

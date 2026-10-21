@@ -612,31 +612,35 @@ class _StarPickerState extends State<_StarPicker> {
   @override
   Widget build(BuildContext context) {
     // Bintang 39 dp berjarak 8 dp, memakai aset bintang yang sama dengan
-    // komponen "Rating / Bintang" di desain.
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 1; i <= 5; i++)
-          Semantics(
-            button: true,
-            label: 'Beri $i bintang',
-            excludeSemantics: true,
-            child: GestureDetector(
-              onTap: _value == 0 ? () => _pick(i) : null,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: OrderIcon(
-                  OrderStyle.iconStar,
-                  size: 39,
-                  color: i <= _value
-                      ? AppColors.primary
-                      : const Color(0xFFD9D9D9),
+    // komponen "Rating / Bintang" di desain. Di layar 320 dp kartu lebih
+    // sempit dari 235 dp, jadi deretan bintang diperkecil utuh.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 1; i <= 5; i++)
+            Semantics(
+              button: true,
+              label: 'Beri $i bintang',
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: _value == 0 ? () => _pick(i) : null,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: OrderIcon(
+                    OrderStyle.iconStar,
+                    size: 39,
+                    color: i <= _value
+                        ? AppColors.primary
+                        : const Color(0xFFD9D9D9),
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

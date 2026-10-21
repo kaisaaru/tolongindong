@@ -60,6 +60,10 @@ class _HomePageState extends State<HomePage> {
 
   HomeTab _tab = HomeTab.beranda;
 
+  /// Jarak banner dari bawah (10) + tinggi banner (±51), dilebihkan sedikit
+  /// untuk font HP yang diperbesar.
+  static const _bannerClearance = 80.0;
+
   @override
   void initState() {
     super.initState();
@@ -257,6 +261,15 @@ class _HomePageState extends State<HomePage> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: HomeMetrics.bodyPadding),
             child: _ComingSoonCard('Info dan tips TolongDong segera hadir.'),
+          ),
+          // Banner pesanan aktif melayang di atas akhir daftar. Tanpa ruang
+          // ini, isi paling bawah tertutup banner walau sudah digulir mentok.
+          // Hanya bagian ini yang dibangun ulang tiap detik oleh store.
+          ListenableBuilder(
+            listenable: _orderStore,
+            builder: (context, _) => SizedBox(
+              height: _orderStore.active == null ? 0 : _bannerClearance,
+            ),
           ),
         ],
       ),

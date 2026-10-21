@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/models/service_category.dart';
+import 'package:mobile/theme/app_theme.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_catalog_repository.dart';
@@ -75,6 +77,34 @@ void main() {
     await _pumpHome(tester, FakeCatalogRepository());
 
     expect(find.text('Atur alamat'), findsOneWidget);
+  });
+
+  testWidgets('baris kategori tidak meluap di layar 360 dp', (tester) async {
+    // Overflow apa pun membuat test gagal. Baris kategori selebar desain
+    // (412 dp) dulu meluap 13 dp di layar 360 dp.
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: HomePage(
+          user: _user,
+          authRepo: FakeAuthRepository(),
+          catalogRepo: FakeCatalogRepository(
+            result: [
+              _category(1, 'personal', 'Personal'),
+              _category(2, 'delivery', 'Delivery'),
+              _category(3, 'household', 'Household'),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final helper = tester.getRect(find.text('Helper'));
+    expect(helper.center.dx, lessThan(360 - 35));
   });
 
   testWidgets('nav berisi empat tab desain baru', (tester) async {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -398,6 +400,11 @@ class OrderBottomBar extends StatelessWidget {
   /// False saat form belum lengkap: teks total ikut pudar seperti desain.
   final bool enabled;
 
+  static const _buttonWidth = 210.0;
+
+  /// Lebar isi bilah di frame desain: 412 dikurangi padding 24 + 22.
+  static const _designContentWidth = 366.0;
+
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
@@ -409,39 +416,58 @@ class OrderBottomBar extends StatelessWidget {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 18, 22, 18),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      caption,
-                      style: AppTypography.style(
-                        size: AppTypography.small,
-                        weight: AppTypography.regular,
-                        color: enabled
-                            ? AppColors.textPrimary
-                            : AppColors.disabled,
-                      ),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // Di desain (412 dp) tombol 210 dari 366 dp lebar isi. Di layar
+              // lebih sempit tombol menyusut dengan rasio yang sama, supaya
+              // harga seperti "Rp 200.000" tetap satu baris.
+              final buttonWidth = math.min(
+                _buttonWidth,
+                box.maxWidth * _buttonWidth / _designContentWidth,
+              );
+
+              return Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          caption,
+                          style: AppTypography.style(
+                            size: AppTypography.small,
+                            weight: AppTypography.regular,
+                            color: enabled
+                                ? AppColors.textPrimary
+                                : AppColors.disabled,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Tetap satu baris; kalau masih kepanjangan (font HP
+                        // diperbesar), teks mengecil alih-alih turun baris.
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            amount,
+                            maxLines: 1,
+                            style: AppTypography.style(
+                              size: 20,
+                              weight: AppTypography.bold,
+                              color: enabled
+                                  ? AppColors.textPrimary
+                                  : AppColors.disabled,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      amount,
-                      style: AppTypography.style(
-                        size: 20,
-                        weight: AppTypography.bold,
-                        color: enabled
-                            ? AppColors.textPrimary
-                            : AppColors.disabled,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 210, child: button),
-            ],
+                  ),
+                  SizedBox(width: buttonWidth, child: button),
+                ],
+              );
+            },
           ),
         ),
       ),

@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Wajib untuk build release: tanpa ini semua panggilan API gagal.
+         Manifest debug/profile sudah punya sendiri, release belum. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="mobile"
         android:name="${applicationName}"

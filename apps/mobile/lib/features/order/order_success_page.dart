@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,6 +58,15 @@ class _OrderSuccessPageState extends State<OrderSuccessPage> {
               final artTop = h * 0.12;
               final artHeight = w * 1509 / 1236;
 
+              // Di layar pendek (360x640) atau font HP besar, judul bisa
+              // melewati tepi bawah. Ruangnya dibatasi sampai atas bilah
+              // sistem dan judul mengecil kalau tidak muat.
+              final textTop = artTop + artHeight + h * 0.04;
+              final textRoom = math.max(
+                0.0,
+                h - MediaQuery.paddingOf(context).bottom - 16 - textTop,
+              );
+
               return Stack(
                 fit: StackFit.expand,
                 children: [
@@ -91,17 +101,22 @@ class _OrderSuccessPageState extends State<OrderSuccessPage> {
                     ),
                   ),
                   Positioned(
-                    top: artTop + artHeight + h * 0.04,
+                    top: textTop,
                     left: 24,
                     right: 24,
-                    child: Text(
-                      'Pesanan Berhasil\nDibuat',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.style(
-                        size: 32,
-                        weight: AppTypography.bold,
-                        color: AppColors.light,
-                        height: 1.4,
+                    height: textRoom,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topCenter,
+                      child: Text(
+                        'Pesanan Berhasil\nDibuat',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.style(
+                          size: 32,
+                          weight: AppTypography.bold,
+                          color: AppColors.light,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   ),
