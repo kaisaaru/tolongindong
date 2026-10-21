@@ -6,8 +6,11 @@ import 'package:mobile/features/household/hourly_helper_list_page.dart';
 import 'package:mobile/features/household/house_order_form_page.dart';
 import 'package:mobile/features/household/household_models.dart';
 import 'package:mobile/features/household/household_samples.dart';
+import 'package:mobile/features/household/order_review_page.dart';
 import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
+import 'package:mobile/features/order/order_success_page.dart';
+import 'package:mobile/features/order/payment_method_page.dart';
 import 'package:mobile/models/service_category.dart';
 
 import '../../helpers/pump_page.dart';
@@ -273,6 +276,79 @@ void main() {
     expect(find.text('Dibatalkan'), findsOneWidget);
 
     // Hentikan ticker store sebelum test selesai.
+    store.reset();
+  });
+
+  testWidgets('Pesan tanpa metode pembayaran: konfirmasi, pilih bayar, '
+      'berhasil, lalu pesanan aktif', (tester) async {
+    final clock = _Clock();
+    final store = OrderStore(clock: () => clock.real);
+    addTearDown(store.dispose);
+
+    await pumpPage(tester, OrderReviewPage(draft: _draft(), store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Pesan'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Apakah kamu sudah yakin\ndengan pesananmu?'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Sudah'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PaymentMethodPage), findsOneWidget);
+
+    await tester.tap(find.text('BCA').last); // .first = teks logo
+    await tester.pumpAndSettle();
+    expect(find.byType(OrderSuccessPage), findsOneWidget);
+    expect(store.active?.payment.name, 'BCA');
+
+    await tester.pump(OrderSuccessPage.duration);
+    // Bar "Batal" beranimasi tiap frame, jadi tidak pernah "settle".
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(ActiveOrderPage), findsOneWidget);
+    expect(find.byType(OrderSuccessPage), findsNothing);
+
+    // Hentikan ticker store sebelum test selesai.
+    store.reset();
+  });
+
+  testWidgets('Pesan: Kembali di dialog tidak membuat pesanan', (tester) async {
+    final store = OrderStore();
+    addTearDown(store.dispose);
+
+    await pumpPage(tester, OrderReviewPage(draft: _draft(), store: store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Pesan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kembali'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OrderReviewPage), findsOneWidget);
+    expect(store.active, isNull);
+  });
+
+  testWidgets('Pesan saat masih ada pesanan berjalan: tanpa dialog', (
+    tester,
+  ) async {
+    final clock = _Clock();
+    final store = OrderStore(clock: () => clock.real);
+    addTearDown(store.dispose);
+    store.place(
+      draft: _draft(),
+      payment: HouseholdSamples.paymentMethods.first,
+    );
+
+    await pumpPage(tester, OrderReviewPage(draft: _draft(), store: store));
+    await tester.pump();
+
+    await tester.tap(find.text('Pesan'));
+    await tester.pump();
+    expect(find.textContaining('Masih ada pesanan yang berjalan'), findsOne);
+    expect(find.text('Sudah'), findsNothing);
+
     store.reset();
   });
 }

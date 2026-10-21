@@ -8,10 +8,13 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import 'order_style.dart';
 
-/// Konfirmasi pesanan berhasil dibuat. Kembali ke beranda otomatis setelah
-/// [duration], atau lebih cepat kalau layar diketuk.
+/// Konfirmasi pesanan berhasil dibuat. Tertutup otomatis setelah
+/// [duration], atau lebih cepat kalau layar diketuk: kembali ke beranda,
+/// atau diganti halaman [next] (Household: pesanan aktif).
 class OrderSuccessPage extends StatefulWidget {
-  const OrderSuccessPage({super.key});
+  const OrderSuccessPage({super.key, this.next});
+
+  final WidgetBuilder? next;
 
   static const duration = Duration(seconds: 3);
 
@@ -37,7 +40,12 @@ class _OrderSuccessPageState extends State<OrderSuccessPage> {
   void _close() {
     if (!mounted) return;
     _timer.cancel();
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    final next = widget.next;
+    if (next == null) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } else {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: next));
+    }
   }
 
   @override

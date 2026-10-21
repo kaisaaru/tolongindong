@@ -63,6 +63,12 @@ class OrderStyle {
   static const ringLeft = 'assets/images/order/ring_left.svg';
   static const ringRight = 'assets/images/order/ring_right.svg';
 
+  /// Ilustrasi dialog "Apakah kamu sudah yakin dengan pesananmu?".
+  /// SEMENTARA: dipotong dari screenshot Frame 407 (180 px, agak buram di
+  /// layar 3x). Timpa file ini dengan export PNG @3x dari Figma.
+  static const confirmIllustration =
+      'assets/images/order/confirm_illustration.png';
+
   static const successIllustration =
       'assets/images/order/success_illustration.png';
   static const successBackground = 'assets/images/order/success_background.png';

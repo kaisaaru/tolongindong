@@ -8,6 +8,7 @@ import '../../widgets/primary_button.dart';
 import '../order/order_models.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
+import '../order/order_success_page.dart';
 import '../order/payment_method_page.dart';
 import '../order/voucher_page.dart';
 import '../order/widgets/order_widgets.dart';
@@ -90,17 +91,20 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
     if (picked != null && mounted) setState(() => _payment = picked);
   }
 
+  /// "Pesan": konfirmasi dulu (Frame 407), lalu metode pembayaran kalau
+  /// belum dipilih, lalu "Pesanan Berhasil Dibuat" dan pesanan aktif.
+  ///
+  /// Desain (frame 185) menampilkan dialog konfirmasi walau metode
+  /// pembayaran belum dipilih, jadi pemilihannya dipindah ke sesudah
+  /// "Sudah".
   Future<void> _submit() async {
-    final payment = _payment;
-    if (payment == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih metode pembayaran dulu.')),
-      );
-      return;
-    }
     if (_store.active != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Masih ada pesanan yang berjalan.')),
+        const SnackBar(
+          content: Text(
+            'Masih ada pesanan yang berjalan. Selesaikan dulu di Aktifitas.',
+          ),
+        ),
       );
       return;
     }
@@ -108,9 +112,16 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
     final sure = await showConfirmOrderDialog(context);
     if (sure != true || !mounted) return;
 
+    if (_payment == null) await _pickPayment();
+    final payment = _payment;
+    if (payment == null || !mounted) return;
+
     _store.place(draft: _draft, payment: payment, voucher: _voucher);
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => ActiveOrderPage(store: _store)),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            OrderSuccessPage(next: (_) => ActiveOrderPage(store: _store)),
+      ),
       (route) => route.isFirst,
     );
   }
@@ -350,19 +361,11 @@ Future<bool?> showConfirmOrderDialog(BuildContext context) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Ilustrasi di desain belum diekspor; ikon sementara.
-            Container(
-              width: 96,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.fact_check_outlined,
-                size: 40,
-                color: AppColors.primary,
-              ),
+            // Di Frame 407 ilustrasi selebar ±35% dialog.
+            Image.asset(
+              OrderStyle.confirmIllustration,
+              width: 104,
+              height: 104,
             ),
             const SizedBox(height: 16),
             Text(
