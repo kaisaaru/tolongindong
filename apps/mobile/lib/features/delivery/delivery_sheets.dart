@@ -85,11 +85,13 @@ class _TimeSheetState extends State<_TimeSheet> {
             ),
             const SizedBox(height: 10),
             _TimeOption(
-              icon: Icons.schedule_rounded,
+              icon: Icons.update_rounded,
               title: 'Antar Nanti',
+              // Desain: "Diantar tanggal 22, jam 10.00".
               subtitle: slot == null
                   ? 'Pilih tanggal dan jam pengantaran'
-                  : 'Diantar ${dateLabel(slot.day)}, jam ${slot.hourLabel}',
+                  : 'Diantar tanggal ${slot.day.day}, '
+                        'jam ${clockLabel(slot.start)}',
               selected: slot != null,
               chevron: true,
               onTap: _pickLater,
@@ -137,9 +139,12 @@ class _TimeOption extends StatelessWidget {
       selected: selected,
       child: Material(
         color: selected ? selectedFill : AppColors.light,
+        // Desain: pilihan yang tidak terpilih tanpa garis.
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: selected ? AppColors.primary : cardBorder),
+          side: selected
+              ? const BorderSide(color: AppColors.primary)
+              : BorderSide.none,
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -272,7 +277,7 @@ class _ItemSheetState extends State<_ItemSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SectionLabel('Ukuran'),
+                    const _FieldLabel('Ukuran'),
                     const SizedBox(height: 8),
                     Text(
                       _size.dimensions,
@@ -288,7 +293,7 @@ class _ItemSheetState extends State<_ItemSheet> {
                       onSelected: (s) => setState(() => _size = s),
                     ),
                     const SizedBox(height: 22),
-                    const SectionLabel('Berat'),
+                    const _FieldLabel('Berat'),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -329,7 +334,7 @@ class _ItemSheetState extends State<_ItemSheet> {
                       ],
                     ),
                     const SizedBox(height: 22),
-                    const SectionLabel('Jenis Barang'),
+                    const _FieldLabel('Jenis Barang'),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
@@ -347,9 +352,11 @@ class _ItemSheetState extends State<_ItemSheet> {
                 ),
               ),
               const SizedBox(height: 40),
-              Center(
+              // Desain: tombol Selesai selebar lembar.
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
                 child: SizedBox(
-                  width: 230,
+                  width: double.infinity,
                   child: PrimaryButton(
                     label: 'Selesai',
                     onPressed: _complete
@@ -476,6 +483,22 @@ class _TypeChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Label bagian di lembar barang: lebih kecil dan tipis dari [SectionLabel],
+/// seperti Frame 84.
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: AppTypography.style(size: 13, weight: AppTypography.medium),
     );
   }
 }

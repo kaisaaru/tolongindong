@@ -151,9 +151,12 @@ class DeliveryDraft {
       subtitle: 'Diantar sebelum jam ${clockLabel(deliverBy(orderedAt))}',
     );
   }
+  // Desain: "Jadwal: 21 Okt 2026 - 08.00-09.00" (jam tanpa spasi).
   return (
     title: 'Antar nanti',
-    subtitle: 'Jadwal: ${dateLabel(slot.day)} - ${slot.hourLabel}',
+    subtitle:
+        'Jadwal: ${dateLabel(slot.day)} - '
+        '${slot.hourLabel.replaceAll(' ', '')}',
   );
 }
 

@@ -6,6 +6,7 @@ import 'package:mobile/features/delivery/delivery_page.dart';
 import 'package:mobile/features/delivery/delivery_review_page.dart';
 import 'package:mobile/features/delivery/delivery_samples.dart';
 import 'package:mobile/features/delivery/recipient_form_page.dart';
+import 'package:mobile/features/household/household_models.dart';
 import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
@@ -185,6 +186,30 @@ void main() {
     expect(order.draft.recipient.name, 'Agus');
 
     await tester.pump(OrderSuccessPage.duration);
+  });
+
+  testWidgets('Lihat Pesanan belum lengkap: beri tahu dan buka yang kurang', (
+    tester,
+  ) async {
+    await _pump(tester, _page(OrderStore()));
+    await tester.tap(find.text('4 hari lalu'));
+    await tester.pumpAndSettle();
+
+    // Tombol tampil mati, tapi ketukannya tidak diam saja.
+    expect(_button(tester, 'Lihat Pesanan').onPressed, isNull);
+    await tester.tap(find.text('Lihat Pesanan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Isi detail penerima dulu.'), findsOneWidget);
+    expect(find.byType(RecipientFormPage), findsOneWidget);
+  });
+
+  test('jadwal antar nanti seperti desain', () {
+    final labels = scheduleLabels(
+      DeliverySchedule.at(TimeSlot(day: DateTime(2026, 10, 21), startHour: 8)),
+      _now(),
+    );
+    expect(labels.subtitle, 'Jadwal: 21 Okt 2026 - 08.00-09.00');
   });
 
   testWidgets('Bayar di Tempat hanya untuk Delivery', (tester) async {

@@ -190,17 +190,18 @@ class _DeliveryPageState extends State<DeliveryPage> {
   /// langsung buka langkahnya. Tombolnya tetap abu-abu seperti desain,
   /// tapi tidak diam saja saat diketuk.
   void _completeMissing() {
-    final (message, open) = switch (null) {
-      _ when _recipient == null => (
-        'Isi detail penerima dulu.',
-        _editRecipient,
-      ),
-      _ when _schedule == null => (
-        'Pilih kapan barang diantar dulu.',
-        _pickSchedule,
-      ),
-      _ => ('Pilih barang yang dikirim dulu.', _pickItem),
-    };
+    final String message;
+    final Future<void> Function() open;
+    if (_recipient == null) {
+      message = 'Isi detail penerima dulu.';
+      open = _editRecipient;
+    } else if (_schedule == null) {
+      message = 'Pilih kapan barang diantar dulu.';
+      open = _pickSchedule;
+    } else {
+      message = 'Pilih barang yang dikirim dulu.';
+      open = _pickItem;
+    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
