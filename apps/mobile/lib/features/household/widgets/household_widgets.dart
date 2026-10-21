@@ -25,12 +25,31 @@ class ColoredHeader extends StatelessWidget {
     super.key,
     required this.title,
     required this.color,
+    this.darkText = false,
     this.trailing,
     this.decoration,
   });
 
+  /// Header untuk satu layanan, dengan warna dan warna teksnya.
+  ColoredHeader.of(
+    HouseholdService service, {
+    Key? key,
+    String? title,
+    Widget? trailing,
+  }) : this(
+         key: key,
+         title: title ?? service.label,
+         color: service.headerColor,
+         darkText: service.headerDarkText,
+         trailing: trailing,
+       );
+
   final String title;
   final Color color;
+
+  /// True untuk header berwarna muda (Pakaian): judul dan ikon status bar
+  /// gelap, bukan putih.
+  final bool darkText;
   final Widget? trailing;
 
   /// Hiasan di sisi kanan, misal ilustrasi sapu.
@@ -45,7 +64,7 @@ class ColoredHeader extends StatelessWidget {
     final top = MediaQuery.paddingOf(context).top;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: darkText ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light,
       child: Container(
         height: top + _height,
         color: color,
@@ -70,7 +89,9 @@ class ColoredHeader extends StatelessWidget {
                       style: AppTypography.style(
                         size: 24,
                         weight: AppTypography.semiBold,
-                        color: AppColors.light,
+                        color: darkText
+                            ? AppColors.textPrimary
+                            : AppColors.light,
                       ),
                     ),
                   ),
@@ -251,6 +272,271 @@ class DurationChips extends StatelessWidget {
   }
 }
 
+/// "Waktu Pengerjaan": Sekarang, atau Terjadwal yang membuka pemilih jadwal.
+class WorkTimeCards extends StatelessWidget {
+  const WorkTimeCards({
+    super.key,
+    required this.slot,
+    required this.chosen,
+    required this.onNow,
+    required this.onSchedule,
+  });
+
+  /// Null + [chosen] true = "Sekarang".
+  final TimeSlot? slot;
+  final bool chosen;
+  final VoidCallback onNow;
+  final VoidCallback onSchedule;
+
+  @override
+  Widget build(BuildContext context) {
+    final slot = this.slot;
+
+    // stretch: kartu selebar form, bukan selebar teksnya.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SelectCard(
+          title: 'Sekarang',
+          subtitle: 'Helper akan datang paling lama 1 jam',
+          selected: chosen && slot == null,
+          onTap: onNow,
+        ),
+        const SizedBox(height: 10),
+        SelectCard(
+          title: 'Terjadwal',
+          subtitle: slot == null
+              ? 'Helper akan datang sesuai jadwal yang ditentukan'
+              : 'Jadwal pengerjaan: ${dateLabel(slot.day)} - '
+                    '${slot.hourLabel}',
+          selected: slot != null,
+          onTap: onSchedule,
+        ),
+      ],
+    );
+  }
+}
+
+/// "Estimasi Muatan": pilihan radio dalam satu kotak. Pilihan yang tidak
+/// terpilih berteks abu-abu, seperti komponen "Muatan / Radio".
+class LoadRadioGroup extends StatelessWidget {
+  const LoadRadioGroup({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<LoadOption> options;
+  final LoadOption? selected;
+  final ValueChanged<LoadOption> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedBox(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        children: [
+          for (final load in options)
+            _LoadRadio(
+              load: load,
+              selected: load == selected,
+              onTap: () => onSelected(load),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadRadio extends StatelessWidget {
+  const _LoadRadio({
+    required this.load,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final LoadOption load;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          child: Row(
+            children: [
+              Container(
+                width: 14,
+                height: 14,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+                child: selected
+                    ? const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: SizedBox.square(dimension: 8),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  '${load.label} (${load.detail}) + ${rupiah(load.fee)}',
+                  style: AppTypography.style(
+                    size: 13,
+                    weight: AppTypography.regular,
+                    color: selected
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Isian alamat di form: ikon lokasi lalu alamat terpilih atau petunjuk.
+class AddressField extends StatelessWidget {
+  const AddressField({
+    super.key,
+    required this.address,
+    required this.hint,
+    required this.onTap,
+    this.icon = OrderStyle.iconLocationPin,
+  });
+
+  final SavedAddress? address;
+  final String hint;
+  final VoidCallback onTap;
+  final String icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = address;
+
+    return OutlinedBox(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          OrderIcon(icon, size: 15),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              value?.fullAddress ?? hint,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.style(
+                size: 12,
+                weight: value == null
+                    ? AppTypography.regular
+                    : AppTypography.medium,
+                color: value == null
+                    ? AppColors.textSecondary
+                    : AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Isian "Pilih Helper" di form: avatar kosong sampai helper dipilih.
+class HelperPickerField extends StatelessWidget {
+  const HelperPickerField({
+    super.key,
+    required this.helper,
+    required this.onTap,
+  });
+
+  final HourlyHelper? helper;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = helper;
+
+    return OutlinedBox(
+      onTap: onTap,
+      // Tinggi kartu 62 dp sesuai desain: avatar 44 + padding 9.
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+      child: Row(
+        children: [
+          if (value == null)
+            const CircleAvatar(
+              radius: 22,
+              backgroundColor: Color(0xFFE0E0E0),
+              child: Icon(
+                Icons.person_outline_rounded,
+                color: AppColors.light,
+                size: 24,
+              ),
+            )
+          else
+            HelperAvatar(name: value.name, photoUrl: value.photoUrl, size: 44),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value?.name ?? 'Helper',
+                  style: AppTypography.style(
+                    size: value == null ? 13 : 10,
+                    weight: AppTypography.regular,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value == null
+                      ? 'Pilih helper disini'
+                      : '${rupiah(value.hourlyRate)}/Jam',
+                  style: AppTypography.style(
+                    size: value == null ? 9 : 13,
+                    weight: value == null
+                        ? AppTypography.regular
+                        : AppTypography.semiBold,
+                    color: value == null
+                        ? AppColors.textSecondary
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: AppColors.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Kotak bergaris tipis berisi baris-baris label–nilai.
 class OutlinedBox extends StatelessWidget {
   const OutlinedBox({
@@ -310,37 +596,57 @@ class InfoRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        // Label selebar teksnya (selalu pendek dan tetap), nilai mengisi
-        // sisanya dan rata kanan seperti desain. Nilai panjang (nama helper)
-        // turun baris, bukan meluap.
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: style),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: style.copyWith(
-                fontWeight: bold || !muted
-                    ? AppTypography.semiBold
-                    : AppTypography.regular,
+      child: LayoutBuilder(
+        builder: (context, box) => Row(
+          // Label selebar teksnya, nilai mengisi sisanya dan rata kanan
+          // seperti desain. Nilai panjang (nama helper) turun baris, bukan
+          // meluap. Label dibatasi 60% lebar: di layar 360 dp dengan teks
+          // diperbesar, "Ketersediaan alat:" bisa lebih lebar dari kotaknya.
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: box.maxWidth * 0.6),
+              child: Text(label, style: style),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                style: style.copyWith(
+                  fontWeight: bold || !muted
+                      ? AppTypography.semiBold
+                      : AppTypography.regular,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Alamat pesanan: ikon pin, label, dan alamat lengkap.
+/// Alamat pesanan: ikon, judul (default label alamat), dan alamat lengkap.
 class AddressBox extends StatelessWidget {
-  const AddressBox({super.key, required this.address, this.onTap});
+  const AddressBox({
+    super.key,
+    required this.address,
+    this.onTap,
+    this.title,
+    this.icon = OrderStyle.iconLocationPin,
+    this.maxLines,
+  });
 
   final SavedAddress address;
   final VoidCallback? onTap;
+
+  /// Misal "Lokasi awal" di Pindahan.
+  final String? title;
+  final String icon;
+
+  /// Pindahan menampilkan alamat satu baris saja, seperti desain.
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -352,9 +658,9 @@ class AddressBox extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 1),
-            child: OrderIcon(OrderStyle.iconLocationPin, size: 12),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: OrderIcon(icon, size: 12),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -362,7 +668,7 @@ class AddressBox extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  address.label,
+                  title ?? address.label,
                   style: AppTypography.style(
                     size: 11,
                     weight: AppTypography.semiBold,
@@ -372,6 +678,8 @@ class AddressBox extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   address.fullAddress,
+                  maxLines: maxLines,
+                  overflow: maxLines == null ? null : TextOverflow.ellipsis,
                   style: AppTypography.style(
                     size: 10,
                     weight: AppTypography.regular,
@@ -394,28 +702,71 @@ class AddressBox extends StatelessWidget {
   }
 }
 
+/// Bagian "Alamat" di Detail Pesanan dan pesanan aktif. Pindahan punya dua
+/// kotak: lokasi awal dan lokasi tujuan.
+List<Widget> orderAddressBoxes(
+  HouseholdOrderDraft draft, {
+  VoidCallback? onTapOrigin,
+  VoidCallback? onTapDestination,
+}) {
+  final destination = draft.destination;
+  if (destination == null) {
+    return [AddressBox(address: draft.address, onTap: onTapOrigin)];
+  }
+  return [
+    AddressBox(
+      address: draft.address,
+      title: 'Lokasi awal',
+      icon: OrderStyle.iconLocationOrigin,
+      maxLines: 1,
+      onTap: onTapOrigin,
+    ),
+    const SizedBox(height: 10),
+    AddressBox(
+      address: destination,
+      title: 'Lokasi tujuan',
+      maxLines: 1,
+      onTap: onTapDestination,
+    ),
+  ];
+}
+
 /// Baris "Detail Pengerjaan" untuk satu pesanan.
 List<Widget> workDetailRows(HouseholdOrderDraft draft, {int? totalHours}) => [
-  InfoRow(
-    // Desain: "Ukuran rumah:" — hanya huruf pertama kapital.
-    '${draft.service.sizeLabel[0]}'
-        '${draft.service.sizeLabel.substring(1).toLowerCase()}:',
-    'L: ${meterLabel(draft.widthM)} m, P: ${meterLabel(draft.lengthM)} m',
-  ),
-  InfoRow('Ketersediaan alat:', draft.tools?.label ?? '-'),
+  // Desain Pindahan dan Pakaian menulis "Ukuran rumah: ..." (salin dari
+  // frame Rumah); yang sebenarnya diisi di form adalah estimasi muatan.
+  if (draft.load case final load?) InfoRow('Muatan:', load.label),
+  if (draft.isMove)
+    InfoRow('Kebutuhan Armada:', draft.fleet?.label ?? '-')
+  else ...[
+    if (draft.widthM != null)
+      InfoRow(
+        // Desain: "Ukuran rumah:" — hanya huruf pertama kapital.
+        '${draft.service.sizeLabel[0]}'
+            '${draft.service.sizeLabel.substring(1).toLowerCase()}:',
+        'L: ${meterLabel(draft.widthM!)} m, '
+            'P: ${meterLabel(draft.lengthM ?? 0)} m',
+      ),
+    InfoRow('Ketersediaan alat:', draft.tools?.label ?? '-'),
+  ],
   InfoRow('Waktu pengerjaan:', draft.timeLabel),
   InfoRow('Helper :', draft.helper.name),
-  InfoRow('Durasi :', '${totalHours ?? draft.hours} Jam'),
+  // Desain Pindahan tidak punya baris durasi; tambahan durasi tetap
+  // terlihat di Rincian harga.
+  if (!draft.isMove) InfoRow('Durasi :', '${totalHours ?? draft.hours} Jam'),
   InfoRow('Catatan tambahan :', draft.note ?? '-'),
 ];
 
-/// Baris "Rincian harga": satu baris per blok durasi, potongan, total.
+/// Baris "Rincian harga": biaya helper, biaya tambahan, satu baris per blok
+/// durasi tambahan, potongan, total.
 List<Widget> priceRows(PriceBreakdown price) => [
   InfoRow(
     'Biaya helper x ${price.baseHours} jam',
     rupiah(price.baseCost),
     muted: true,
   ),
+  for (final fee in price.fees)
+    InfoRow(fee.label, rupiah(fee.amount), muted: true),
   for (final hours in price.extraHours)
     InfoRow(
       'Biaya helper x $hours jam',
@@ -504,6 +855,54 @@ class HelperFooter extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tombol di dialog pesanan. [outlined]: latar putih, garis dan teks
+/// [color] ("Tambah" di dialog waktu habis); selain itu latar [color], teks
+/// putih.
+class DialogButton extends StatelessWidget {
+  const DialogButton({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.outlined = false,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  final bool outlined;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: outlined ? BorderSide(color: color) : BorderSide.none,
+    );
+
+    return Material(
+      color: outlined ? AppColors.light : color,
+      shape: shape,
+      child: InkWell(
+        customBorder: shape,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Center(
+            child: Text(
+              label,
+              style: AppTypography.style(
+                size: 13,
+                weight: AppTypography.medium,
+                color: outlined ? color : AppColors.light,
+              ),
             ),
           ),
         ),

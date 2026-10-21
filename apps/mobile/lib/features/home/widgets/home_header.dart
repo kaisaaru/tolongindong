@@ -126,7 +126,9 @@ class HomeHeader extends StatelessWidget {
     double boxHeight,
     double screenHeight,
   ) {
-    final t = screenHeight <= 0 ? 0.0 : (boxHeight / screenHeight).clamp(0.0, 1.0);
+    final t = screenHeight <= 0
+        ? 0.0
+        : (boxHeight / screenHeight).clamp(0.0, 1.0);
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,

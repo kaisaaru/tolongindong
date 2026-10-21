@@ -34,7 +34,9 @@ class ApiException implements Exception {
     final raw = detail;
     if (raw == null) return const {};
     return raw.map((field, messages) {
-      final first = messages is List && messages.isNotEmpty ? messages.first : messages;
+      final first = messages is List && messages.isNotEmpty
+          ? messages.first
+          : messages;
       return MapEntry(field, first.toString());
     });
   }

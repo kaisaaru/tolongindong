@@ -167,10 +167,32 @@ void main() {
       expect(find.text('Biaya tambahan'), findsOneWidget);
     });
 
-    testWidgets('selesai: beri rating', (tester) async {
+    testWidgets('waktu habis: dialog, Selesai, lalu rating', (tester) async {
       real = real.add(const Duration(seconds: 120));
       await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await tester.pump(); // dialog dibuka sesudah frame pertama
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('00:00'), findsOneWidget);
+      expect(find.textContaining('Waktu helper sudah habis'), findsOneWidget);
+
+      await tester.tap(find.text('Selesai'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Beri reting helper'), findsOneWidget);
+    });
+
+    testWidgets('waktu habis: Tambah membuka Tambah Durasi', (tester) async {
+      real = real.add(const Duration(seconds: 120));
+      await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.text('Tambah'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ExtendDurationPage), findsOneWidget);
+      // Dialog tidak muncul di atas halaman Tambah Durasi.
+      expect(find.textContaining('Waktu helper sudah habis'), findsNothing);
     });
   });
 }

@@ -117,8 +117,9 @@ class _RegisterPageState extends State<RegisterPage> {
       // Pesan yang tidak cocok ke field mana pun jangan sampai hilang diam-diam.
       if (fields.isNotEmpty) return;
     }
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(e.message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(e.message)));
   }
 
   @override

@@ -114,11 +114,11 @@ class _NavItem extends StatelessWidget {
 
   /// Tinggi mengikuti ukuran viewBox ekspor Figma.
   Widget _icon(Color color) => switch (tab) {
-        HomeTab.beranda => _SvgIcon(HomeAssets.navHome, 25, color),
-        HomeTab.aktifitas => _SvgIcon(HomeAssets.navActivity, 26, color),
-        HomeTab.obrolan => _SvgIcon(HomeAssets.navChat, 29, color),
-        HomeTab.akun => _SvgIcon(HomeAssets.navProfile, 30, color),
-      };
+    HomeTab.beranda => _SvgIcon(HomeAssets.navHome, 25, color),
+    HomeTab.aktifitas => _SvgIcon(HomeAssets.navActivity, 26, color),
+    HomeTab.obrolan => _SvgIcon(HomeAssets.navChat, 29, color),
+    HomeTab.akun => _SvgIcon(HomeAssets.navProfile, 30, color),
+  };
 }
 
 /// Ikon SVG yang garisnya diwarnai ulang. Tidak memakai `colorFilter`
@@ -155,6 +155,5 @@ class _InkColorMapper extends ColorMapper {
     String elementName,
     String attributeName,
     Color color,
-  ) =>
-      color == _white ? color : this.color;
+  ) => color == _white ? color : this.color;
 }

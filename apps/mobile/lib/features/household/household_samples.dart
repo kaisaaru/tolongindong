@@ -11,6 +11,16 @@ import 'household_models.dart';
 class HouseholdSamples {
   const HouseholdSamples._();
 
+  /// Pengganti lokasi GPS. App belum memakai paket lokasi, jadi "Lokasi saat
+  /// ini" di pemilih rute Pindahan masih alamat contoh.
+  static const currentLocation = SavedAddress(
+    label: 'Lokasi saat ini',
+    fullAddress:
+        'Jl. Salendro Tim. 1 No.5A, Gumuruh, Kec. Batununggal, '
+        'Kota Bandung, Jawa Barat',
+    kind: AddressKind.current,
+  );
+
   static const recentAddresses = [
     SavedAddress(
       label: 'Komplek Salendro Timur',

@@ -6,7 +6,6 @@ import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
-import '../order/order_style.dart';
 import '../order/widgets/order_widgets.dart';
 import 'address_picker_page.dart';
 import 'household_models.dart';
@@ -16,11 +15,12 @@ import 'order_review_page.dart';
 import 'schedule_sheet.dart';
 import 'widgets/household_widgets.dart';
 
-/// Form pesanan Rumah/Kamar: alamat, ukuran, alat, waktu, helper, durasi.
+/// Form pesanan Rumah/Kamar/Pakaian: alamat, ukuran (Rumah/Kamar) atau
+/// estimasi muatan (Pakaian), alat, waktu, helper, durasi.
 ///
-/// "Lanjut Pesan" aktif setelah alamat, ukuran, waktu, dan helper terisi.
-/// Ketersediaan alat boleh kosong (di desain tombolnya tetap aktif tanpa
-/// memilih alat).
+/// "Lanjut Pesan" aktif setelah alamat, ukuran/muatan, waktu, dan helper
+/// terisi. Ketersediaan alat boleh kosong (di desain tombolnya tetap aktif
+/// tanpa memilih alat).
 class HouseOrderFormPage extends StatefulWidget {
   const HouseOrderFormPage({
     super.key,
@@ -40,6 +40,7 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   final _length = TextEditingController();
 
   SavedAddress? _address;
+  LoadOption? _load;
   ToolOption? _tools;
 
   /// Null + [_timeChosen] true = "Sekarang".
@@ -48,19 +49,23 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   HourlyHelper? _helper;
   int _hours = HouseholdSamples.durationOptions.first;
 
+  /// Diisi untuk Pakaian: bagian ukuran diganti estimasi muatan.
+  List<LoadOption>? get _loadOptions => widget.service.loadOptions;
+
   double? get _widthM => parseMeter(_width.text);
   double? get _lengthM => parseMeter(_length.text);
 
+  bool get _sizeFilled => _loadOptions == null
+      ? (_widthM ?? 0) > 0 && (_lengthM ?? 0) > 0
+      : _load != null;
+
   bool get _complete =>
-      _address != null &&
-      (_widthM ?? 0) > 0 &&
-      (_lengthM ?? 0) > 0 &&
-      _timeChosen &&
-      _helper != null;
+      _address != null && _sizeFilled && _timeChosen && _helper != null;
 
   /// Sebelum helper dipilih, total menampilkan tarif dasar kategori.
-  int get _total =>
-      _helper == null ? widget.category.baseFee : _helper!.hourlyRate * _hours;
+  int get _total => _helper == null
+      ? widget.category.baseFee
+      : _helper!.hourlyRate * _hours + (_load?.fee ?? 0);
 
   @override
   void initState() {
@@ -105,11 +110,13 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   }
 
   void _next() {
+    final usesLoad = _loadOptions != null;
     final draft = HouseholdOrderDraft(
       service: widget.service,
       address: _address!,
-      widthM: _widthM!,
-      lengthM: _lengthM!,
+      widthM: usesLoad ? null : _widthM,
+      lengthM: usesLoad ? null : _lengthM,
+      load: usesLoad ? _load : null,
       tools: _tools,
       slot: _slot,
       helper: _helper!,
@@ -123,41 +130,51 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   @override
   Widget build(BuildContext context) {
     final service = widget.service;
-    final slot = _slot;
+    final loadOptions = _loadOptions;
 
     return Scaffold(
       backgroundColor: AppColors.light,
       body: Column(
         children: [
-          ColoredHeader(title: service.label, color: service.headerColor),
+          ColoredHeader.of(service),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(36, 23, 36, 24),
               children: [
                 SectionLabel(service.addressLabel),
                 const SizedBox(height: 17),
-                _AddressField(
+                AddressField(
                   address: _address,
-                  hint: 'Cari lokasi ${service.label.toLowerCase()} anda',
+                  hint: service.addressHint,
                   onTap: _pickAddress,
                 ),
                 const SizedBox(height: 28),
                 SectionLabel(service.sizeLabel),
                 const SizedBox(height: 17),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MeterField(label: 'Lebar :', controller: _width),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MeterField(
-                        label: 'Panjang:',
-                        controller: _length,
+                if (loadOptions != null)
+                  LoadRadioGroup(
+                    options: loadOptions,
+                    selected: _load,
+                    onSelected: (load) => setState(() => _load = load),
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MeterField(
+                          label: 'Lebar :',
+                          controller: _width,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _MeterField(
+                          label: 'Panjang:',
+                          controller: _length,
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 28),
                 const SectionLabel('Ketersediaan alat'),
                 const SizedBox(height: 17),
@@ -185,29 +202,19 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
                 const SizedBox(height: 28),
                 const SectionLabel('Waktu Pengerjaan'),
                 const SizedBox(height: 17),
-                SelectCard(
-                  title: 'Sekarang',
-                  subtitle: 'Helper akan datang paling lama 1 jam',
-                  selected: _timeChosen && slot == null,
-                  onTap: () => setState(() {
+                WorkTimeCards(
+                  slot: _slot,
+                  chosen: _timeChosen,
+                  onNow: () => setState(() {
                     _slot = null;
                     _timeChosen = true;
                   }),
-                ),
-                const SizedBox(height: 10),
-                SelectCard(
-                  title: 'Terjadwal',
-                  subtitle: slot == null
-                      ? 'Helper akan datang sesuai jadwal yang ditentukan'
-                      : 'Jadwal pengerjaan: ${dateLabel(slot.day)} - '
-                            '${slot.hourLabel}',
-                  selected: slot != null,
-                  onTap: _pickSchedule,
+                  onSchedule: _pickSchedule,
                 ),
                 const SizedBox(height: 28),
                 const SectionLabel('Pilih Helper'),
                 const SizedBox(height: 17),
-                _HelperField(helper: _helper, onTap: _pickHelper),
+                HelperPickerField(helper: _helper, onTap: _pickHelper),
                 const SizedBox(height: 28),
                 const SectionLabel('Tentukan Durasi'),
                 const SizedBox(height: 17),
@@ -229,50 +236,6 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
           label: 'Lanjut Pesan',
           onPressed: _complete ? _next : null,
         ),
-      ),
-    );
-  }
-}
-
-class _AddressField extends StatelessWidget {
-  const _AddressField({
-    required this.address,
-    required this.hint,
-    required this.onTap,
-  });
-
-  final SavedAddress? address;
-  final String hint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = address;
-
-    return OutlinedBox(
-      onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: Row(
-        children: [
-          const OrderIcon(OrderStyle.iconLocationPin, size: 15),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              value?.fullAddress ?? hint,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.style(
-                size: 12,
-                weight: value == null
-                    ? AppTypography.regular
-                    : AppTypography.medium,
-                color: value == null
-                    ? AppColors.textSecondary
-                    : AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -342,73 +305,4 @@ class _MeterFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) => _pattern.hasMatch(newValue.text) ? newValue : oldValue;
-}
-
-class _HelperField extends StatelessWidget {
-  const _HelperField({required this.helper, required this.onTap});
-
-  final HourlyHelper? helper;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = helper;
-
-    return OutlinedBox(
-      onTap: onTap,
-      // Tinggi kartu 62 dp sesuai desain: avatar 44 + padding 9.
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-      child: Row(
-        children: [
-          if (value == null)
-            const CircleAvatar(
-              radius: 22,
-              backgroundColor: Color(0xFFE0E0E0),
-              child: Icon(
-                Icons.person_outline_rounded,
-                color: AppColors.light,
-                size: 24,
-              ),
-            )
-          else
-            HelperAvatar(name: value.name, photoUrl: value.photoUrl, size: 44),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value?.name ?? 'Helper',
-                  style: AppTypography.style(
-                    size: value == null ? 13 : 10,
-                    weight: AppTypography.regular,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value == null
-                      ? 'Pilih helper disini'
-                      : '${rupiah(value.hourlyRate)}/Jam',
-                  style: AppTypography.style(
-                    size: value == null ? 9 : 13,
-                    weight: value == null
-                        ? AppTypography.regular
-                        : AppTypography.semiBold,
-                    color: value == null
-                        ? AppColors.textSecondary
-                        : AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.textSecondary,
-          ),
-        ],
-      ),
-    );
-  }
 }

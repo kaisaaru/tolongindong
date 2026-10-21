@@ -19,6 +19,7 @@ String activeStatusLabel(OrderStore store) {
       'Tiba dalam ${_minutesUntil(store.now, order.arriveAt)} menit',
     ActiveStatus.working =>
       'Selesai dalam ${_minutesUntil(store.now, order.finishAt)} menit',
+    ActiveStatus.timeUp => 'Waktu helper sudah habis',
     ActiveStatus.finished => 'Beri rating helper',
   };
 }
@@ -56,9 +57,38 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
   /// Saat bekerja: false = hitung mundur, true = detail pesanan.
   bool _showDetail = false;
 
+  /// Dialog waktu habis sedang terbuka atau dijadwalkan.
+  bool _askingTimeUp = false;
+
   void _support() => ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(content: Text('Pusat bantuan belum tersedia.')),
   );
+
+  Future<void> _extend() => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => ExtendDurationPage(store: _store)),
+  );
+
+  /// Waktu habis: tanya tambah waktu atau selesai. Hanya saat halaman ini
+  /// yang tampil; kalau tertutup halaman lain (misal Tambah Durasi), dialog
+  /// muncul begitu pelanggan kembali ke sini (store berdetak tiap detik).
+  void _askTimeUp() {
+    if (_askingTimeUp || ModalRoute.of(context)?.isCurrent != true) return;
+    _askingTimeUp = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _store.status != ActiveStatus.timeUp) {
+        _askingTimeUp = false;
+        return;
+      }
+      final extend = await showTimeUpDialog(context);
+      if (!mounted) return;
+      if (extend) {
+        await _extend();
+      } else {
+        _store.endWork();
+      }
+      _askingTimeUp = false;
+    });
+  }
 
   Future<void> _cancel() async {
     final sure = await showDialog<bool>(
@@ -117,22 +147,21 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
         }
 
         final draft = order.draft;
-        final header = ColoredHeader(
+        final header = ColoredHeader.of(
+          draft.service,
           title: 'Household',
-          color: draft.service.headerColor,
           trailing: SupportButton(onTap: _support),
         );
 
-        if (status == ActiveStatus.working && !_showDetail) {
+        final timeUp = status == ActiveStatus.timeUp;
+        if (timeUp) _askTimeUp();
+
+        if (timeUp || (status == ActiveStatus.working && !_showDetail)) {
           return _CountdownView(
             header: header,
             order: order,
             remaining: _store.remaining,
-            onExtend: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ExtendDurationPage(store: _store),
-              ),
-            ),
+            onExtend: _extend,
             onShowDetail: () => setState(() => _showDetail = true),
           );
         }
@@ -343,7 +372,7 @@ class _OrderCard extends StatelessWidget {
         children: [
           const SectionLabel('Alamat'),
           const SizedBox(height: 10),
-          AddressBox(address: order.draft.address),
+          ...orderAddressBoxes(order.draft),
           const SizedBox(height: 16),
           const SectionLabel('Detail Pengerjaan'),
           const SizedBox(height: 10),
@@ -587,6 +616,77 @@ class _RatingRingsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RatingRingsPainter old) => old.cardTop != cardTop;
+}
+
+/// "Waktu helper sudah habis, mau tambah waktu?" — true kalau "Tambah",
+/// false kalau "Selesai". Wajib memilih: tidak bisa ditutup dengan tombol
+/// kembali atau mengetuk di luar dialog.
+Future<bool> showTimeUpDialog(BuildContext context) async {
+  final extend = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: AppColors.light,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Ilustrasi jam weker di desain belum diekspor; ikon sementara.
+              Container(
+                width: 96,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(36),
+                ),
+                child: const Icon(
+                  Icons.alarm_rounded,
+                  size: 42,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Waktu helper sudah habis, mau\ntambah waktu?',
+                textAlign: TextAlign.center,
+                style: AppTypography.style(
+                  size: 13,
+                  weight: AppTypography.medium,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: DialogButton(
+                      label: 'Tambah',
+                      color: AppColors.primary,
+                      outlined: true,
+                      onTap: () => Navigator.of(context).pop(true),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DialogButton(
+                      label: 'Selesai',
+                      color: AppColors.primary,
+                      onTap: () => Navigator.of(context).pop(false),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  return extend ?? false;
 }
 
 /// Lima bintang abu-abu; mengetuk bintang ke-n memberi rating n.

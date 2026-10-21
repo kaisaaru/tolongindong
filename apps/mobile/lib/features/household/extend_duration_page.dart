@@ -41,7 +41,9 @@ class _ExtendDurationPageState extends State<ExtendDurationPage> {
   }
 
   void _submit() {
-    if (widget.store.status != ActiveStatus.working) {
+    // Saat waktu habis pun durasi masih boleh ditambah (dialog "Tambah").
+    final status = widget.store.status;
+    if (status != ActiveStatus.working && status != ActiveStatus.timeUp) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Pesanan sudah selesai.')));
@@ -61,9 +63,9 @@ class _ExtendDurationPageState extends State<ExtendDurationPage> {
       backgroundColor: AppColors.light,
       body: Column(
         children: [
-          ColoredHeader(
+          ColoredHeader.of(
+            service,
             title: 'Tambah Durasi',
-            color: service.headerColor,
             trailing: SupportButton(
               onTap: () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Pusat bantuan belum tersedia.')),

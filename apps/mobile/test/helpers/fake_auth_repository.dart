@@ -65,7 +65,10 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<OtpChallenge> resendOtp(String phoneNumber, {String type = 'register'}) async {
+  Future<OtpChallenge> resendOtp(
+    String phoneNumber, {
+    String type = 'register',
+  }) async {
     if (failWith != null) _fail();
     return OtpChallenge(
       phoneNumber: phoneNumber,

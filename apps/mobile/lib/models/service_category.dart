@@ -42,7 +42,8 @@ class ServiceCategory {
         baseFee: json['base_fee'] as int? ?? 0,
         requiresAdvance: json['requires_advance'] as bool? ?? false,
         requiresProofPhoto: json['requires_proof_photo'] as bool? ?? false,
-        requiresPickupAddress: json['requires_pickup_address'] as bool? ?? false,
+        requiresPickupAddress:
+            json['requires_pickup_address'] as bool? ?? false,
         requiresDestinationAddress:
             json['requires_destination_address'] as bool? ?? true,
       );

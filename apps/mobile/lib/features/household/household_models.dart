@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../order/order_models.dart';
 
-/// Layanan di dalam kategori Household. Baru Rumah dan Kamar yang punya
-/// desain form; Pindahan dan Pakaian masih "segera hadir".
+/// Layanan di dalam kategori Household.
 enum HouseholdService {
   pindahan(
     label: 'Pindahan',
     icon: Icons.local_shipping_rounded,
     iconColor: Color(0xFFFF4B4B),
     tileColor: Color(0xFFFFF1F1),
-    headerColor: Color(0xFFFFB5B5),
-    sizeLabel: 'Ukuran Barang',
-    addressLabel: 'Alamat Jemput',
+    headerColor: Color(0xFFFF4B4B),
+    sizeLabel: 'Estimasi Muatan',
+    addressLabel: 'Alamat Asal & Tujuan',
+    addressHint: 'Cari lokasi anda',
   ),
   rumah(
     label: 'Rumah',
@@ -22,6 +22,7 @@ enum HouseholdService {
     headerColor: Color(0xFFCBC7FF),
     sizeLabel: 'Ukuran Rumah',
     addressLabel: 'Alamat Rumah',
+    addressHint: 'Cari lokasi rumah anda',
   ),
   kamar(
     label: 'Kamar',
@@ -31,15 +32,19 @@ enum HouseholdService {
     headerColor: Color(0xFFFFD3AE),
     sizeLabel: 'Ukuran Kamar',
     addressLabel: 'Alamat Kamar',
+    addressHint: 'Cari lokasi kamar anda',
   ),
   pakaian(
     label: 'Pakaian',
     icon: Icons.local_laundry_service_rounded,
     iconColor: Color(0xFF1E9E4A),
     tileColor: Color(0xFFEFFBF2),
-    headerColor: Color(0xFFB7EBC6),
-    sizeLabel: 'Jumlah Pakaian',
-    addressLabel: 'Alamat Jemput',
+    // Hijau sangat muda, judul dan ikon status bar gelap di atasnya.
+    headerColor: Color(0xFFCCFBDB),
+    headerDarkText: true,
+    sizeLabel: 'Estimasi Muatan',
+    addressLabel: 'Alamat Rumah',
+    addressHint: 'Cari lokasi rumah anda',
   );
 
   const HouseholdService({
@@ -50,6 +55,8 @@ enum HouseholdService {
     required this.headerColor,
     required this.sizeLabel,
     required this.addressLabel,
+    required this.addressHint,
+    this.headerDarkText = false,
   });
 
   final String label;
@@ -59,11 +66,17 @@ enum HouseholdService {
   final Color iconColor;
   final Color tileColor;
   final Color headerColor;
+  final bool headerDarkText;
   final String sizeLabel;
   final String addressLabel;
+  final String addressHint;
 
-  /// Layanan yang form-nya sudah ada desainnya.
-  bool get isAvailable => this == rumah || this == kamar;
+  /// Pilihan "Estimasi Muatan". Null: form memakai ukuran lebar × panjang.
+  List<LoadOption>? get loadOptions => switch (this) {
+    pindahan => LoadOption.moving,
+    pakaian => LoadOption.laundry,
+    rumah || kamar => null,
+  };
 }
 
 enum ToolOption {
@@ -74,7 +87,64 @@ enum ToolOption {
   final String label;
 }
 
-enum AddressKind { home, office, recent }
+/// Satu pilihan "Estimasi Muatan", dengan biaya tambahan tetap.
+class LoadOption {
+  const LoadOption(this.label, this.detail, this.fee);
+
+  final String label;
+  final String detail;
+  final int fee;
+
+  /// Pindahan: dihitung per kardus.
+  static const moving = [
+    LoadOption('Kecil', '1–3 Kardus/Tas', 0),
+    LoadOption('Sedang', '4–8 Kardus', 20000),
+    LoadOption('Besar', 'Perabotan besar', 40000),
+  ];
+
+  /// Pakaian: dihitung per kilogram.
+  static const laundry = [
+    LoadOption('Kecil', '<3 kg', 0),
+    LoadOption('Sedang', '>3–6 kg', 10000),
+    LoadOption('Besar', '>6 kg', 30000),
+  ];
+}
+
+/// Kebutuhan armada Pindahan: tenaga saja, atau ikut membawa kendaraan.
+enum FleetOption {
+  laborOnly('Hanya tenaga', 0),
+  withVehicle('Termasuk kendaraan', 50000);
+
+  const FleetOption(this.label, this.ratePerKm);
+  final String label;
+  final int ratePerKm;
+
+  /// Jarak asal–tujuan belum bisa dihitung (belum ada geocoding di app
+  /// maupun backend). Sementara dianggap 1 km, sama seperti semua total di
+  /// desain yang memakai Rp 50.000 untuk kendaraan.
+  static const assumedDistanceKm = 1;
+
+  int get estimatedCost => ratePerKm * assumedDistanceKm;
+}
+
+/// Satu baris biaya di luar biaya helper, misal "Kendaraan".
+class PriceLine {
+  const PriceLine(this.label, this.amount);
+
+  final String label;
+  final int amount;
+}
+
+/// Biaya di luar biaya helper (muatan, kendaraan). Biaya Rp 0 tidak
+/// ditampilkan sebagai baris.
+List<PriceLine> extraFees(LoadOption? load, FleetOption? fleet) => [
+  if (load != null && load.fee > 0)
+    PriceLine('Muatan - ${load.label}', load.fee),
+  if (fleet != null && fleet.estimatedCost > 0)
+    PriceLine('Kendaraan', fleet.estimatedCost),
+];
+
+enum AddressKind { current, home, office, recent }
 
 class SavedAddress {
   const SavedAddress({
@@ -162,24 +232,34 @@ class PaymentMethod {
 }
 
 /// Isi form pesanan Household yang sudah lengkap, siap dikonfirmasi.
+///
+/// Rumah/Kamar mengisi ukuran ([widthM], [lengthM]) dan [tools]. Pakaian
+/// mengisi [load] dan [tools]. Pindahan mengisi [destination], [load], dan
+/// [fleet]; [address] jadi lokasi awal.
 class HouseholdOrderDraft {
   const HouseholdOrderDraft({
     required this.service,
     required this.address,
-    required this.widthM,
-    required this.lengthM,
     required this.helper,
     required this.hours,
+    this.widthM,
+    this.lengthM,
     this.tools,
+    this.destination,
+    this.load,
+    this.fleet,
     this.slot,
     this.note,
   });
 
   final HouseholdService service;
   final SavedAddress address;
-  final double widthM;
-  final double lengthM;
+  final double? widthM;
+  final double? lengthM;
   final ToolOption? tools;
+  final SavedAddress? destination;
+  final LoadOption? load;
+  final FleetOption? fleet;
 
   /// Null berarti "Sekarang": helper datang paling lama 1 jam.
   final TimeSlot? slot;
@@ -187,15 +267,26 @@ class HouseholdOrderDraft {
   final int hours;
   final String? note;
 
+  bool get isMove => service == HouseholdService.pindahan;
+
   int get helperCost => helper.hourlyRate * hours;
 
+  /// Biaya di luar biaya helper (muatan, kendaraan).
+  List<PriceLine> get fees => extraFees(load, fleet);
+
   /// Alamat masih bisa diganti di halaman Detail Pesanan.
-  HouseholdOrderDraft withAddress(SavedAddress address) => HouseholdOrderDraft(
+  HouseholdOrderDraft copyWith({
+    SavedAddress? address,
+    SavedAddress? destination,
+  }) => HouseholdOrderDraft(
     service: service,
-    address: address,
+    address: address ?? this.address,
     widthM: widthM,
     lengthM: lengthM,
     tools: tools,
+    destination: destination ?? this.destination,
+    load: load,
+    fleet: fleet,
     slot: slot,
     helper: helper,
     hours: hours,
@@ -206,13 +297,14 @@ class HouseholdOrderDraft {
       slot == null ? 'Sekarang' : '${dateLabel(slot!.day)} ${slot!.hourLabel}';
 }
 
-/// Rincian harga pesanan. Potongan voucher hanya berlaku untuk biaya awal,
-/// tidak untuk durasi tambahan.
+/// Rincian harga pesanan. Potongan voucher hanya berlaku untuk biaya awal
+/// (helper + [fees]), tidak untuk durasi tambahan.
 class PriceBreakdown {
   const PriceBreakdown({
     required this.hourlyRate,
     required this.baseHours,
     required this.extraHours,
+    this.fees = const [],
     this.voucher,
   });
 
@@ -221,12 +313,14 @@ class PriceBreakdown {
 
   /// Tiap tambahan durasi jadi satu baris tersendiri.
   final List<int> extraHours;
+  final List<PriceLine> fees;
   final Voucher? voucher;
 
   int get baseCost => hourlyRate * baseHours;
-  int get discount => voucher?.discountFor(baseCost) ?? 0;
+  int get feeCost => fees.fold(0, (sum, f) => sum + f.amount);
+  int get discount => voucher?.discountFor(baseCost + feeCost) ?? 0;
   int get extraCost => extraHours.fold(0, (sum, h) => sum + h * hourlyRate);
-  int get total => baseCost - discount + extraCost;
+  int get total => baseCost + feeCost - discount + extraCost;
 }
 
 const _months = [

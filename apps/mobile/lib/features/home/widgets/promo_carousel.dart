@@ -14,10 +14,7 @@ class PromoCarousel extends StatelessWidget {
 
   final ValueChanged<int>? onTap;
 
-  static const _banners = [
-    HomeAssets.promoVoucher,
-    HomeAssets.promoVoucher,
-  ];
+  static const _banners = [HomeAssets.promoVoucher, HomeAssets.promoVoucher];
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +23,9 @@ class PromoCarousel extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         // Banner kedua sengaja mengintip di tepi kanan, seperti desain.
-        padding: const EdgeInsets.symmetric(horizontal: HomeMetrics.bodyPadding),
+        padding: const EdgeInsets.symmetric(
+          horizontal: HomeMetrics.bodyPadding,
+        ),
         itemCount: _banners.length,
         separatorBuilder: (_, _) =>
             const SizedBox(width: HomeMetrics.bannerGap),

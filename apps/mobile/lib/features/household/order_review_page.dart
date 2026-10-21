@@ -14,6 +14,7 @@ import '../order/widgets/order_widgets.dart';
 import 'active_order_page.dart';
 import 'address_picker_page.dart';
 import 'household_models.dart';
+import 'route_picker_page.dart';
 import 'widgets/household_widgets.dart';
 
 /// "Detail Pesanan": ringkasan sebelum memesan, pilih voucher dan metode
@@ -42,6 +43,7 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
     hourlyRate: _draft.helper.hourlyRate,
     baseHours: _draft.hours,
     extraHours: const [],
+    fees: _draft.fees,
     voucher: _voucher,
   );
 
@@ -50,7 +52,27 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
       MaterialPageRoute(builder: (_) => const AddressPickerPage()),
     );
     if (picked != null && mounted) {
-      setState(() => _draft = _draft.withAddress(picked));
+      setState(() => _draft = _draft.copyWith(address: picked));
+    }
+  }
+
+  Future<void> _pickRoute({required bool editOrigin}) async {
+    final picked = await Navigator.of(context).push<MoveRoute>(
+      MaterialPageRoute(
+        builder: (_) => RoutePickerPage(
+          origin: _draft.address,
+          destination: _draft.destination,
+          editOrigin: editOrigin,
+        ),
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(
+        () => _draft = _draft.copyWith(
+          address: picked.origin,
+          destination: picked.destination,
+        ),
+      );
     }
   }
 
@@ -124,9 +146,13 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                             children: [
                               const SectionLabel('Alamat'),
                               const SizedBox(height: 14),
-                              AddressBox(
-                                address: draft.address,
-                                onTap: _pickAddress,
+                              ...orderAddressBoxes(
+                                draft,
+                                onTapOrigin: draft.isMove
+                                    ? () => _pickRoute(editOrigin: true)
+                                    : _pickAddress,
+                                onTapDestination: () =>
+                                    _pickRoute(editOrigin: false),
                               ),
                               const SizedBox(height: 23),
                               const SectionLabel('Detail Pengerjaan'),
@@ -176,6 +202,12 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                                   thousands(price.baseCost),
                                   muted: true,
                                 ),
+                                for (final fee in price.fees)
+                                  InfoRow(
+                                    fee.label,
+                                    thousands(fee.amount),
+                                    muted: true,
+                                  ),
                                 if (price.discount > 0)
                                   InfoRow(
                                     'Potongan vocher',
@@ -346,7 +378,7 @@ Future<bool?> showConfirmOrderDialog(BuildContext context) {
             Row(
               children: [
                 Expanded(
-                  child: _DialogButton(
+                  child: DialogButton(
                     label: 'Kembali',
                     color: const Color(0xFFFFC9C9),
                     onTap: () => Navigator.of(context).pop(false),
@@ -354,7 +386,7 @@ Future<bool?> showConfirmOrderDialog(BuildContext context) {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _DialogButton(
+                  child: DialogButton(
                     label: 'Sudah',
                     color: AppColors.primary,
                     onTap: () => Navigator.of(context).pop(true),
@@ -367,41 +399,4 @@ Future<bool?> showConfirmOrderDialog(BuildContext context) {
       ),
     ),
   );
-}
-
-class _DialogButton extends StatelessWidget {
-  const _DialogButton({
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          child: Center(
-            child: Text(
-              label,
-              style: AppTypography.style(
-                size: 13,
-                weight: AppTypography.medium,
-                color: AppColors.light,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

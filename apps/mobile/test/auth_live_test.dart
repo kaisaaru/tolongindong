@@ -44,15 +44,18 @@ void main() {
   });
 
   test('data berbentuk List ikut terbaca (service-categories)', () async {
-    final data = await ApiClient(storage: storage, baseUrl: baseUrl)
-        .get('/service-categories');
+    final data = await ApiClient(
+      storage: storage,
+      baseUrl: baseUrl,
+    ).get('/service-categories');
 
     expect(data, isA<List>());
     // Backend memangkas kategori jadi tiga (commit 8bfe592).
-    expect(
-      (data as List).map((e) => e['code']).toSet(),
-      {'delivery', 'personal', 'household'},
-    );
+    expect((data as List).map((e) => e['code']).toSet(), {
+      'delivery',
+      'personal',
+      'household',
+    });
   });
 
   test('login benar menghasilkan AuthUser dan menyimpan token', () async {
@@ -76,9 +79,10 @@ void main() {
   });
 
   test('tanpa token, /me ditolak sebagai UNAUTHENTICATED', () async {
-    final error = await auth.me().then<Object?>((_) => null).onError(
-          (Object e, _) => e,
-        );
+    final error = await auth
+        .me()
+        .then<Object?>((_) => null)
+        .onError((Object e, _) => e);
 
     expect(error, isA<ApiException>());
     expect((error as ApiException).code, 'UNAUTHENTICATED');

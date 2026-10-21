@@ -6,6 +6,7 @@ import '../../theme/app_typography.dart';
 import '../home/widgets/promo_carousel.dart';
 import 'household_models.dart';
 import 'house_order_form_page.dart';
+import 'move_order_form_page.dart';
 import 'widgets/household_widgets.dart';
 
 /// Kategori Household: pilih kebutuhan (Pindahan, Rumah, Kamar, Pakaian).
@@ -17,16 +18,11 @@ class HouseholdPage extends StatelessWidget {
   final ServiceCategory category;
 
   void _open(BuildContext context, HouseholdService service) {
-    if (!service.isAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${service.label} belum tersedia.')),
-      );
-      return;
-    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            HouseOrderFormPage(service: service, category: category),
+        builder: (_) => service == HouseholdService.pindahan
+            ? MoveOrderFormPage(category: category)
+            : HouseOrderFormPage(service: service, category: category),
       ),
     );
   }

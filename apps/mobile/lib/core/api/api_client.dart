@@ -15,8 +15,8 @@ import 'api_exception.dart';
 class ApiClient {
   /// [baseUrl] hanya diisi saat pengujian; aplikasi memakai [ApiConfig].
   ApiClient({TokenStorage? storage, Dio? dio, String? baseUrl})
-      : _storage = storage ?? TokenStorage(),
-        _dio = dio ?? Dio() {
+    : _storage = storage ?? TokenStorage(),
+      _dio = dio ?? Dio() {
     _dio.options
       ..baseUrl = baseUrl ?? ApiConfig.baseUrl
       ..connectTimeout = const Duration(seconds: 15)
@@ -60,7 +60,8 @@ class ApiClient {
     } on DioException catch (e) {
       throw ApiException(
         code: 'NETWORK_ERROR',
-        message: 'Tidak bisa menghubungi server. Pastikan backend menyala dan '
+        message:
+            'Tidak bisa menghubungi server. Pastikan backend menyala dan '
             'perangkat berada di jaringan yang sama.',
         detail: {'dio_type': e.type.name},
       );

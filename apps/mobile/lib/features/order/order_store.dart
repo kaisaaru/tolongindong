@@ -13,7 +13,10 @@ enum ActiveStatus {
   /// Helper sedang bekerja; durasi berjalan mundur.
   working,
 
-  /// Durasi habis, tinggal memberi rating.
+  /// Durasi habis; pelanggan memilih tambah waktu atau selesai.
+  timeUp,
+
+  /// Pelanggan menyatakan selesai, tinggal memberi rating.
   finished,
 }
 
@@ -35,10 +38,18 @@ class ActiveOrder {
 
   final List<int> extraHours = [];
 
+  /// Lama menunggu antara waktu habis dan durasi ditambah. Tambahan durasi
+  /// dihitung mulai saat ditambah, bukan dari jam waktu habis.
+  Duration waited = Duration.zero;
+
+  /// True setelah pelanggan memilih "Selesai" saat waktu habis.
+  bool ended = false;
+
   PriceBreakdown get price => PriceBreakdown(
     hourlyRate: draft.helper.hourlyRate,
     baseHours: draft.hours,
     extraHours: List.unmodifiable(extraHours),
+    fees: draft.fees,
     voucher: voucher,
   );
 
@@ -49,7 +60,8 @@ class ActiveOrder {
   DateTime get arriveAt =>
       draft.slot?.start ?? placedAt.add(OrderStore.travelTime);
 
-  DateTime get finishAt => arriveAt.add(Duration(hours: totalHours));
+  DateTime get finishAt =>
+      arriveAt.add(Duration(hours: totalHours)).add(waited);
 
   DateTime get cancelDeadline => placedAt.add(OrderStore.cancelWindow);
 }
@@ -119,7 +131,7 @@ class OrderStore extends ChangeNotifier {
     final t = now;
     if (t.isBefore(order.arriveAt)) return ActiveStatus.onTheWay;
     if (t.isBefore(order.finishAt)) return ActiveStatus.working;
-    return ActiveStatus.finished;
+    return order.ended ? ActiveStatus.finished : ActiveStatus.timeUp;
   }
 
   bool get canCancel {
@@ -163,7 +175,19 @@ class OrderStore extends ChangeNotifier {
   void addHours(int hours) {
     final order = _active;
     if (order == null) return;
+    final late = now.difference(order.finishAt);
+    if (status == ActiveStatus.timeUp && late > Duration.zero) {
+      order.waited += late;
+    }
     order.extraHours.add(hours);
+    notifyListeners();
+  }
+
+  /// Pelanggan memilih "Selesai" saat waktu habis: lanjut ke rating.
+  void endWork() {
+    final order = _active;
+    if (order == null || status != ActiveStatus.timeUp) return;
+    order.ended = true;
     notifyListeners();
   }
 

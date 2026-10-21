@@ -21,15 +21,15 @@ const _user = AuthUser(
 );
 
 ServiceCategory _category(int id, String code, String name) => ServiceCategory(
-      id: id,
-      code: code,
-      name: name,
-      baseFee: 10000,
-      requiresAdvance: false,
-      requiresProofPhoto: false,
-      requiresPickupAddress: false,
-      requiresDestinationAddress: true,
-    );
+  id: id,
+  code: code,
+  name: name,
+  baseFee: 10000,
+  requiresAdvance: false,
+  requiresProofPhoto: false,
+  requiresPickupAddress: false,
+  requiresDestinationAddress: true,
+);
 
 Future<void> _pumpHome(WidgetTester tester, FakeCatalogRepository repo) async {
   await pumpPage(

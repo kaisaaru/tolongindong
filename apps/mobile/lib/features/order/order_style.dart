@@ -51,6 +51,10 @@ class OrderStyle {
 
   // Ikon alamat membawa warnanya sendiri (merah, merah tua, biru).
   static const iconLocationPin = 'assets/icons/ui/location_pin.svg';
+
+  /// Belah ketupat biru penanda lokasi awal Pindahan. Belum diekspor dari
+  /// Figma; digambar ulang dari screenshot.
+  static const iconLocationOrigin = 'assets/icons/ui/location_origin.svg';
   static const iconAddressHome = 'assets/icons/ui/address_home.svg';
   static const iconAddressOffice = 'assets/icons/ui/address_office.svg';
   static const iconAddressRecent = 'assets/icons/ui/address_recent.svg';

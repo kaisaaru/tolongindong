@@ -56,9 +56,9 @@ class _SplashPageState extends State<SplashPage> {
     await minimumDisplay;
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => destination),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
   Future<Widget> _resolveDestination() async {

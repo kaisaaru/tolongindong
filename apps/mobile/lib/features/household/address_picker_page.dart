@@ -26,28 +26,10 @@ class AddressPickerPage extends StatefulWidget {
 }
 
 class _AddressPickerPageState extends State<AddressPickerPage> {
-  late final _recent = widget.recent ?? HouseholdSamples.recentAddresses;
-  late final _saved = widget.saved ?? HouseholdSamples.savedAddresses;
-
-  bool _showSaved = false;
   String _query = '';
-
-  List<SavedAddress> get _visible {
-    final source = _showSaved ? _saved : _recent;
-    final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return source;
-    return [
-      for (final a in source)
-        if (a.label.toLowerCase().contains(q) ||
-            a.fullAddress.toLowerCase().contains(q))
-          a,
-    ];
-  }
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visible;
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -88,78 +70,11 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(14, 17, 14, 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.textPrimary),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            _Tab(
-                              label: 'Terakhir',
-                              active: !_showSaved,
-                              onTap: () => setState(() => _showSaved = false),
-                            ),
-                            const SizedBox(width: 8),
-                            _Tab(
-                              label: 'Tersimpan',
-                              active: _showSaved,
-                              onTap: () => setState(() => _showSaved = true),
-                            ),
-                          ],
-                        ),
-                        if (_showSaved) ...[
-                          const SizedBox(height: 14),
-                          _AddNewButton(
-                            onTap: () =>
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Tambah alamat belum tersedia.',
-                                    ),
-                                  ),
-                                ),
-                          ),
-                        ],
-                        const SizedBox(height: 6),
-                        Expanded(
-                          child: visible.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'Alamat tidak ditemukan.',
-                                    style: AppTypography.style(
-                                      size: AppTypography.small,
-                                      weight: AppTypography.regular,
-                                      color: AppColors.textDescription,
-                                    ),
-                                  ),
-                                )
-                              : ListView.separated(
-                                  padding: EdgeInsets.zero,
-                                  itemCount: visible.length,
-                                  separatorBuilder: (_, _) => const Divider(
-                                    height: 1,
-                                    indent: 40,
-                                    endIndent: 30,
-                                  ),
-                                  itemBuilder: (context, index) => _AddressRow(
-                                    address: visible[index],
-                                    onTap: () => Navigator.of(
-                                      context,
-                                    ).pop(visible[index]),
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: AddressListCard(
+                  recent: widget.recent ?? HouseholdSamples.recentAddresses,
+                  saved: widget.saved ?? HouseholdSamples.savedAddresses,
+                  query: _query,
+                  onPicked: (address) => Navigator.of(context).pop(address),
                 ),
               ),
             ],
@@ -173,6 +88,114 @@ class _AddressPickerPageState extends State<AddressPickerPage> {
     borderRadius: BorderRadius.circular(6),
     borderSide: BorderSide(color: AppColors.primary, width: width),
   );
+}
+
+/// Kartu bergaris berisi tab Terakhir/Tersimpan dan daftar alamat yang
+/// disaring [query]. Dipakai pemilih alamat Rumah/Kamar dan pemilih rute
+/// Pindahan.
+class AddressListCard extends StatefulWidget {
+  const AddressListCard({
+    super.key,
+    required this.recent,
+    required this.saved,
+    required this.query,
+    required this.onPicked,
+  });
+
+  final List<SavedAddress> recent;
+  final List<SavedAddress> saved;
+  final String query;
+  final ValueChanged<SavedAddress> onPicked;
+
+  @override
+  State<AddressListCard> createState() => _AddressListCardState();
+}
+
+class _AddressListCardState extends State<AddressListCard> {
+  bool _showSaved = false;
+
+  List<SavedAddress> get _visible {
+    final source = _showSaved ? widget.saved : widget.recent;
+    final q = widget.query.trim().toLowerCase();
+    if (q.isEmpty) return source;
+    return [
+      for (final a in source)
+        if (a.label.toLowerCase().contains(q) ||
+            a.fullAddress.toLowerCase().contains(q))
+          a,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = _visible;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 17, 14, 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.textPrimary),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _Tab(
+                  label: 'Terakhir',
+                  active: !_showSaved,
+                  onTap: () => setState(() => _showSaved = false),
+                ),
+                const SizedBox(width: 8),
+                _Tab(
+                  label: 'Tersimpan',
+                  active: _showSaved,
+                  onTap: () => setState(() => _showSaved = true),
+                ),
+              ],
+            ),
+            if (_showSaved) ...[
+              const SizedBox(height: 14),
+              _AddNewButton(
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tambah alamat belum tersedia.'),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Expanded(
+              child: visible.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Alamat tidak ditemukan.',
+                        style: AppTypography.style(
+                          size: AppTypography.small,
+                          weight: AppTypography.regular,
+                          color: AppColors.textDescription,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: EdgeInsets.zero,
+                      itemCount: visible.length,
+                      separatorBuilder: (_, _) =>
+                          const Divider(height: 1, indent: 40, endIndent: 30),
+                      itemBuilder: (context, index) => _AddressRow(
+                        address: visible[index],
+                        onTap: () => widget.onPicked(visible[index]),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Tab extends StatelessWidget {
@@ -258,9 +281,22 @@ class _AddressRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = switch (address.kind) {
-      AddressKind.home => OrderStyle.iconAddressHome,
-      AddressKind.office => OrderStyle.iconAddressOffice,
-      AddressKind.recent => OrderStyle.iconAddressRecent,
+      // Ikon target di desain belum diekspor; ikon Material yang mirip,
+      // dengan merah tua yang sama seperti ikon riwayat.
+      AddressKind.current => const Icon(
+        Icons.my_location_rounded,
+        size: 22,
+        color: Color(0xFF9A1919),
+      ),
+      AddressKind.home => const OrderIcon(OrderStyle.iconAddressHome, size: 22),
+      AddressKind.office => const OrderIcon(
+        OrderStyle.iconAddressOffice,
+        size: 22,
+      ),
+      AddressKind.recent => const OrderIcon(
+        OrderStyle.iconAddressRecent,
+        size: 22,
+      ),
     };
 
     return InkWell(
@@ -270,7 +306,7 @@ class _AddressRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            OrderIcon(icon, size: 22),
+            icon,
             const SizedBox(width: 14),
             Expanded(
               child: Column(

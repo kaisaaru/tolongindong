@@ -88,9 +88,30 @@ void main() {
       expect(store.status, ActiveStatus.working);
       expect(store.remaining.inMinutes, 59);
 
-      // Durasi 1 jam habis.
+      // Durasi 1 jam habis: tunggu pilihan tambah waktu atau selesai.
       clock.advance(const Duration(seconds: 60));
+      expect(store.status, ActiveStatus.timeUp);
+      expect(activeStatusLabel(store), 'Waktu helper sudah habis');
+
+      store.endWork();
       expect(store.status, ActiveStatus.finished);
+    });
+
+    test('tambah durasi saat waktu habis dihitung mulai saat itu', () {
+      store.place(
+        draft: _draft(),
+        payment: HouseholdSamples.paymentMethods.first,
+      );
+      // Tiba 30 menit, kerja 1 jam, lalu 15 menit tanpa memilih.
+      clock.advance(const Duration(seconds: 105));
+      expect(store.status, ActiveStatus.timeUp);
+
+      store.addHours(1);
+
+      expect(store.status, ActiveStatus.working);
+      expect(store.remaining.inMinutes, 60);
+      // Biaya tetap per jam yang ditambah, bukan per menit menunggu.
+      expect(store.active!.price.total, 80000);
     });
 
     test('tambah durasi memperpanjang jam selesai dan total', () {

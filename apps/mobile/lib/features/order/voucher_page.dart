@@ -178,6 +178,7 @@ class _Radio extends StatelessWidget {
 
   final bool selected;
 
+  /// Terpilih: lingkaran merah penuh dengan centang putih (Frame 410).
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -185,18 +186,11 @@ class _Radio extends StatelessWidget {
       height: 16,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: selected ? AppColors.primary : AppColors.textDescription,
-        ),
+        color: selected ? AppColors.primary : null,
+        border: selected ? null : Border.all(color: AppColors.textDescription),
       ),
-      padding: const EdgeInsets.all(3),
       child: selected
-          ? const DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-            )
+          ? const Icon(Icons.check_rounded, size: 12, color: AppColors.light)
           : null,
     );
   }

@@ -13,7 +13,9 @@ class CatalogRepository {
   Future<List<ServiceCategory>> categories() async {
     final data = await _api.get('/service-categories');
     return (data as List)
-        .map((e) => ServiceCategory.fromJson((e as Map).cast<String, dynamic>()))
+        .map(
+          (e) => ServiceCategory.fromJson((e as Map).cast<String, dynamic>()),
+        )
         .toList();
   }
 

@@ -8,8 +8,8 @@ import '../../models/auth_user.dart';
 /// [ApiException]. Halaman tidak perlu tahu soal path, header, atau JSON.
 class AuthRepository {
   AuthRepository({ApiClient? api, TokenStorage? storage})
-      : _api = api ?? ApiClient(storage: storage),
-        _storage = storage ?? TokenStorage();
+    : _api = api ?? ApiClient(storage: storage),
+      _storage = storage ?? TokenStorage();
 
   final ApiClient _api;
   final TokenStorage _storage;
@@ -21,12 +21,15 @@ class AuthRepository {
     required String phoneNumber,
     required String password,
   }) async {
-    final data = await _api.post('/register', body: {
-      'full_name': fullName,
-      'email': email,
-      'phone_number': phoneNumber,
-      'password': password,
-    });
+    final data = await _api.post(
+      '/register',
+      body: {
+        'full_name': fullName,
+        'email': email,
+        'phone_number': phoneNumber,
+        'password': password,
+      },
+    );
     return OtpChallenge.fromJson((data as Map).cast<String, dynamic>());
   }
 
@@ -36,23 +39,31 @@ class AuthRepository {
     required String otpCode,
     String? tempToken,
   }) async {
-    final data = await _api.post('/verify-otp', body: {
-      'phone_number': phoneNumber,
-      'otp_code': otpCode,
-      'temp_token': ?tempToken,
-    });
+    final data = await _api.post(
+      '/verify-otp',
+      body: {
+        'phone_number': phoneNumber,
+        'otp_code': otpCode,
+        'temp_token': ?tempToken,
+      },
+    );
     return _persist(data);
   }
 
   /// Kirim ulang OTP. Backend membatasi satu kali per 60 detik
   /// (kode `OTP_THROTTLED`).
-  Future<OtpChallenge> resendOtp(String phoneNumber, {String type = 'register'}) async {
-    final data = await _api.post('/send-otp', body: {
-      'phone_number': phoneNumber,
-      'type': type,
-    });
+  Future<OtpChallenge> resendOtp(
+    String phoneNumber, {
+    String type = 'register',
+  }) async {
+    final data = await _api.post(
+      '/send-otp',
+      body: {'phone_number': phoneNumber, 'type': type},
+    );
     return OtpChallenge.fromJson(
-      data is Map ? data.cast<String, dynamic>() : {'phone_number': phoneNumber},
+      data is Map
+          ? data.cast<String, dynamic>()
+          : {'phone_number': phoneNumber},
     );
   }
 
@@ -61,10 +72,10 @@ class AuthRepository {
     required String identifier,
     required String password,
   }) async {
-    final data = await _api.post('/login', body: {
-      'identifier': identifier,
-      'password': password,
-    });
+    final data = await _api.post(
+      '/login',
+      body: {'identifier': identifier, 'password': password},
+    );
     return _persist(data);
   }
 

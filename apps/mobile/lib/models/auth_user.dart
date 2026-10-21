@@ -13,11 +13,11 @@ enum VerificationStatus {
   rejected;
 
   static VerificationStatus fromCode(String? code) => switch (code) {
-        'pending' => VerificationStatus.pending,
-        'verified' => VerificationStatus.verified,
-        'rejected' => VerificationStatus.rejected,
-        _ => VerificationStatus.unverified,
-      };
+    'pending' => VerificationStatus.pending,
+    'verified' => VerificationStatus.verified,
+    'rejected' => VerificationStatus.rejected,
+    _ => VerificationStatus.unverified,
+  };
 
   bool get isVerified => this == VerificationStatus.verified;
 }
@@ -46,10 +46,10 @@ class Wallet {
   );
 
   factory Wallet.fromJson(Map<String, dynamic> json) => Wallet(
-        availableBalance: json['available_balance'] as int? ?? 0,
-        heldBalance: json['held_balance'] as int? ?? 0,
-        currency: json['currency'] as String? ?? 'IDR',
-      );
+    availableBalance: json['available_balance'] as int? ?? 0,
+    heldBalance: json['held_balance'] as int? ?? 0,
+    currency: json['currency'] as String? ?? 'IDR',
+  );
 }
 
 /// Pengguna yang sedang login.
@@ -80,19 +80,20 @@ class AuthUser {
   final Wallet wallet;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
-        id: json['id'] as String? ?? '',
-        fullName: json['full_name'] as String? ?? '',
-        email: json['email'] as String? ?? '',
-        phoneNumber: json['phone_number'] as String?,
-        photoUrl: json['photo_url'] as String?,
-        verificationStatus:
-            VerificationStatus.fromCode(json['verification_status'] as String?),
-        // Tidak selalu dikirim (mis. respons verify-otp), jadi anggap bukan admin.
-        isAdmin: json['is_admin'] as bool? ?? false,
-        wallet: json['wallet'] is Map
-            ? Wallet.fromJson((json['wallet'] as Map).cast<String, dynamic>())
-            : Wallet.empty,
-      );
+    id: json['id'] as String? ?? '',
+    fullName: json['full_name'] as String? ?? '',
+    email: json['email'] as String? ?? '',
+    phoneNumber: json['phone_number'] as String?,
+    photoUrl: json['photo_url'] as String?,
+    verificationStatus: VerificationStatus.fromCode(
+      json['verification_status'] as String?,
+    ),
+    // Tidak selalu dikirim (mis. respons verify-otp), jadi anggap bukan admin.
+    isAdmin: json['is_admin'] as bool? ?? false,
+    wallet: json['wallet'] is Map
+        ? Wallet.fromJson((json['wallet'] as Map).cast<String, dynamic>())
+        : Wallet.empty,
+  );
 }
 
 /// Hasil `POST /register` — sengaja bukan [AuthUser], karena registrasi
@@ -114,8 +115,8 @@ class OtpChallenge {
   final String? debugOtp;
 
   factory OtpChallenge.fromJson(Map<String, dynamic> json) => OtpChallenge(
-        phoneNumber: json['phone_number'] as String? ?? '',
-        expiresInSeconds: json['otp_expires_in_seconds'] as int? ?? 300,
-        debugOtp: json['debug_otp']?.toString(),
-      );
+    phoneNumber: json['phone_number'] as String? ?? '',
+    expiresInSeconds: json['otp_expires_in_seconds'] as int? ?? 300,
+    debugOtp: json['debug_otp']?.toString(),
+  );
 }

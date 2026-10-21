@@ -30,12 +30,11 @@ class CategoryTile {
   factory CategoryTile.fromCategory(
     ServiceCategory category, {
     VoidCallback? onTap,
-  }) =>
-      CategoryTile(
-        label: category.name,
-        assetPath: HomeAssets.categoryIcon(category.code),
-        onTap: onTap,
-      );
+  }) => CategoryTile(
+    label: category.name,
+    assetPath: HomeAssets.categoryIcon(category.code),
+    onTap: onTap,
+  );
 }
 
 /// Satu baris berisi tiga kategori layanan (FR-HLP-001) ditambah pintasan
@@ -55,7 +54,9 @@ class CategoryGrid extends StatelessWidget {
   /// Tinggi satu baris, dipakai penanda memuat supaya layar tidak melompat
   /// saat kategori selesai dimuat.
   static const height =
-      HomeMetrics.tileSize + HomeMetrics.tileLabelGap + HomeMetrics.tileLabelSize;
+      HomeMetrics.tileSize +
+      HomeMetrics.tileLabelGap +
+      HomeMetrics.tileLabelSize;
 
   @override
   Widget build(BuildContext context) {

@@ -143,8 +143,8 @@ class _OtpBox extends StatelessWidget {
         border: hasError
             ? Border.all(color: AppColors.error, width: 1.5)
             : isActive
-                ? Border.all(color: AppColors.primary, width: 1.5)
-                : null,
+            ? Border.all(color: AppColors.primary, width: 1.5)
+            : null,
       ),
       child: Text(
         digit,
