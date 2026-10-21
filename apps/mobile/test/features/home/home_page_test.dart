@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/chat/chat_list_view.dart';
+import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/home/home_page.dart';
+import 'package:mobile/features/household/household_samples.dart';
+import 'package:mobile/features/order/order_samples.dart';
+import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/models/service_category.dart';
 import 'package:mobile/theme/app_theme.dart';
@@ -113,5 +118,45 @@ void main() {
     for (final tab in ['Beranda', 'Aktifitas', 'Obrolan', 'Akun']) {
       expect(find.text(tab), findsOneWidget);
     }
+  });
+
+  testWidgets('tab Obrolan berisi daftar obrolan', (tester) async {
+    await pumpPage(
+      tester,
+      HomePage(
+        user: _user,
+        authRepo: FakeAuthRepository(),
+        catalogRepo: FakeCatalogRepository(),
+        chatStore: ChatStore(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Obrolan'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatListView), findsOneWidget);
+    expect(find.text('Agus Nomercy'), findsOneWidget);
+  });
+
+  testWidgets('banner beranda menampilkan pesanan Personal', (tester) async {
+    final store = OrderStore()
+      ..placePersonal(
+        helper: OrderSamples.listingsFor('personal').first,
+        payment: HouseholdSamples.paymentMethods.first,
+      );
+    await pumpPage(
+      tester,
+      HomePage(
+        user: _user,
+        authRepo: FakeAuthRepository(),
+        catalogRepo: FakeCatalogRepository(),
+        orderStore: store,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Personal'), findsWidgets); // ubin kategori + banner
+    expect(find.text('Dikerjakan Agus Nomercy'), findsOneWidget);
   });
 }

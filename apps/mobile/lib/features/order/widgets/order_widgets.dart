@@ -106,13 +106,21 @@ class ArrowTitleBar extends StatelessWidget {
 /// Baris judul dengan tombol kotak putih: dipakai halaman berlatar pink
 /// (Personal, Daftar Helper) dan Checkout. Dipasang di dalam SafeArea.
 class SquareTitleBar extends StatelessWidget {
-  const SquareTitleBar(this.title, {super.key, this.shadow = false});
+  const SquareTitleBar(
+    this.title, {
+    super.key,
+    this.shadow = false,
+    this.trailing,
+  });
 
   /// Null berarti hanya tombol kembali (Checkout).
   final String? title;
 
   /// Bayangan tipis untuk tombol di atas latar putih.
   final bool shadow;
+
+  /// Di ujung kanan, misal tombol bantuan.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +165,9 @@ class SquareTitleBar extends StatelessWidget {
                 ),
               ),
             ),
-          ],
+          ] else if (trailing != null)
+            const Spacer(),
+          ?trailing,
         ],
       ),
     );

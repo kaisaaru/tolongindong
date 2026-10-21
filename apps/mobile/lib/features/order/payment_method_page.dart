@@ -8,22 +8,34 @@ import '../household/household_samples.dart';
 import 'order_style.dart';
 import 'widgets/order_widgets.dart';
 
-/// Pilih metode pembayaran, dikelompokkan E-Wallet dan Bank. Mengetuk satu
-/// metode langsung kembali membawa metode itu.
+/// Pilih metode pembayaran, dikelompokkan (Bayar di Tempat,) E-Wallet, dan
+/// Bank. Mengetuk satu metode langsung kembali membawa metode itu.
 ///
 /// Isinya contoh: backend baru punya TD-Wallet (saldo ditahan sebagai
 /// escrow), belum ada payment gateway untuk e-wallet maupun bank.
 class PaymentMethodPage extends StatelessWidget {
-  const PaymentMethodPage({super.key, this.selected, this.methods});
+  const PaymentMethodPage({
+    super.key,
+    this.selected,
+    this.methods,
+    this.allowCashOnDelivery = false,
+  });
 
   final PaymentMethod? selected;
 
   /// Diisi saat pengujian. Default: data contoh.
   final List<PaymentMethod>? methods;
 
+  /// "Bayar di Tempat" hanya ada di desain Delivery (frame 114).
+  final bool allowCashOnDelivery;
+
   @override
   Widget build(BuildContext context) {
     final all = methods ?? HouseholdSamples.paymentMethods;
+    final groups = [
+      for (final group in PaymentGroup.values)
+        if (allowCashOnDelivery || group != PaymentGroup.cashOnDelivery) group,
+    ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -44,9 +56,8 @@ class PaymentMethodPage extends StatelessWidget {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      for (final group in PaymentGroup.values) ...[
-                        if (group != PaymentGroup.values.first)
-                          const SizedBox(height: 8),
+                      for (final group in groups) ...[
+                        if (group != groups.first) const SizedBox(height: 8),
                         Text(
                           group.label,
                           style: AppTypography.style(
@@ -118,14 +129,20 @@ class _MethodTile extends StatelessWidget {
                     color: method.brandColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(
-                    method.name,
-                    style: AppTypography.style(
-                      size: 10,
-                      weight: AppTypography.bold,
-                      color: method.brandColor,
-                    ),
-                  ),
+                  child: method.group == PaymentGroup.cashOnDelivery
+                      ? Icon(
+                          Icons.storefront_outlined,
+                          size: 18,
+                          color: method.brandColor,
+                        )
+                      : Text(
+                          method.name,
+                          style: AppTypography.style(
+                            size: 10,
+                            weight: AppTypography.bold,
+                            color: method.brandColor,
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -151,12 +168,25 @@ class _MethodTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (selected)
-                  const Icon(
-                    Icons.check_rounded,
-                    size: 18,
-                    color: AppColors.primary,
+                // Radio di kanan, seperti frame 114.
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? AppColors.primary : null,
+                    border: selected
+                        ? null
+                        : Border.all(color: AppColors.textDescription),
                   ),
+                  child: selected
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 12,
+                          color: AppColors.light,
+                        )
+                      : null,
+                ),
               ],
             ),
           ),

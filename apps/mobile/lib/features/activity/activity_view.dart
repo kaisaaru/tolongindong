@@ -3,20 +3,35 @@ import 'package:flutter/material.dart';
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../delivery/delivery_models.dart';
+import '../delivery/delivery_review_page.dart';
 import '../home/home_assets.dart';
 import '../household/active_order_page.dart';
 import '../household/household_models.dart';
 import '../order/order_store.dart';
+import '../order/personal_order_page.dart';
 
 /// Isi tab "Aktifitas": pesanan yang sedang berjalan dan riwayatnya.
 ///
 /// Sumbernya [OrderStore] (simulasi). Nanti dari `GET /orders`, dipisah
 /// berdasarkan status aktif vs selesai/dibatalkan.
 class ActivityView extends StatefulWidget {
-  const ActivityView({super.key, this.store, this.bottomPadding = 16});
+  const ActivityView({
+    super.key,
+    this.store,
+    this.bottomPadding = 16,
+    this.startOnHistory = false,
+    this.showTitle = true,
+  });
 
   final OrderStore? store;
   final double bottomPadding;
+
+  /// True: tab Riwayat terbuka lebih dulu (tombol riwayat Delivery).
+  final bool startOnHistory;
+
+  /// False kalau halaman pembungkusnya sudah punya judul.
+  final bool showTitle;
 
   @override
   State<ActivityView> createState() => _ActivityViewState();
@@ -24,10 +39,20 @@ class ActivityView extends StatefulWidget {
 
 class _ActivityViewState extends State<ActivityView> {
   late final _store = widget.store ?? OrderStore.instance;
-  bool _history = false;
+  late bool _history = widget.startOnHistory;
 
   void _openActive() => Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (_) => ActiveOrderPage(store: _store)),
+  );
+
+  void _openPersonal() => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => PersonalOrderPage(store: _store)),
+  );
+
+  void _openDelivery(DeliveryOrder order) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => DeliveryReviewPage.placed(order: order),
+    ),
   );
 
   @override
@@ -35,18 +60,25 @@ class _ActivityViewState extends State<ActivityView> {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(22, 24, 22, widget.bottomPadding),
+        padding: EdgeInsets.fromLTRB(
+          22,
+          widget.showTitle ? 24 : 8,
+          22,
+          widget.bottomPadding,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Aktifitas',
-              style: AppTypography.style(
-                size: 22,
-                weight: AppTypography.semiBold,
+            if (widget.showTitle) ...[
+              Text(
+                'Aktifitas',
+                style: AppTypography.style(
+                  size: 22,
+                  weight: AppTypography.semiBold,
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
+            ],
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -88,17 +120,31 @@ class _ActivityViewState extends State<ActivityView> {
   }
 
   Widget _buildActive() {
-    final order = _store.active;
-    if (order == null) return const _Empty('Belum ada pesanan berjalan.');
+    if (!_store.hasActive) return const _Empty('Belum ada pesanan berjalan.');
 
     return ListView(
       padding: const EdgeInsets.all(14),
       children: [
-        ActiveOrderTile(
-          title: 'Household',
-          status: activeStatusLabel(_store),
-          onTap: _openActive,
-        ),
+        if (_store.active != null)
+          ActiveOrderTile(
+            title: 'Household',
+            status: activeStatusLabel(_store),
+            onTap: _openActive,
+          ),
+        if (_store.personal case final order?)
+          ActiveOrderTile(
+            title: 'Personal',
+            status: personalStatusLabel(order),
+            categoryCode: 'personal',
+            onTap: _openPersonal,
+          ),
+        for (final order in _store.deliveries)
+          ActiveOrderTile(
+            title: 'Delivery',
+            status: deliveryStatusLabel(order),
+            categoryCode: 'delivery',
+            onTap: () => _openDelivery(order),
+          ),
       ],
     );
   }
@@ -115,6 +161,14 @@ class _ActivityViewState extends State<ActivityView> {
   }
 }
 
+/// Status pesanan Personal: belum ada jam, jadi cukup siapa yang mengerjakan.
+String personalStatusLabel(PersonalOrder order) =>
+    'Dikerjakan ${order.helper.name}';
+
+/// Status pengantaran: "Diantar sebelum jam 11.00" atau jadwalnya.
+String deliveryStatusLabel(DeliveryOrder order) =>
+    scheduleLabels(order.draft.schedule, order.placedAt).subtitle;
+
 /// Baris pesanan aktif. Dipakai juga sebagai banner melayang di beranda.
 class ActiveOrderTile extends StatelessWidget {
   const ActiveOrderTile({
@@ -122,12 +176,16 @@ class ActiveOrderTile extends StatelessWidget {
     required this.title,
     required this.status,
     required this.onTap,
+    this.categoryCode = 'household',
     this.elevated = false,
   });
 
   final String title;
   final String status;
   final VoidCallback onTap;
+
+  /// Kode kategori backend, untuk ikonnya.
+  final String categoryCode;
 
   /// True untuk banner beranda: latar putih dengan bayangan.
   final bool elevated;
@@ -148,11 +206,7 @@ class ActiveOrderTile extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
-                child: Image.asset(
-                  HomeAssets.categoryIcon('household')!,
-                  width: 30,
-                  height: 30,
-                ),
+                child: _CategoryIcon(categoryCode),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -205,11 +259,7 @@ class _HistoryRow extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: Image.asset(
-              HomeAssets.categoryIcon('household')!,
-              width: 30,
-              height: 30,
-            ),
+            child: _CategoryIcon(record.categoryCode),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -246,6 +296,25 @@ class _HistoryRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Ilustrasi kategori 30 dp; kotak abu-abu kalau ilustrasinya belum ada.
+class _CategoryIcon extends StatelessWidget {
+  const _CategoryIcon(this.code);
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = HomeAssets.categoryIcon(code);
+    if (asset == null) {
+      return const ColoredBox(
+        color: AppColors.disabled,
+        child: SizedBox.square(dimension: 30),
+      );
+    }
+    return Image.asset(asset, width: 30, height: 30);
   }
 }
 

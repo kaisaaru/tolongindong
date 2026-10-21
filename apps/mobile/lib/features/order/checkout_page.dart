@@ -5,8 +5,10 @@ import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
+import '../chat/chat_store.dart';
 import '../household/household_models.dart';
 import 'order_models.dart';
+import 'order_store.dart';
 import 'order_style.dart';
 import 'order_success_page.dart';
 import 'payment_method_page.dart';
@@ -20,15 +22,28 @@ import 'widgets/order_widgets.dart';
 /// dan alur direct booking di sana meminta quote helper dulu sebelum dana
 /// ditahan — beda dengan desain yang harganya sudah tetap.
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key, required this.helper});
+  const CheckoutPage({
+    super.key,
+    required this.helper,
+    this.store,
+    this.chatStore,
+  });
 
   final HelperListing helper;
+
+  /// Diisi saat pengujian. Default: [OrderStore.instance] dan
+  /// [ChatStore.instance].
+  final OrderStore? store;
+  final ChatStore? chatStore;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
+  late final _store = widget.store ?? OrderStore.instance;
+  late final _chatStore = widget.chatStore ?? ChatStore.instance;
+
   Voucher? _voucher;
   PaymentMethod? _payment;
 
@@ -51,12 +66,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _submit() {
-    if (_payment == null) {
+    final payment = _payment;
+    if (payment == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Pilih metode pembayaran dulu.')),
       );
       return;
     }
+    if (_store.personal != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Masih ada pesanan Personal yang berjalan. Selesaikan dulu di '
+            'Aktifitas.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final helper = widget.helper;
+    _store.placePersonal(helper: helper, payment: payment, voucher: _voucher);
+    // Pesanan Personal dikerjakan sambil mengobrol: ruangnya langsung ada
+    // di tab Obrolan.
+    _chatStore.openWithHelper(
+      helperId: helper.id,
+      name: helper.name,
+      photoUrl: helper.photoUrl,
+    );
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const OrderSuccessPage()),
       // Sisakan beranda di bawahnya supaya halaman sukses bisa kembali ke sana.
@@ -84,7 +121,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
               const SizedBox(height: 21),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: _content(helper, voucher),
+                child: PersonalOrderSummary(
+                  helper: helper,
+                  voucherLabel: voucher == null
+                      ? 'Gunakan Vocher'
+                      : '${voucher.title} · ${voucher.description}',
+                  paymentLabel: _payment?.name ?? 'Pilih metode pembayaran',
+                  price: _price,
+                  discount: _discount,
+                  onVoucher: _pickVoucher,
+                  onPayment: _pickPayment,
+                ),
               ),
             ],
           ),
@@ -97,8 +144,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
     );
   }
+}
 
-  Widget _content(HelperListing helper, Voucher? voucher) {
+/// Helper, voucher, metode pembayaran, dan rincian pembayaran pesanan
+/// Personal. Dipakai Checkout (bisa diubah) dan halaman pesanan berjalan
+/// (frame 202, hanya dibaca: [onVoucher] dan [onPayment] null).
+class PersonalOrderSummary extends StatelessWidget {
+  const PersonalOrderSummary({
+    super.key,
+    required this.helper,
+    required this.voucherLabel,
+    required this.paymentLabel,
+    required this.price,
+    required this.discount,
+    this.onVoucher,
+    this.onPayment,
+  });
+
+  final HelperListing helper;
+  final String voucherLabel;
+  final String paymentLabel;
+  final int price;
+  final int discount;
+  final VoidCallback? onVoucher;
+  final VoidCallback? onPayment;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -142,17 +214,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _OptionRow(
           title: 'Masukkan vocher',
           icon: OrderStyle.iconVoucher,
-          value: voucher == null
-              ? 'Gunakan Vocher'
-              : '${voucher.title} · ${voucher.description}',
-          onTap: _pickVoucher,
+          value: voucherLabel,
+          onTap: onVoucher,
         ),
         const Divider(height: 1),
         _OptionRow(
           title: 'Metode Pembayaran',
           icon: OrderStyle.iconPaymentCard,
-          value: _payment?.name ?? 'Pilih metode pembayaran',
-          onTap: _pickPayment,
+          value: paymentLabel,
+          onTap: onPayment,
         ),
         const Divider(height: 1),
         const SizedBox(height: 21),
@@ -161,19 +231,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
           style: AppTypography.style(size: 14, weight: AppTypography.semiBold),
         ),
         const SizedBox(height: 26),
-        _PriceRow(label: 'Jasa', value: rupiah(_price, spaced: false)),
-        if (_discount > 0) ...[
+        _PriceRow(label: 'Jasa', value: rupiah(price, spaced: false)),
+        if (discount > 0) ...[
           const SizedBox(height: 20),
           _PriceRow(
             label: 'Vocher',
-            value: rupiah(-_discount, spaced: false),
+            value: rupiah(-discount, spaced: false),
             valueColor: AppColors.primary,
           ),
         ],
         const SizedBox(height: 20),
         _PriceRow(
           label: 'Total',
-          value: rupiah(_total, spaced: false),
+          value: rupiah(price - discount, spaced: false),
           bold: true,
         ),
       ],
@@ -192,7 +262,9 @@ class _OptionRow extends StatelessWidget {
   final String title;
   final String icon;
   final String value;
-  final VoidCallback onTap;
+
+  /// Null: hanya dibaca, tanpa panah.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -234,10 +306,11 @@ class _OptionRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
-            ),
+            if (onTap != null)
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
+              ),
           ],
         ),
       ),

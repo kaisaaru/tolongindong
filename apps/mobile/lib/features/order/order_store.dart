@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../delivery/delivery_models.dart';
 import '../household/household_models.dart';
 import 'order_models.dart';
 
@@ -66,30 +67,73 @@ class ActiveOrder {
   DateTime get cancelDeadline => placedAt.add(OrderStore.cancelWindow);
 }
 
+/// Pesanan Personal yang sedang dikerjakan helper. Tanpa jam: selesai saat
+/// pelanggan menekan "Selesai" lalu memberi rating.
+class PersonalOrder {
+  const PersonalOrder({
+    required this.helper,
+    required this.payment,
+    required this.placedAt,
+    this.voucher,
+  });
+
+  final HelperListing helper;
+  final PaymentMethod payment;
+  final Voucher? voucher;
+  final DateTime placedAt;
+
+  int get price => helper.price;
+  int get discount => voucher?.discountFor(price) ?? 0;
+  int get total => price - discount;
+}
+
+/// Pengantaran yang sudah dipesan. Desain pelacakan kurir belum ada, jadi
+/// pesanan ini hanya tampil di Aktifitas sampai desainnya ada.
+class DeliveryOrder {
+  const DeliveryOrder({
+    required this.draft,
+    required this.payment,
+    required this.placedAt,
+    this.voucher,
+  });
+
+  final DeliveryDraft draft;
+  final PaymentMethod payment;
+  final Voucher? voucher;
+  final DateTime placedAt;
+
+  int get discount => draft.discountWith(voucher);
+  int get total => draft.fee - discount;
+}
+
 enum HistoryOutcome { completed, cancelled }
 
 class OrderRecord {
   const OrderRecord({
-    required this.service,
+    required this.title,
+    required this.categoryCode,
     required this.date,
     required this.total,
     required this.outcome,
     this.rating,
   });
 
-  final HouseholdService service;
+  /// Misal "Household - Rumah" atau "Personal - Tugas Kuliah".
+  final String title;
+
+  /// Kode kategori backend, untuk ikon di riwayat.
+  final String categoryCode;
   final DateTime date;
   final int total;
   final HistoryOutcome outcome;
   final int? rating;
-
-  String get title => 'Household - ${service.label}';
 }
 
 /// Satu-satunya sumber pesanan aktif dan riwayat, dipakai bersama beranda,
-/// tab Aktifitas, dan halaman pesanan.
+/// tab Aktifitas, dan halaman pesanan. Satu pesanan Household ([active]) dan
+/// satu pesanan Personal ([personal]) boleh berjalan bersamaan.
 ///
-/// SIMULASI: backend belum dipakai. Status dihitung dari jam, dan jam
+/// SIMULASI: backend belum dipakai. Status Household dihitung dari jam, dan jam
 /// "dunia pesanan" berjalan [speed] kali lebih cepat supaya alurnya bisa
 /// dicoba tanpa menunggu berjam-jam (1 detik = 1 menit). Saat disambung ke
 /// backend, ganti dengan polling `GET /orders/{id}` dan baca `order.status`.
@@ -111,10 +155,19 @@ class OrderStore extends ChangeNotifier {
   Timer? _ticker;
 
   ActiveOrder? _active;
+  PersonalOrder? _personal;
+  final List<DeliveryOrder> _deliveries = [];
   final List<OrderRecord> _history = [];
 
   ActiveOrder? get active => _active;
+  PersonalOrder? get personal => _personal;
+
+  /// Terbaru di atas. Boleh lebih dari satu.
+  List<DeliveryOrder> get deliveries => List.unmodifiable(_deliveries.reversed);
   List<OrderRecord> get history => List.unmodifiable(_history.reversed);
+
+  bool get hasActive =>
+      _active != null || _personal != null || _deliveries.isNotEmpty;
 
   /// Jam dunia pesanan. Tanpa pesanan aktif, sama dengan jam nyata.
   DateTime get now {
@@ -198,10 +251,62 @@ class OrderStore extends ChangeNotifier {
     _archive(order, HistoryOutcome.completed, rating: rating);
   }
 
+  /// Pesanan Personal dari checkout. Nanti: `POST /orders`.
+  void placePersonal({
+    required HelperListing helper,
+    required PaymentMethod payment,
+    Voucher? voucher,
+  }) {
+    assert(_personal == null, 'Masih ada pesanan Personal aktif.');
+    _personal = PersonalOrder(
+      helper: helper,
+      payment: payment,
+      voucher: voucher,
+      placedAt: _clock(),
+    );
+    notifyListeners();
+  }
+
+  /// Pesanan Delivery dari Detail Pesanan. Nanti: `POST /orders`.
+  DeliveryOrder placeDelivery({
+    required DeliveryDraft draft,
+    required PaymentMethod payment,
+    Voucher? voucher,
+  }) {
+    final order = DeliveryOrder(
+      draft: draft,
+      payment: payment,
+      voucher: voucher,
+      placedAt: _clock(),
+    );
+    _deliveries.add(order);
+    notifyListeners();
+    return order;
+  }
+
+  /// Pelanggan menekan "Selesai" dan memberi rating.
+  void completePersonal({int? rating}) {
+    final order = _personal;
+    if (order == null) return;
+    _history.add(
+      OrderRecord(
+        title: 'Personal - ${order.helper.subcategory}',
+        categoryCode: 'personal',
+        date: order.placedAt,
+        total: order.total,
+        outcome: HistoryOutcome.completed,
+        rating: rating,
+      ),
+    );
+    _personal = null;
+    notifyListeners();
+  }
+
   void _archive(ActiveOrder order, HistoryOutcome outcome, {int? rating}) {
     _history.add(
       OrderRecord(
-        service: order.draft.service,
+        title: 'Household - ${order.draft.service.label}',
+        categoryCode: 'household',
         date: order.placedAt,
         total: order.price.total,
         outcome: outcome,
@@ -229,6 +334,8 @@ class OrderStore extends ChangeNotifier {
     _ticker?.cancel();
     _ticker = null;
     _active = null;
+    _personal = null;
+    _deliveries.clear();
     _realAnchor = null;
     _worldAnchor = null;
     _history.clear();

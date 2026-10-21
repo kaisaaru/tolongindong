@@ -201,6 +201,8 @@ class TimeSlot {
 }
 
 enum PaymentGroup {
+  /// Hanya ditawarkan untuk Delivery (lihat `PaymentMethodPage`).
+  cashOnDelivery('Bayar di Tempat', 'Bayar saat pesanan tiba'),
   eWallet('E-Wallet', 'Pembayaran e-wallet'),
   bank('Bank', 'Transfer bank & virtual account');
 

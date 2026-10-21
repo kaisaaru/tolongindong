@@ -5,6 +5,8 @@ import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
+import '../chat/chat_room_page.dart';
+import '../chat/chat_store.dart';
 import 'checkout_page.dart';
 import 'order_models.dart';
 import 'order_style.dart';
@@ -12,13 +14,31 @@ import 'widgets/order_widgets.dart';
 
 /// Profil helper: tentang, keahlian, review, dan tombol pesan.
 class HelperDetailPage extends StatelessWidget {
-  const HelperDetailPage({super.key, required this.helper});
+  const HelperDetailPage({super.key, required this.helper, this.chatStore});
 
   final HelperListing helper;
+
+  /// Diisi saat pengujian. Default: [ChatStore.instance].
+  final ChatStore? chatStore;
 
   void _soon(BuildContext context, String feature) => ScaffoldMessenger.of(
     context,
   ).showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
+
+  /// Chat sebelum memesan. Nanti: `POST /chats/helpers/{id}`.
+  void _chat(BuildContext context) {
+    final store = chatStore ?? ChatStore.instance;
+    final room = store.openWithHelper(
+      helperId: helper.id,
+      name: helper.name,
+      photoUrl: helper.photoUrl,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatRoomPage(room: room, store: store),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +51,7 @@ class HelperDetailPage extends StatelessWidget {
           children: [
             _Header(
               helper: helper,
-              // Endpoint chat pre-order sudah ada (POST /chats/helpers/{id}),
-              // tinggal layar obrolannya.
-              onChat: () => _soon(context, 'Obrolan'),
+              onChat: () => _chat(context),
               onFavorite: () => _soon(context, 'Favorit'),
             ),
             // Ukuran dari desain: margin 16 dp, teks Tentang 14 dp dengan

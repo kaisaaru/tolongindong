@@ -154,6 +154,14 @@ class HouseholdSamples {
       group: PaymentGroup.bank,
       brandColor: Color(0xFF003D79),
     ),
+    // Di akhir supaya urutan metode lain (dan indeksnya) tidak berubah;
+    // tampilannya tetap paling atas karena urutan grup.
+    PaymentMethod(
+      id: 'cod',
+      name: 'Bayar di Tempat',
+      group: PaymentGroup.cashOnDelivery,
+      brandColor: Color(0xFF6B6B6B),
+    ),
   ];
 
   /// Pilihan durasi di form dan halaman Tambah Durasi.

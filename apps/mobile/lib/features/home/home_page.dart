@@ -9,10 +9,16 @@ import '../../theme/app_typography.dart';
 import '../auth/auth_repository.dart';
 import '../activity/activity_view.dart';
 import '../auth/login_page.dart';
+import '../chat/chat_list_view.dart';
+import '../chat/chat_store.dart';
+import '../delivery/delivery_page.dart';
+import '../delivery/delivery_review_page.dart';
 import '../household/active_order_page.dart';
 import '../household/household_page.dart';
 import '../order/category_helpers_page.dart';
 import '../order/order_store.dart';
+import '../order/order_style.dart';
+import '../order/personal_order_page.dart';
 import 'catalog_repository.dart';
 import 'home_assets.dart';
 import 'home_metrics.dart';
@@ -24,8 +30,8 @@ import 'widgets/service_offer_section.dart';
 
 /// Beranda client (FR-PRF-004, FR-HLP-001, FR-NOT-001, FR-WLT-010).
 ///
-/// Obrolan dan Akun belum punya isi. Endpoint-nya (`/chats`, `/me`) sudah
-/// ada di backend, tinggal layarnya dibangun.
+/// Akun belum punya isi. Endpoint-nya (`/me`) sudah ada di backend, tinggal
+/// layarnya dibangun.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
@@ -33,6 +39,7 @@ class HomePage extends StatefulWidget {
     this.authRepo,
     this.catalogRepo,
     this.orderStore,
+    this.chatStore,
   });
 
   final AuthUser user;
@@ -41,6 +48,7 @@ class HomePage extends StatefulWidget {
   final AuthRepository? authRepo;
   final CatalogRepository? catalogRepo;
   final OrderStore? orderStore;
+  final ChatStore? chatStore;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -50,6 +58,7 @@ class _HomePageState extends State<HomePage> {
   late final _authRepo = widget.authRepo ?? AuthRepository();
   late final _catalogRepo = widget.catalogRepo ?? CatalogRepository();
   late final _orderStore = widget.orderStore ?? OrderStore.instance;
+  late final _chatStore = widget.chatStore ?? ChatStore.instance;
 
   late Future<List<ServiceCategory>> _categories = _catalogRepo.categories();
   late AuthUser _user = widget.user;
@@ -121,11 +130,17 @@ class _HomePageState extends State<HomePage> {
   ).showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
 
   void _openCategory(ServiceCategory category) {
-    // Household punya alur sendiri (pilih kebutuhan -> form); kategori lain
-    // masih daftar helper.
-    final page = category.code == 'household'
-        ? HouseholdPage(category: category)
-        : CategoryHelpersPage(category: category);
+    // Household dan Delivery punya alur sendiri; kategori lain masih daftar
+    // helper.
+    final Widget page = switch (category.code) {
+      'household' => HouseholdPage(category: category),
+      'delivery' => DeliveryPage(
+        senderName: _user.fullName,
+        senderPhone: _user.phoneNumber,
+        store: _orderStore,
+      ),
+      _ => CategoryHelpersPage(category: category),
+    };
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
@@ -136,13 +151,23 @@ class _HomePageState extends State<HomePage> {
       onSelected: (tab) => setState(() => _tab = tab),
     );
 
-    // Aktifitas tidak memakai header merah: halaman putih penuh.
+    // Aktifitas dan Obrolan tidak memakai header merah: halaman penuh.
     if (_tab == HomeTab.aktifitas) {
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.dark,
         child: Scaffold(
           backgroundColor: AppColors.light,
           body: ActivityView(store: _orderStore),
+          bottomNavigationBar: nav,
+        ),
+      );
+    }
+    if (_tab == HomeTab.obrolan) {
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          backgroundColor: OrderStyle.background,
+          body: ChatListView(store: _chatStore),
           bottomNavigationBar: nav,
         ),
       );
@@ -191,14 +216,13 @@ class _HomePageState extends State<HomePage> {
               ListenableBuilder(
                 listenable: _orderStore,
                 builder: (context, _) {
-                  if (_orderStore.active == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return Positioned(
-                    left: 24,
-                    right: 24,
-                    bottom: 10,
-                    child: ActiveOrderTile(
+                  // Satu banner saja: Household (berwaktu) didahulukan,
+                  // lalu Personal, lalu pengantaran terbaru.
+                  final personal = _orderStore.personal;
+                  final deliveries = _orderStore.deliveries;
+                  final ActiveOrderTile tile;
+                  if (_orderStore.active != null) {
+                    tile = ActiveOrderTile(
                       title: 'Household',
                       status: activeStatusLabel(_orderStore),
                       elevated: true,
@@ -207,7 +231,41 @@ class _HomePageState extends State<HomePage> {
                           builder: (_) => ActiveOrderPage(store: _orderStore),
                         ),
                       ),
-                    ),
+                    );
+                  } else if (personal != null) {
+                    tile = ActiveOrderTile(
+                      title: 'Personal',
+                      status: personalStatusLabel(personal),
+                      categoryCode: 'personal',
+                      elevated: true,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PersonalOrderPage(store: _orderStore),
+                        ),
+                      ),
+                    );
+                  } else if (deliveries.isNotEmpty) {
+                    final delivery = deliveries.first;
+                    tile = ActiveOrderTile(
+                      title: 'Delivery',
+                      status: deliveryStatusLabel(delivery),
+                      categoryCode: 'delivery',
+                      elevated: true,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              DeliveryReviewPage.placed(order: delivery),
+                        ),
+                      ),
+                    );
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+                  return Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: 10,
+                    child: tile,
                   );
                 },
               ),
@@ -267,9 +325,8 @@ class _HomePageState extends State<HomePage> {
           // Hanya bagian ini yang dibangun ulang tiap detik oleh store.
           ListenableBuilder(
             listenable: _orderStore,
-            builder: (context, _) => SizedBox(
-              height: _orderStore.active == null ? 0 : _bannerClearance,
-            ),
+            builder: (context, _) =>
+                SizedBox(height: _orderStore.hasActive ? _bannerClearance : 0),
           ),
         ],
       ),
@@ -279,6 +336,8 @@ class _HomePageState extends State<HomePage> {
   /// Isi sementara untuk tab yang modulnya belum dibangun. Tombol keluar
   /// ditaruh di Akun supaya tetap terjangkau.
   Widget _buildPlaceholder() {
+    // Aktifitas dan Obrolan punya halaman sendiri (lihat build); yang sampai
+    // ke sini praktis hanya Akun.
     final label = switch (_tab) {
       HomeTab.aktifitas => 'Aktifitas',
       HomeTab.obrolan => 'Obrolan',

@@ -180,14 +180,14 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                               const SizedBox(height: 21),
                               const SectionLabel('Detail Pembayaran'),
                               const SizedBox(height: 14),
-                              _PaymentOption(
-                                icon: OrderStyle.iconVoucher,
+                              OrderOptionBox.icon(
+                                OrderStyle.iconVoucher,
                                 label: voucher?.title ?? 'Gunakan Vocher',
                                 onTap: _pickVoucher,
                               ),
                               const SizedBox(height: 11),
-                              _PaymentOption(
-                                icon: OrderStyle.iconPaymentCard,
+                              OrderOptionBox.icon(
+                                OrderStyle.iconPaymentCard,
                                 label:
                                     _payment?.name ?? 'Pilih metode pembayaran',
                                 onTap: _pickPayment,
@@ -200,7 +200,7 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                           padding: const EdgeInsets.fromLTRB(37, 16, 37, 27),
                           child: Column(
                             children: [
-                              _TotalRow(
+                              TotalToggleRow(
                                 total: price.total,
                                 expanded: _expanded,
                                 onTap: () =>
@@ -250,51 +250,94 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
   }
 }
 
-class _PaymentOption extends StatelessWidget {
-  const _PaymentOption({
-    required this.icon,
+/// Kotak pilihan di Detail Pesanan (voucher, metode pembayaran, waktu antar,
+/// jenis barang): ikon, judul, keterangan opsional, panah.
+class OrderOptionBox extends StatelessWidget {
+  const OrderOptionBox({
+    super.key,
+    required this.leading,
     required this.label,
-    required this.onTap,
+    this.subtitle,
+    this.onTap,
   });
 
-  final String icon;
+  /// Ikon SVG satu warna, seperti di Detail Pesanan Household.
+  OrderOptionBox.icon(
+    String asset, {
+    Key? key,
+    required String label,
+    String? subtitle,
+    VoidCallback? onTap,
+  }) : this(
+         key: key,
+         leading: OrderIcon(asset, size: 14, color: AppColors.textPrimary),
+         label: label,
+         subtitle: subtitle,
+         onTap: onTap,
+       );
+
+  final Widget leading;
   final String label;
-  final VoidCallback onTap;
+  final String? subtitle;
+
+  /// Null: hanya dibaca, tanpa panah.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final sub = subtitle;
+
     // Kotak setinggi 41 dp, ikon di 11 dp, teks 12 dp di 49 dp dari tepi.
     return OutlinedBox(
       onTap: onTap,
       padding: const EdgeInsets.fromLTRB(11, 11.5, 12, 11.5),
       child: Row(
         children: [
-          OrderIcon(icon, size: 14, color: AppColors.textPrimary),
+          SizedBox(width: 14, child: Center(child: leading)),
           const SizedBox(width: 24),
           Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.style(
-                size: 12,
-                weight: AppTypography.medium,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.style(
+                    size: 12,
+                    weight: AppTypography.medium,
+                  ),
+                ),
+                if (sub != null)
+                  Text(
+                    sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.style(
+                      size: 10,
+                      weight: AppTypography.regular,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
             ),
           ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            size: 18,
-            color: AppColors.textSecondary,
-          ),
+          if (onTap != null)
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: AppColors.textSecondary,
+            ),
         ],
       ),
     );
   }
 }
 
-class _TotalRow extends StatelessWidget {
-  const _TotalRow({
+/// "Total  Rp 110.000 ⌄": mengetuknya membuka/menutup rincian harga.
+class TotalToggleRow extends StatelessWidget {
+  const TotalToggleRow({
+    super.key,
     required this.total,
     required this.expanded,
     required this.onTap,
