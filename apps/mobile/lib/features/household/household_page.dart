@@ -4,6 +4,8 @@ import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../home/widgets/promo_carousel.dart';
+import '../order/order_store.dart';
+import 'active_order_page.dart';
 import 'household_models.dart';
 import 'house_order_form_page.dart';
 import 'move_order_form_page.dart';
@@ -11,13 +13,37 @@ import 'widgets/household_widgets.dart';
 
 /// Kategori Household: pilih kebutuhan (Pindahan, Rumah, Kamar, Pakaian).
 class HouseholdPage extends StatelessWidget {
-  const HouseholdPage({super.key, required this.category});
+  const HouseholdPage({super.key, required this.category, this.store});
 
   /// Kategori dari server, untuk `category_id` dan tarif dasar saat
   /// pesanan dikirim ke backend nanti.
   final ServiceCategory category;
 
+  /// Diisi saat pengujian. Default: [OrderStore.instance].
+  final OrderStore? store;
+
   void _open(BuildContext context, HouseholdService service) {
+    // Hanya satu pesanan Household boleh berjalan. Diberi tahu sekarang,
+    // bukan setelah form panjangnya selesai diisi.
+    final orders = store ?? OrderStore.instance;
+    if (orders.active != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Masih ada pesanan Household yang berjalan.'),
+            action: SnackBarAction(
+              label: 'Lihat',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ActiveOrderPage(store: orders),
+                ),
+              ),
+            ),
+          ),
+        );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => service == HouseholdService.pindahan
@@ -100,29 +126,26 @@ class _ServiceTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 3),
           child: Column(
             children: [
-              Container(
-                width: 73,
-                height: 73,
-                decoration: BoxDecoration(
-                  color: service.tileColor,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 6,
-                    ),
-                  ],
+              // 73 dp di desain. Di layar sempit tetap persegi, mengecil
+              // mengikuti lebar kolomnya.
+              LayoutBuilder(
+                builder: (context, box) => SizedBox.square(
+                  dimension: box.maxWidth < 73 ? box.maxWidth : 73,
+                  child: _tile(),
                 ),
-                child: Icon(service.icon, size: 34, color: service.iconColor),
               ),
               const SizedBox(height: 10),
-              Text(
-                service.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.style(
-                  size: 13,
-                  weight: AppTypography.regular,
+              // Satu baris utuh; "Pindahan" mengecil di layar sempit
+              // alih-alih terpotong jadi "Pindah...".
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  service.label,
+                  maxLines: 1,
+                  style: AppTypography.style(
+                    size: 13,
+                    weight: AppTypography.regular,
+                  ),
                 ),
               ),
             ],
@@ -131,4 +154,15 @@ class _ServiceTile extends StatelessWidget {
       ),
     );
   }
+
+  Widget _tile() => Container(
+    decoration: BoxDecoration(
+      color: service.tileColor,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6),
+      ],
+    ),
+    child: Icon(service.icon, size: 34, color: service.iconColor),
+  );
 }

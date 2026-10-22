@@ -131,6 +131,8 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
     final draft = _draft;
     final price = _price;
     final voucher = _voucher;
+    final cardSide = OrderStyle.inset(context, 40);
+    final totalSide = OrderStyle.inset(context, 37);
 
     // Ukuran diukur dari desain (frame 412 dp): kartu 40 dp dari tepi layar,
     // isi kartu 22 dp dari tepi kartu, bagian Total 37 dp.
@@ -147,7 +149,9 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                 const SizedBox(height: 20),
                 Expanded(
                   child: Container(
-                    margin: const EdgeInsets.fromLTRB(40, 0, 40, 30),
+                    // 40 dp dari tepi di desain; menyempit seimbang di HP
+                    // yang lebih kecil supaya isi kartu tidak terjepit.
+                    margin: EdgeInsets.fromLTRB(cardSide, 0, cardSide, 30),
                     decoration: OrderStyle.card(),
                     child: Column(
                       children: [
@@ -197,7 +201,12 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                         ),
                         const Divider(height: 1),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(37, 16, 37, 27),
+                          padding: EdgeInsets.fromLTRB(
+                            totalSide,
+                            16,
+                            totalSide,
+                            27,
+                          ),
                           child: Column(
                             children: [
                               TotalToggleRow(

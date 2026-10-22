@@ -102,70 +102,75 @@ class _VoucherTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          height: 86,
+          // Minimal 86 dp seperti desain; boleh lebih tinggi saat font HP
+          // diperbesar, alih-alih teksnya meluap.
+          constraints: const BoxConstraints(minHeight: 86),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected ? AppColors.primary : AppColors.outline,
             ),
           ),
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: OrderStyle.voucherTile,
-                  borderRadius: BorderRadius.circular(4),
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                const SizedBox(width: 12),
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: OrderStyle.voucherTile,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  alignment: Alignment.center,
+                  child: const OrderIcon(OrderStyle.iconVoucherWhite, size: 30),
                 ),
-                alignment: Alignment.center,
-                child: const OrderIcon(OrderStyle.iconVoucherWhite, size: 30),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      voucher.title,
-                      style: AppTypography.style(
-                        size: 13,
-                        weight: AppTypography.semiBold,
-                        height: 1.4,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        voucher.title,
+                        style: AppTypography.style(
+                          size: 13,
+                          weight: AppTypography.semiBold,
+                          height: 1.4,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      voucher.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.style(
-                        size: 10,
-                        weight: AppTypography.regular,
-                        color: AppColors.textSecondary,
+                      const SizedBox(height: 2),
+                      Text(
+                        voucher.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.style(
+                          size: 10,
+                          weight: AppTypography.regular,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Sampai ${voucher.validUntil}',
-                      style: AppTypography.style(
-                        size: 8,
-                        weight: AppTypography.regular,
-                        color: AppColors.textSecondary,
+                      const SizedBox(height: 2),
+                      Text(
+                        'Sampai ${voucher.validUntil}',
+                        style: AppTypography.style(
+                          size: 8,
+                          weight: AppTypography.regular,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              // Garis putus-putus pemisah seperti sobekan tiket.
-              const _DashedDivider(),
-              SizedBox(
-                width: 28,
-                child: Center(child: _Radio(selected: selected)),
-              ),
-            ],
+                // Garis putus-putus pemisah seperti sobekan tiket.
+                const _DashedDivider(),
+                SizedBox(
+                  width: 28,
+                  child: Center(child: _Radio(selected: selected)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -201,9 +206,12 @@ class _DashedDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(1, double.infinity),
-      painter: _DashPainter(),
+    // Setinggi baris tiket; ukuran intrinsiknya nol supaya IntrinsicHeight
+    // di atasnya tetap mengikuti isi tiket.
+    return SizedBox(
+      width: 1,
+      height: double.infinity,
+      child: CustomPaint(painter: _DashPainter()),
     );
   }
 }

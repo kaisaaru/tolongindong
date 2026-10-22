@@ -91,6 +91,10 @@ class _LoginPageState extends State<LoginPage> {
     return e.message;
   }
 
+  void _soon(String feature) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
+
   void _openRegister() {
     final route = MaterialPageRoute<void>(builder: (_) => const RegisterPage());
     Navigator.of(context).push(route);
@@ -150,9 +154,8 @@ class _LoginPageState extends State<LoginPage> {
                 alignment: AlignmentDirectional.centerEnd,
                 child: TextLink(
                   text: 'Lupa Password?',
-                  onTap: () {
-                    // TODO: navigasi ke halaman lupa password.
-                  },
+                  // TODO: navigasi ke halaman lupa password.
+                  onTap: () => _soon('Atur ulang password'),
                 ),
               ),
             ],
@@ -167,9 +170,8 @@ class _LoginPageState extends State<LoginPage> {
         const OrDivider(),
         const SizedBox(height: 36),
         GoogleSignInButton(
-          onPressed: () {
-            // TODO: login dengan Google.
-          },
+          // TODO: login dengan Google.
+          onPressed: () => _soon('Masuk dengan Google'),
         ),
         const SizedBox(height: 32),
         AuthSwitchPrompt(

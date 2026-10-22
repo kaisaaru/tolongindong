@@ -42,20 +42,25 @@ class HomeBottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: HomeMetrics.navHeight,
-          child: Row(
-            children: [
-              for (final (tab, label) in _tabs)
-                Expanded(
-                  child: _NavItem(
-                    tab: tab,
-                    label: label,
-                    active: tab == current,
-                    onTap: () => onSelected(tab),
+        // Label di bilah setinggi 64 dp ini dibatasi 1,3x font HP: lebih
+        // besar dari itu ikon dan label tidak muat lagi.
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: SizedBox(
+            height: HomeMetrics.navHeight,
+            child: Row(
+              children: [
+                for (final (tab, label) in _tabs)
+                  Expanded(
+                    child: _NavItem(
+                      tab: tab,
+                      label: label,
+                      active: tab == current,
+                      onTap: () => onSelected(tab),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

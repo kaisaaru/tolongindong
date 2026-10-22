@@ -284,6 +284,23 @@ class OrderStore extends ChangeNotifier {
     return order;
   }
 
+  /// Pelanggan menandai paket sudah diterima: pindah ke riwayat. Tanpa ini
+  /// pengantaran tampil sebagai pesanan berjalan selamanya. Nanti: status
+  /// `completed` dari `GET /orders/{id}`.
+  void completeDelivery(DeliveryOrder order) {
+    if (!_deliveries.remove(order)) return;
+    _history.add(
+      OrderRecord(
+        title: 'Delivery - ${order.draft.item.type.label}',
+        categoryCode: 'delivery',
+        date: order.placedAt,
+        total: order.total,
+        outcome: HistoryOutcome.completed,
+      ),
+    );
+    notifyListeners();
+  }
+
   /// Pelanggan menekan "Selesai" dan memberi rating.
   void completePersonal({int? rating}) {
     final order = _personal;

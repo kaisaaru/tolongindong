@@ -293,6 +293,39 @@ void main() {
     expect(find.text('OVO'), findsOneWidget);
   });
 
+  testWidgets('Pesanan Diterima memindahkan pengantaran ke riwayat', (
+    tester,
+  ) async {
+    final store = OrderStore(clock: _now)
+      ..placeDelivery(
+        draft: _draft,
+        payment: HouseholdSamples.paymentMethods.first,
+      );
+    await _pump(
+      tester,
+      DeliveryReviewPage.placed(order: store.deliveries.single, store: store),
+    );
+
+    await tester.tap(find.text('Pesanan Diterima'));
+    await tester.pumpAndSettle();
+    // Dibatalkan dulu: pesanan tetap berjalan.
+    await tester.tap(find.text('Belum'));
+    await tester.pumpAndSettle();
+    expect(store.deliveries, hasLength(1));
+
+    await tester.tap(find.text('Pesanan Diterima'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sudah diterima'));
+    await tester.pumpAndSettle();
+
+    expect(store.deliveries, isEmpty);
+    expect(store.hasActive, isFalse);
+    final record = store.history.single;
+    expect(record.title, 'Delivery - Makanan');
+    expect(record.categoryCode, 'delivery');
+    expect(record.total, DeliverySamples.fee);
+  });
+
   group('tata letak sempit (360 dp)', () {
     const narrow = Size(360, 740);
 

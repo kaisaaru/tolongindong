@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
@@ -17,11 +18,15 @@ class HelperRatingView extends StatelessWidget {
     required this.name,
     required this.onRate,
     this.photoUrl,
+    this.onSkip,
   });
 
   final String name;
   final String? photoUrl;
   final ValueChanged<int> onRate;
+
+  /// "Lewati": tutup pesanan tanpa rating. Null: tombolnya tidak tampil.
+  final VoidCallback? onSkip;
 
   static const _cardTop = 180.0; // di bawah status bar
   static const _cardSide = 37.0;
@@ -30,56 +35,73 @@ class HelperRatingView extends StatelessWidget {
   Widget build(BuildContext context) {
     final cardTop = MediaQuery.paddingOf(context).top + _cardTop;
 
-    return Scaffold(
-      backgroundColor: AppColors.light,
-      body: CustomPaint(
-        painter: _RatingRingsPainter(cardTop: cardTop),
-        child: Stack(
-          children: [
-            Positioned(
-              top: cardTop,
-              left: _cardSide,
-              right: _cardSide,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                decoration: BoxDecoration(
-                  color: AppColors.light,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x33000000), // hitam 20%
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Beri reting helper',
-                      style: AppTypography.style(
-                        size: 14,
-                        weight: AppTypography.semiBold,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: AppColors.light,
+        body: CustomPaint(
+          painter: _RatingRingsPainter(cardTop: cardTop),
+          child: Stack(
+            children: [
+              Positioned(
+                top: cardTop,
+                left: _cardSide,
+                right: _cardSide,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                  decoration: BoxDecoration(
+                    color: AppColors.light,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x33000000), // hitam 20%
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
                       ),
-                    ),
-                    const SizedBox(height: 23),
-                    HelperAvatar(name: name, photoUrl: photoUrl, size: 48),
-                    const SizedBox(height: 11),
-                    Text(
-                      name,
-                      style: AppTypography.style(
-                        size: 14,
-                        weight: AppTypography.regular,
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Beri reting helper',
+                        style: AppTypography.style(
+                          size: 14,
+                          weight: AppTypography.semiBold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 17),
-                    _StarPicker(onPicked: onRate),
-                  ],
+                      const SizedBox(height: 23),
+                      HelperAvatar(name: name, photoUrl: photoUrl, size: 48),
+                      const SizedBox(height: 11),
+                      Text(
+                        name,
+                        style: AppTypography.style(
+                          size: 14,
+                          weight: AppTypography.regular,
+                        ),
+                      ),
+                      const SizedBox(height: 17),
+                      _StarPicker(onPicked: onRate),
+                      if (onSkip case final skip?) ...[
+                        const SizedBox(height: 6),
+                        TextButton(
+                          onPressed: skip,
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.textSecondary,
+                            textStyle: AppTypography.style(
+                              size: 12,
+                              weight: AppTypography.medium,
+                            ),
+                          ),
+                          child: const Text('Lewati'),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

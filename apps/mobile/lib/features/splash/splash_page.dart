@@ -52,7 +52,14 @@ class _SplashPageState extends State<SplashPage> {
     // Hitungan mulai sekarang, lalu pengecekan jalan bersamaan. Jadi splash
     // tetap tampil penuh 2 detik tanpa menambah waktu tunggu.
     final minimumDisplay = Future<void>.delayed(SplashPage.duration);
-    final destination = await _resolveDestination();
+    Widget destination;
+    try {
+      destination = await _resolveDestination();
+    } on Object {
+      // Kegagalan tak terduga (respons rusak, keystore/preferensi gagal
+      // dibaca) tidak boleh menahan pengguna di splash selamanya.
+      destination = const LoginPage();
+    }
     await minimumDisplay;
 
     if (!mounted) return;

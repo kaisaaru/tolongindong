@@ -6,6 +6,8 @@ import 'package:mobile/features/order/checkout_page.dart';
 import 'package:mobile/features/order/helper_detail_page.dart';
 import 'package:mobile/features/order/order_models.dart';
 import 'package:mobile/features/order/order_samples.dart';
+import 'package:mobile/features/order/order_store.dart';
+import 'package:mobile/features/order/payment_method_page.dart';
 import 'package:mobile/models/service_category.dart';
 
 import '../../helpers/pump_page.dart';
@@ -104,18 +106,28 @@ void main() {
     expect(find.text('Tentang'), findsOneWidget);
   });
 
-  testWidgets('checkout menolak pesan tanpa metode pembayaran', (tester) async {
+  testWidgets('pesan tanpa metode pembayaran membuka pilihan pembayaran', (
+    tester,
+  ) async {
     final helper = OrderSamples.listingsFor(
       'personal',
     ).firstWhere((h) => h.price == 40000);
-    await pumpPage(tester, CheckoutPage(helper: helper));
+    final store = OrderStore();
+    await pumpPage(tester, CheckoutPage(helper: helper, store: store));
     await tester.pumpAndSettle();
 
     expect(find.text('Rp 40.000'), findsOneWidget); // total di bilah bawah
 
     await tester.tap(find.text('Pesan Sekarang'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Pilih metode pembayaran dulu.'), findsOneWidget);
+    // Sama seperti Household dan Delivery: ditanyakan, bukan ditolak.
+    expect(find.byType(PaymentMethodPage), findsOneWidget);
+
+    // Kembali tanpa memilih: pesanan tidak dibuat.
+    await tester.tap(find.byTooltip('Kembali'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CheckoutPage), findsOneWidget);
+    expect(store.personal, isNull);
   });
 }

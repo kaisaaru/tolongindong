@@ -27,7 +27,8 @@ import 'recipient_form_page.dart';
 /// metode pembayaran, lalu "Pesan" (konfirmasi → pembayaran → berhasil).
 ///
 /// [DeliveryReviewPage.placed]: pesanan yang sudah dibuat, hanya dibaca
-/// (dibuka dari Aktifitas). Desain pelacakan kurir belum ada.
+/// (dibuka dari Aktifitas). Desain pelacakan kurir belum ada, jadi
+/// pelanggan sendiri yang menandai "Pesanan Diterima".
 class DeliveryReviewPage extends StatefulWidget {
   const DeliveryReviewPage({
     super.key,
@@ -40,9 +41,9 @@ class DeliveryReviewPage extends StatefulWidget {
   const DeliveryReviewPage.placed({
     super.key,
     required DeliveryOrder this.order,
+    this.store,
   }) : draft = null,
        voucher = null,
-       store = null,
        clock = null;
 
   final DeliveryDraft? draft;
@@ -157,6 +158,37 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
     );
   }
 
+  /// Pesanan yang sudah dibuat: paket sudah sampai, pindahkan ke riwayat.
+  Future<void> _markReceived() async {
+    final order = widget.order;
+    if (order == null) return;
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Paket sudah diterima?'),
+        content: const Text(
+          'Pesanan akan dipindah ke Riwayat dan tidak bisa diubah lagi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Belum'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sudah diterima'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    _store.completeDelivery(order);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pengantaran selesai. Terima kasih!')),
+    );
+    Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final draft = _draft;
@@ -164,6 +196,8 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
     final total = draft.fee - discount;
     final labels = scheduleLabels(draft.schedule, _orderedAt);
     final edit = !_readOnly;
+    final cardSide = OrderStyle.inset(context, 40);
+    final totalSide = OrderStyle.inset(context, 37);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -178,7 +212,9 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                 const SizedBox(height: 20),
                 Expanded(
                   child: Container(
-                    margin: const EdgeInsets.fromLTRB(40, 0, 40, 30),
+                    // 40 dp dari tepi di desain; menyempit seimbang di HP
+                    // yang lebih kecil supaya isi kartu tidak terjepit.
+                    margin: EdgeInsets.fromLTRB(cardSide, 0, cardSide, 30),
                     decoration: OrderStyle.card(),
                     child: Column(
                       children: [
@@ -262,10 +298,10 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                         const Divider(height: 1),
                         Padding(
                           padding: EdgeInsets.fromLTRB(
-                            37,
+                            totalSide,
                             16,
-                            37,
-                            edit ? 27 : 20,
+                            totalSide,
+                            27,
                           ),
                           child: Column(
                             children: [
@@ -289,16 +325,19 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                                     muted: true,
                                   ),
                               ],
-                              if (edit) ...[
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  height: 42,
-                                  child: PrimaryButton(
-                                    label: 'Pesan',
-                                    onPressed: _submit,
-                                  ),
-                                ),
-                              ],
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 42,
+                                child: edit
+                                    ? PrimaryButton(
+                                        label: 'Pesan',
+                                        onPressed: _submit,
+                                      )
+                                    : PrimaryButton(
+                                        label: 'Pesanan Diterima',
+                                        onPressed: _markReceived,
+                                      ),
+                              ),
                             ],
                           ),
                         ),

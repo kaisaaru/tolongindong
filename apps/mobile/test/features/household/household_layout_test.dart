@@ -53,6 +53,46 @@ void main() {
     expect(find.text('Kategori Kebutuhan'), findsOneWidget);
   });
 
+  testWidgets('ubin layanan tetap persegi di layar 320 dp', (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const HouseholdPage(category: _household),
+      ),
+    );
+
+    final icon = find.byIcon(HouseholdService.pindahan.icon);
+    final tile = find.ancestor(of: icon, matching: find.byType(Container));
+    final size = tester.getSize(tile.first);
+    expect(size.width, size.height);
+    expect(size.width, lessThan(73));
+  });
+
+  testWidgets('layanan ditolak sejak awal saat pesanan masih berjalan', (
+    tester,
+  ) async {
+    final store = OrderStore(clock: () => DateTime(2026, 10, 22, 9));
+    store.place(draft: _draft, payment: HouseholdSamples.paymentMethods.first);
+
+    await _pumpNarrow(
+      tester,
+      HouseholdPage(category: _household, store: store),
+    );
+    await tester.tap(find.text('Rumah'));
+    await tester.pump();
+
+    expect(find.byType(HouseOrderFormPage), findsNothing);
+    expect(
+      find.text('Masih ada pesanan Household yang berjalan.'),
+      findsOneWidget,
+    );
+
+    store.reset(); // hentikan detak jam pesanan sebelum test selesai
+  });
+
   testWidgets('header mengikuti ukuran desain di bawah status bar', (
     tester,
   ) async {

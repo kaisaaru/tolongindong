@@ -91,7 +91,11 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   }
 
   Future<void> _pickSchedule() async {
-    final picked = await showScheduleSheet(context, initial: _slot);
+    final picked = await showScheduleSheet(
+      context,
+      initial: _slot,
+      title: 'Pilih waktu pengerjaan',
+    );
     if (picked != null && mounted) {
       setState(() {
         _slot = picked;
@@ -131,6 +135,7 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   Widget build(BuildContext context) {
     final service = widget.service;
     final loadOptions = _loadOptions;
+    final side = formSideInset(context);
 
     return Scaffold(
       backgroundColor: AppColors.light,
@@ -139,7 +144,7 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
           ColoredHeader.of(service),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(36, 23, 36, 24),
+              padding: EdgeInsets.fromLTRB(side, 23, side, 24),
               children: [
                 SectionLabel(service.addressLabel),
                 const SizedBox(height: 17),
@@ -158,45 +163,29 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
                     onSelected: (load) => setState(() => _load = load),
                   )
                 else
-                  Row(
+                  SideBySide(
                     children: [
-                      Expanded(
-                        child: _MeterField(
-                          label: 'Lebar :',
-                          controller: _width,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MeterField(
-                          label: 'Panjang:',
-                          controller: _length,
-                        ),
-                      ),
+                      _MeterField(label: 'Lebar :', controller: _width),
+                      _MeterField(label: 'Panjang:', controller: _length),
                     ],
                   ),
                 const SizedBox(height: 28),
                 const SectionLabel('Ketersediaan alat'),
                 const SizedBox(height: 17),
-                Row(
+                SideBySide(
                   children: [
-                    for (final option in ToolOption.values) ...[
-                      if (option != ToolOption.values.first)
-                        const SizedBox(width: 12),
-                      Expanded(
-                        child: SelectCard(
-                          // Desain memakai huruf kapital tiap kata di tombol.
-                          title: option == ToolOption.provided
-                              ? 'Alat Disediakan'
-                              : 'Alat Tidak Disediakan',
-                          centered: true,
-                          selected: _tools == option,
-                          onTap: () => setState(
-                            () => _tools = _tools == option ? null : option,
-                          ),
+                    for (final option in ToolOption.values)
+                      SelectCard(
+                        // Desain memakai huruf kapital tiap kata di tombol.
+                        title: option == ToolOption.provided
+                            ? 'Alat Disediakan'
+                            : 'Alat Tidak Disediakan',
+                        centered: true,
+                        selected: _tools == option,
+                        onTap: () => setState(
+                          () => _tools = _tools == option ? null : option,
                         ),
                       ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 28),

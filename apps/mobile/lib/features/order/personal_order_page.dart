@@ -38,7 +38,20 @@ class _PersonalOrderPageState extends State<PersonalOrderPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Terima kasih atas ratingnya!')),
     );
-    Navigator.of(context).maybePop();
+    _close();
+  }
+
+  /// Rating tidak wajib: pesanan tetap selesai dan masuk riwayat.
+  void _skipRating() {
+    _store.completePersonal();
+    _close();
+  }
+
+  /// `pop`, bukan `maybePop`: PopScope di halaman rating menahan
+  /// `maybePop` — penahan itu hanya untuk tombol kembali sistem.
+  void _close() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
   }
 
   @override
@@ -46,15 +59,24 @@ class _PersonalOrderPageState extends State<PersonalOrderPage> {
     final order = _store.personal;
     if (order == null) {
       // Pesanan sudah ditutup dari tempat lain.
-      return const Scaffold(body: SizedBox.shrink());
+      return const OrderEndedView();
     }
 
     final helper = order.helper;
     if (_rating) {
-      return HelperRatingView(
-        name: helper.name,
-        photoUrl: helper.photoUrl,
-        onRate: _rate,
+      // Tombol kembali membatalkan "Selesai" (misal salah ketuk) dan
+      // kembali ke rincian pesanan, bukan menutup halaman.
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) setState(() => _rating = false);
+        },
+        child: HelperRatingView(
+          name: helper.name,
+          photoUrl: helper.photoUrl,
+          onRate: _rate,
+          onSkip: _skipRating,
+        ),
       );
     }
 

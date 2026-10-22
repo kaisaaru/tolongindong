@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
@@ -18,8 +20,17 @@ class PromoCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Banner 340 dp di layar desain 412 dp. Di layar lebih sempit banner
+    // mengecil seimbang, supaya banner kedua tetap mengintip di kanan.
+    final k = math.min(
+      1.0,
+      MediaQuery.sizeOf(context).width / HomeMetrics.designWidth,
+    );
+    final width = HomeMetrics.bannerWidth * k;
+    final height = HomeMetrics.bannerHeight * k;
+
     return SizedBox(
-      height: HomeMetrics.bannerHeight,
+      height: height,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         // Banner kedua sengaja mengintip di tepi kanan, seperti desain.
@@ -35,12 +46,12 @@ class PromoCarousel extends StatelessWidget {
             borderRadius: BorderRadius.circular(HomeMetrics.bannerRadius),
             child: Image.asset(
               _banners[index],
-              width: HomeMetrics.bannerWidth,
-              height: HomeMetrics.bannerHeight,
+              width: width,
+              height: height,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox(
-                width: HomeMetrics.bannerWidth,
-                child: ColoredBox(color: AppColors.primaryLight),
+              errorBuilder: (_, _, _) => SizedBox(
+                width: width,
+                child: const ColoredBox(color: AppColors.primaryLight),
               ),
             ),
           ),

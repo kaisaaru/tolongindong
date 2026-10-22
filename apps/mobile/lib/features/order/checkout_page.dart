@@ -65,14 +65,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (picked != null && mounted) setState(() => _payment = picked);
   }
 
-  void _submit() {
-    final payment = _payment;
-    if (payment == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih metode pembayaran dulu.')),
-      );
-      return;
-    }
+  Future<void> _submit() async {
     if (_store.personal != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -84,6 +77,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
       return;
     }
+
+    // Sama seperti Household dan Delivery: metode pembayaran yang belum
+    // dipilih ditanyakan saat memesan, bukan ditolak.
+    if (_payment == null) await _pickPayment();
+    final payment = _payment;
+    if (payment == null || !mounted) return;
 
     final helper = widget.helper;
     _store.placePersonal(helper: helper, payment: payment, voucher: _voucher);

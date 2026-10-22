@@ -237,6 +237,55 @@ class SelectCard extends StatelessWidget {
   }
 }
 
+/// Dua isian sama lebar yang berdampingan, seperti desain. Di layar sangat
+/// sempit (320 dp) keduanya ditumpuk: berdampingan, teks seperti "Alat
+/// Tidak Disediakan" harus mengecil sampai sulit dibaca.
+class SideBySide extends StatelessWidget {
+  const SideBySide({
+    super.key,
+    required this.children,
+    this.gap = 12,
+    this.stackBelow = 290,
+  });
+
+  final List<Widget> children;
+  final double gap;
+
+  /// Lebar minimal agar tetap berdampingan. Di 360 dp lebar form ±297 dp.
+  final double stackBelow;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        if (box.maxWidth < stackBelow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) const SizedBox(height: 10),
+                children[i],
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) SizedBox(width: gap),
+              Expanded(child: children[i]),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Jarak kiri-kanan form pesanan: 36 dp di desain, menyempit seimbang di
+/// layar yang lebih kecil.
+double formSideInset(BuildContext context) => OrderStyle.inset(context, 36);
+
 /// Pilihan durasi 1–5 jam: satu baris kotak sama lebar, dengan gaya yang
 /// sama seperti tombol "Alat Disediakan" ([SelectCard]) supaya form seragam.
 /// Selalu satu baris; teks mengecil sendiri di layar sangat sempit.
@@ -829,7 +878,13 @@ class HelperFooter extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      StarRow(rating: helper.rating, size: 12, gap: 1),
+                      // Mengecil kalau jam di kanan memakan tempat (font HP
+                      // diperbesar di layar sempit).
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: StarRow(rating: helper.rating, size: 12, gap: 1),
+                      ),
                     ],
                   ),
                 ),

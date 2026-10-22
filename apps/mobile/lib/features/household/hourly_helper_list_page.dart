@@ -277,35 +277,16 @@ class _HelperCard extends StatelessWidget {
               HelperAvatar(
                 name: helper.name,
                 photoUrl: helper.photoUrl,
-                size: 68,
+                size: OrderStyle.inset(context, 68),
               ),
-              const SizedBox(width: 18),
+              SizedBox(width: OrderStyle.inset(context, 18)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            helper.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.style(
-                              size: 12,
-                              weight: AppTypography.semiBold,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          '${rupiah(helper.hourlyRate)}/Jam',
-                          style: AppTypography.style(
-                            size: 12,
-                            weight: AppTypography.regular,
-                          ),
-                        ),
-                      ],
+                    NamePriceLine(
+                      name: helper.name,
+                      price: '${rupiah(helper.hourlyRate)}/Jam',
                     ),
                     const SizedBox(height: 6),
                     Row(

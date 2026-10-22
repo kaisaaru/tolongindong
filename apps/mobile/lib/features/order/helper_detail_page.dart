@@ -9,17 +9,56 @@ import '../chat/chat_room_page.dart';
 import '../chat/chat_store.dart';
 import 'checkout_page.dart';
 import 'order_models.dart';
+import 'order_store.dart';
 import 'order_style.dart';
+import 'personal_order_page.dart';
 import 'widgets/order_widgets.dart';
 
 /// Profil helper: tentang, keahlian, review, dan tombol pesan.
 class HelperDetailPage extends StatelessWidget {
-  const HelperDetailPage({super.key, required this.helper, this.chatStore});
+  const HelperDetailPage({
+    super.key,
+    required this.helper,
+    this.chatStore,
+    this.store,
+  });
 
   final HelperListing helper;
 
-  /// Diisi saat pengujian. Default: [ChatStore.instance].
+  /// Diisi saat pengujian. Default: [ChatStore.instance] dan
+  /// [OrderStore.instance].
   final ChatStore? chatStore;
+  final OrderStore? store;
+
+  /// Hanya satu pesanan Personal boleh berjalan. Diberi tahu sebelum
+  /// checkout, bukan setelah voucher dan pembayaran dipilih.
+  void _order(BuildContext context) {
+    final orders = store ?? OrderStore.instance;
+    if (orders.personal != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Masih ada pesanan Personal yang berjalan.'),
+            action: SnackBarAction(
+              label: 'Lihat',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => PersonalOrderPage(store: orders),
+                ),
+              ),
+            ),
+          ),
+        );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            CheckoutPage(helper: helper, store: orders, chatStore: chatStore),
+      ),
+    );
+  }
 
   void _soon(BuildContext context, String feature) => ScaffoldMessenger.of(
     context,
@@ -107,11 +146,7 @@ class HelperDetailPage extends StatelessWidget {
           amount: rupiah(helper.price),
           button: PrimaryButton(
             label: 'Pesan Sekarang',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => CheckoutPage(helper: helper),
-              ),
-            ),
+            onPressed: () => _order(context),
           ),
         ),
       ),

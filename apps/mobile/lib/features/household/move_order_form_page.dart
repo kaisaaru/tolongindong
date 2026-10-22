@@ -78,7 +78,11 @@ class _MoveOrderFormPageState extends State<MoveOrderFormPage> {
   }
 
   Future<void> _pickSchedule() async {
-    final picked = await showScheduleSheet(context, initial: _slot);
+    final picked = await showScheduleSheet(
+      context,
+      initial: _slot,
+      title: 'Pilih waktu pengerjaan',
+    );
     if (picked != null && mounted) {
       setState(() {
         _slot = picked;
@@ -115,6 +119,7 @@ class _MoveOrderFormPageState extends State<MoveOrderFormPage> {
   @override
   Widget build(BuildContext context) {
     const service = HouseholdService.pindahan;
+    final side = formSideInset(context);
 
     return Scaffold(
       backgroundColor: AppColors.light,
@@ -123,7 +128,7 @@ class _MoveOrderFormPageState extends State<MoveOrderFormPage> {
           ColoredHeader.of(service),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(36, 23, 36, 24),
+              padding: EdgeInsets.fromLTRB(side, 23, side, 24),
               children: [
                 SectionLabel(service.addressLabel),
                 const SizedBox(height: 17),
@@ -150,23 +155,18 @@ class _MoveOrderFormPageState extends State<MoveOrderFormPage> {
                 const SizedBox(height: 28),
                 const SectionLabel('Kebutuhan Armada'),
                 const SizedBox(height: 17),
-                Row(
+                SideBySide(
                   children: [
-                    for (final fleet in FleetOption.values) ...[
-                      if (fleet != FleetOption.values.first)
-                        const SizedBox(width: 12),
-                      Expanded(
-                        child: SelectCard(
-                          title: fleet.label,
-                          subtitle: fleet.ratePerKm == 0
-                              ? rupiah(0)
-                              : '${rupiah(fleet.ratePerKm)}/km',
-                          centered: true,
-                          selected: _fleet == fleet,
-                          onTap: () => setState(() => _fleet = fleet),
-                        ),
+                    for (final fleet in FleetOption.values)
+                      SelectCard(
+                        title: fleet.label,
+                        subtitle: fleet.ratePerKm == 0
+                            ? rupiah(0)
+                            : '${rupiah(fleet.ratePerKm)}/km',
+                        centered: true,
+                        selected: _fleet == fleet,
+                        onTap: () => setState(() => _fleet = fleet),
                       ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 28),

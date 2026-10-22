@@ -196,9 +196,14 @@ class _RegisterPageState extends State<RegisterPage> {
         const OrDivider(),
         const SizedBox(height: 36),
         GoogleSignInButton(
-          onPressed: () {
-            // TODO: daftar dengan Google.
-          },
+          // TODO: daftar dengan Google.
+          onPressed: () => ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('Daftar dengan Google belum tersedia.'),
+              ),
+            ),
         ),
         const SizedBox(height: 32),
         AuthSwitchPrompt(

@@ -1,9 +1,20 @@
-import 'package:flutter/painting.dart';
+import 'dart:math' as math;
+
+import 'package:flutter/widgets.dart';
 
 /// Aset dan warna alur pesanan. Ukuran diambil dari screenshot desain
 /// (Android Compact, lebar 412 dp).
 class OrderStyle {
   const OrderStyle._();
+
+  /// Lebar frame desain.
+  static const designWidth = 412.0;
+
+  /// Ukuran [design] dp di frame desain, diskalakan ke lebar layar supaya
+  /// proporsinya sama di HP yang lebih sempit (360, 320 dp). Tidak pernah
+  /// lebih besar dari desain.
+  static double inset(BuildContext context, double design) =>
+      design * math.min(1.0, MediaQuery.sizeOf(context).width / designWidth);
 
   /// Pusat tombol kembali, diukur dari tepi bawah status bar. Sama di semua
   /// halaman desain (Personal, Checkout, Vocher, Detail Pesanan, Household).

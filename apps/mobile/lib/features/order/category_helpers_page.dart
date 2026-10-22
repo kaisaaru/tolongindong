@@ -250,39 +250,21 @@ class _HelperCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 22, 16, 22),
           child: Row(
             children: [
-              HelperAvatar(name: item.name, photoUrl: item.photoUrl, size: 68),
-              const SizedBox(width: 18),
+              HelperAvatar(
+                name: item.name,
+                photoUrl: item.photoUrl,
+                size: OrderStyle.inset(context, 68),
+              ),
+              SizedBox(width: OrderStyle.inset(context, 18)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.style(
-                              size: 12,
-                              weight: AppTypography.semiBold,
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          unit == null
-                              ? rupiah(item.price)
-                              : '${rupiah(item.price)}/$unit',
-                          style: AppTypography.style(
-                            size: 12,
-                            weight: AppTypography.regular,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
+                    NamePriceLine(
+                      name: item.name,
+                      price: unit == null
+                          ? rupiah(item.price)
+                          : '${rupiah(item.price)}/$unit',
                     ),
                     const SizedBox(height: 6),
                     Row(

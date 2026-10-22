@@ -4,6 +4,7 @@ import 'package:mobile/features/activity/activity_view.dart';
 import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/order/checkout_page.dart';
+import 'package:mobile/features/order/helper_detail_page.dart';
 import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/features/order/order_success_page.dart';
@@ -109,6 +110,125 @@ void main() {
     expect(record.categoryCode, 'personal');
     expect(record.rating, 5);
     expect(record.total, 32000);
+  });
+
+  testWidgets('rating boleh dilewati: pesanan tetap masuk riwayat', (
+    tester,
+  ) async {
+    final store = OrderStore()
+      ..placePersonal(
+        helper: _helper,
+        payment: HouseholdSamples.paymentMethods.first,
+      );
+    await _pump(tester, PersonalOrderPage(store: store));
+
+    await tester.tap(find.text('Selesai'));
+    await tester.pump();
+    await tester.tap(find.text('Lewati'));
+    await tester.pump();
+
+    expect(store.personal, isNull);
+    expect(store.history.single.rating, isNull);
+  });
+
+  testWidgets('setelah rating atau Lewati, halaman pesanan tertutup', (
+    tester,
+  ) async {
+    for (final rate in [true, false]) {
+      final store = OrderStore()
+        ..placePersonal(
+          helper: _helper,
+          payment: HouseholdSamples.paymentMethods.first,
+        );
+      await _pump(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => PersonalOrderPage(store: store),
+              ),
+            ),
+            child: const Text('Buka'),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Buka'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Selesai'));
+      await tester.pump();
+      if (rate) {
+        await tester.tap(find.bySemanticsLabel('Beri 4 bintang'));
+        // Bintang terisi tampil sebentar sebelum rating dikirim.
+        await tester.pump(const Duration(milliseconds: 400));
+      } else {
+        await tester.tap(find.text('Lewati'));
+      }
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PersonalOrderPage), findsNothing);
+      expect(store.history.single.rating, rate ? 4 : isNull);
+    }
+  });
+
+  testWidgets('kembali dari rating membuka lagi rincian pesanan', (
+    tester,
+  ) async {
+    final store = OrderStore()
+      ..placePersonal(
+        helper: _helper,
+        payment: HouseholdSamples.paymentMethods.first,
+      );
+    await _pump(tester, PersonalOrderPage(store: store));
+
+    await tester.tap(find.text('Selesai'));
+    await tester.pump();
+    expect(find.text('Beri reting helper'), findsOneWidget);
+
+    // Tombol kembali sistem, misal setelah salah ketuk "Selesai".
+    await tester.state<NavigatorState>(find.byType(Navigator)).maybePop();
+    await tester.pump();
+
+    expect(find.text('Beri reting helper'), findsNothing);
+    expect(find.text('Selesai'), findsOneWidget);
+    expect(store.personal, isNotNull);
+  });
+
+  testWidgets('profil helper menolak pesanan kedua sebelum checkout', (
+    tester,
+  ) async {
+    final store = OrderStore()
+      ..placePersonal(
+        helper: _helper,
+        payment: HouseholdSamples.paymentMethods.first,
+      );
+    await _pump(
+      tester,
+      HelperDetailPage(helper: _helper, store: store, chatStore: ChatStore()),
+    );
+
+    await tester.tap(find.text('Pesan Sekarang'));
+    await tester.pumpAndSettle(); // snackbar selesai muncul
+
+    expect(
+      find.text('Masih ada pesanan Personal yang berjalan.'),
+      findsOneWidget,
+    );
+    expect(find.byType(CheckoutPage), findsNothing);
+
+    await tester.tap(find.text('Lihat'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PersonalOrderPage), findsOneWidget);
+  });
+
+  testWidgets('halaman pesanan yang sudah ditutup tetap bisa kembali', (
+    tester,
+  ) async {
+    await _pump(tester, PersonalOrderPage(store: OrderStore()));
+
+    expect(find.textContaining('Pesanan ini sudah selesai'), findsOneWidget);
+    expect(find.byTooltip('Kembali'), findsOneWidget);
   });
 
   testWidgets('Aktifitas menampilkan pesanan Personal', (tester) async {

@@ -8,10 +8,14 @@ import 'widgets/household_widgets.dart';
 
 /// Lembar "Pilih waktu pengantaran": tujuh hari ke depan, lalu slot per jam.
 /// Slot hari ini yang jamnya sudah lewat disembunyikan.
+///
+/// [title] diganti untuk Household, yang menjadwalkan pengerjaan, bukan
+/// pengantaran.
 Future<TimeSlot?> showScheduleSheet(
   BuildContext context, {
   TimeSlot? initial,
   DateTime? now,
+  String title = 'Pilih waktu pengantaran',
 }) {
   return showModalBottomSheet<TimeSlot>(
     context: context,
@@ -20,16 +24,24 @@ Future<TimeSlot?> showScheduleSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) =>
-        _ScheduleSheet(initial: initial, now: now ?? DateTime.now()),
+    builder: (_) => _ScheduleSheet(
+      initial: initial,
+      now: now ?? DateTime.now(),
+      title: title,
+    ),
   );
 }
 
 class _ScheduleSheet extends StatefulWidget {
-  const _ScheduleSheet({required this.initial, required this.now});
+  const _ScheduleSheet({
+    required this.initial,
+    required this.now,
+    required this.title,
+  });
 
   final TimeSlot? initial;
   final DateTime now;
+  final String title;
 
   @override
   State<_ScheduleSheet> createState() => _ScheduleSheetState();
@@ -72,7 +84,8 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
           child: Column(
             children: [
               Text(
-                'Pilih waktu pengantaran',
+                widget.title,
+                textAlign: TextAlign.center,
                 style: AppTypography.style(
                   size: 22,
                   weight: AppTypography.semiBold,

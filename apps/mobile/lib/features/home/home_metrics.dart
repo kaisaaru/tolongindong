@@ -8,6 +8,9 @@
 class HomeMetrics {
   const HomeMetrics._();
 
+  /// Lebar frame desain.
+  static const designWidth = 412.0;
+
   // ── Header ────────────────────────────────────────────────────────────
   static const headerPadding = 22.0;
   static const headerTopGap = 24.0; // status bar -> avatar

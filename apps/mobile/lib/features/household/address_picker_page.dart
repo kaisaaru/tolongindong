@@ -142,14 +142,17 @@ class _AddressListCardState extends State<AddressListCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            // Wrap: dengan font HP besar di layar sempit, tab kedua turun
+            // baris alih-alih meluap.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _Tab(
                   label: 'Terakhir',
                   active: !_showSaved,
                   onTap: () => setState(() => _showSaved = false),
                 ),
-                const SizedBox(width: 8),
                 _Tab(
                   label: 'Tersimpan',
                   active: _showSaved,

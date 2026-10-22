@@ -6,8 +6,9 @@ import '../../models/auth_user.dart';
 import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
-import '../auth/auth_repository.dart';
+import '../account/account_view.dart';
 import '../activity/activity_view.dart';
+import '../auth/auth_repository.dart';
 import '../auth/login_page.dart';
 import '../chat/chat_list_view.dart';
 import '../chat/chat_store.dart';
@@ -29,9 +30,6 @@ import 'widgets/promo_carousel.dart';
 import 'widgets/service_offer_section.dart';
 
 /// Beranda client (FR-PRF-004, FR-HLP-001, FR-NOT-001, FR-WLT-010).
-///
-/// Akun belum punya isi. Endpoint-nya (`/me`) sudah ada di backend, tinggal
-/// layarnya dibangun.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
@@ -133,7 +131,7 @@ class _HomePageState extends State<HomePage> {
     // Household dan Delivery punya alur sendiri; kategori lain masih daftar
     // helper.
     final Widget page = switch (category.code) {
-      'household' => HouseholdPage(category: category),
+      'household' => HouseholdPage(category: category, store: _orderStore),
       'delivery' => DeliveryPage(
         senderName: _user.fullName,
         senderPhone: _user.phoneNumber,
@@ -144,14 +142,96 @@ class _HomePageState extends State<HomePage> {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
+  /// Kategori yang sudah dimuat, atau kosong kalau gagal dimuat.
+  Future<List<ServiceCategory>> _loadedCategories() async {
+    try {
+      return await _categories;
+    } on Object {
+      return const [];
+    }
+  }
+
+  /// Kartu "Jasa tersedia" adalah jasa Personal: buka daftar helpernya.
+  Future<void> _openOffer(ServiceOffer offer) async {
+    final categories = await _loadedCategories();
+    if (!mounted) return;
+    final personal = categories.where((c) => c.code == 'personal').firstOrNull;
+    if (personal == null) return _soon(offer.title);
+    _openCategory(personal);
+  }
+
+  /// Kata yang biasa diketik per kategori. Backend belum punya pencarian
+  /// layanan, jadi kolom cari mengarahkan ke kategori yang cocok.
+  static const _keywords = <String, List<String>>{
+    'delivery': ['kirim', 'antar', 'paket', 'barang', 'kurir', 'dokumen'],
+    'household': [
+      'rumah',
+      'kamar',
+      'pindah',
+      'bersih',
+      'cuci',
+      'pakaian',
+      'laundry',
+      'setrika',
+    ],
+    'personal': ['tugas', 'desain', 'website', 'skripsi', 'joki', 'makalah'],
+  };
+
+  Future<void> _search(String query) async {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    bool matches(ServiceCategory c) =>
+        c.name.toLowerCase().contains(q) ||
+        (_keywords[c.code] ?? const []).any(
+          (k) => q.contains(k) || (q.length >= 3 && k.startsWith(q)),
+        );
+
+    final categories = await _loadedCategories();
+    if (!mounted) return;
+    final match = categories.where(matches).firstOrNull;
+    if (match == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text('Belum ada layanan untuk "${query.trim()}".')),
+        );
+      return;
+    }
+    _openCategory(match);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Tombol kembali Android di tab lain membawa ke Beranda dulu, bukan
+    // langsung menutup aplikasi.
+    return PopScope(
+      canPop: _tab == HomeTab.beranda,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _tab = HomeTab.beranda);
+      },
+      child: _buildTab(context),
+    );
+  }
+
+  Widget _buildTab(BuildContext context) {
     final nav = HomeBottomNav(
       current: _tab,
       onSelected: (tab) => setState(() => _tab = tab),
     );
 
-    // Aktifitas dan Obrolan tidak memakai header merah: halaman penuh.
+    // Aktifitas, Obrolan, dan Akun tidak memakai header merah: halaman penuh.
+    if (_tab == HomeTab.akun) {
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          backgroundColor: AppColors.light,
+          body: AccountView(user: _user, onLogout: _logout),
+          bottomNavigationBar: nav,
+        ),
+      );
+    }
     if (_tab == HomeTab.aktifitas) {
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.dark,
@@ -205,70 +285,64 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: ColoredBox(
                   color: AppColors.light,
-                  child: _tab == HomeTab.beranda
-                      ? _buildBeranda()
-                      : _buildPlaceholder(),
+                  child: _buildBeranda(),
                 ),
               ),
             ),
             // Banner pesanan aktif melayang di atas bilah navigasi.
-            if (_tab == HomeTab.beranda)
-              ListenableBuilder(
-                listenable: _orderStore,
-                builder: (context, _) {
-                  // Satu banner saja: Household (berwaktu) didahulukan,
-                  // lalu Personal, lalu pengantaran terbaru.
-                  final personal = _orderStore.personal;
-                  final deliveries = _orderStore.deliveries;
-                  final ActiveOrderTile tile;
-                  if (_orderStore.active != null) {
-                    tile = ActiveOrderTile(
-                      title: 'Household',
-                      status: activeStatusLabel(_orderStore),
-                      elevated: true,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ActiveOrderPage(store: _orderStore),
-                        ),
+            ListenableBuilder(
+              listenable: _orderStore,
+              builder: (context, _) {
+                // Satu banner saja: Household (berwaktu) didahulukan,
+                // lalu Personal, lalu pengantaran terbaru.
+                final personal = _orderStore.personal;
+                final deliveries = _orderStore.deliveries;
+                final ActiveOrderTile tile;
+                if (_orderStore.active != null) {
+                  tile = ActiveOrderTile(
+                    title: 'Household',
+                    status: activeStatusLabel(_orderStore),
+                    elevated: true,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ActiveOrderPage(store: _orderStore),
                       ),
-                    );
-                  } else if (personal != null) {
-                    tile = ActiveOrderTile(
-                      title: 'Personal',
-                      status: personalStatusLabel(personal),
-                      categoryCode: 'personal',
-                      elevated: true,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => PersonalOrderPage(store: _orderStore),
-                        ),
-                      ),
-                    );
-                  } else if (deliveries.isNotEmpty) {
-                    final delivery = deliveries.first;
-                    tile = ActiveOrderTile(
-                      title: 'Delivery',
-                      status: deliveryStatusLabel(delivery),
-                      categoryCode: 'delivery',
-                      elevated: true,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              DeliveryReviewPage.placed(order: delivery),
-                        ),
-                      ),
-                    );
-                  } else {
-                    return const SizedBox.shrink();
-                  }
-                  return Positioned(
-                    left: 24,
-                    right: 24,
-                    bottom: 10,
-                    child: tile,
+                    ),
                   );
-                },
-              ),
+                } else if (personal != null) {
+                  tile = ActiveOrderTile(
+                    title: 'Personal',
+                    status: personalStatusLabel(personal),
+                    categoryCode: 'personal',
+                    elevated: true,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PersonalOrderPage(store: _orderStore),
+                      ),
+                    ),
+                  );
+                } else if (deliveries.isNotEmpty) {
+                  final delivery = deliveries.first;
+                  tile = ActiveOrderTile(
+                    title: 'Delivery',
+                    status: deliveryStatusLabel(delivery),
+                    categoryCode: 'delivery',
+                    elevated: true,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => DeliveryReviewPage.placed(
+                          order: delivery,
+                          store: _orderStore,
+                        ),
+                      ),
+                    ),
+                  );
+                } else {
+                  return const SizedBox.shrink();
+                }
+                return Positioned(left: 24, right: 24, bottom: 10, child: tile);
+              },
+            ),
           ],
         ),
         bottomNavigationBar: nav,
@@ -285,11 +359,11 @@ class _HomePageState extends State<HomePage> {
           bottom: HomeBottomNav.clearanceOf(context),
         ),
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(
+          Padding(
+            padding: const EdgeInsets.symmetric(
               horizontal: HomeMetrics.searchSideInset,
             ),
-            child: _SearchBar(),
+            child: _SearchBar(onSubmitted: _search),
           ),
           const SizedBox(height: HomeMetrics.gridTopGap),
           Padding(
@@ -306,7 +380,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: HomeMetrics.sectionTopGap),
           const _SectionTitle('Jasa tersedia'),
           const SizedBox(height: HomeMetrics.titleToContent),
-          ServiceOfferSection(onTap: (offer) => _soon(offer.title)),
+          ServiceOfferSection(onTap: _openOffer),
           const SizedBox(height: HomeMetrics.sectionTopGap),
           const _SectionTitle('Penawaran Spesial'),
           const SizedBox(height: HomeMetrics.titleToContent),
@@ -329,64 +403,6 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(height: _orderStore.hasActive ? _bannerClearance : 0),
           ),
         ],
-      ),
-    );
-  }
-
-  /// Isi sementara untuk tab yang modulnya belum dibangun. Tombol keluar
-  /// ditaruh di Akun supaya tetap terjangkau.
-  Widget _buildPlaceholder() {
-    // Aktifitas dan Obrolan punya halaman sendiri (lihat build); yang sampai
-    // ke sini praktis hanya Akun.
-    final label = switch (_tab) {
-      HomeTab.aktifitas => 'Aktifitas',
-      HomeTab.obrolan => 'Obrolan',
-      HomeTab.akun => 'Akun',
-      HomeTab.beranda => 'Beranda',
-    };
-
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          HomeBottomNav.clearanceOf(context),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: AppTypography.style(
-                size: AppTypography.h6,
-                weight: AppTypography.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Modul ini belum dibangun.',
-              textAlign: TextAlign.center,
-              style: AppTypography.style(
-                size: AppTypography.small,
-                weight: AppTypography.regular,
-                color: AppColors.textDescription,
-              ),
-            ),
-            if (_tab == HomeTab.akun) ...[
-              const SizedBox(height: 28),
-              Text(
-                _user.email,
-                style: AppTypography.style(
-                  size: AppTypography.small,
-                  weight: AppTypography.medium,
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(onPressed: _logout, child: const Text('Keluar')),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -440,7 +456,9 @@ class _ComingSoonCard extends StatelessWidget {
 }
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar();
+  const _SearchBar({required this.onSubmitted});
+
+  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -472,6 +490,10 @@ class _SearchBar extends StatelessWidget {
           Expanded(
             child: TextField(
               textAlignVertical: TextAlignVertical.center,
+              textInputAction: TextInputAction.search,
+              onSubmitted: onSubmitted,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               decoration: InputDecoration.collapsed(
                 hintText: 'Cari kebutuhanmu',
                 hintStyle: hintStyle,

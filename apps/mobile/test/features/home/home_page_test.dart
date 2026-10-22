@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/chat/chat_list_view.dart';
 import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/home/home_page.dart';
+import 'package:mobile/features/household/household_page.dart';
 import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
@@ -158,5 +160,78 @@ void main() {
 
     expect(find.text('Personal'), findsWidgets); // ubin kategori + banner
     expect(find.text('Dikerjakan Agus Nomercy'), findsOneWidget);
+  });
+
+  testWidgets('tombol kembali di tab lain membawa ke Beranda', (tester) async {
+    await _pumpHome(tester, FakeCatalogRepository());
+
+    await tester.tap(find.text('Aktifitas'));
+    await tester.pumpAndSettle();
+    expect(find.text('Jasa tersedia'), findsNothing);
+
+    // Tombol kembali Android: tidak menutup aplikasi.
+    await tester.state<NavigatorState>(find.byType(Navigator)).maybePop();
+    await tester.pumpAndSettle();
+    expect(find.text('Jasa tersedia'), findsOneWidget);
+  });
+
+  testWidgets('tab Akun: profil, lalu keluar setelah konfirmasi', (
+    tester,
+  ) async {
+    await _pumpHome(tester, FakeCatalogRepository());
+
+    await tester.tap(find.text('Akun'));
+    await tester.pumpAndSettle();
+    expect(find.text(_user.fullName), findsOneWidget);
+    expect(find.text(_user.email), findsOneWidget);
+    expect(find.text('Terverifikasi'), findsOneWidget);
+
+    await tester.tap(find.text('Keluar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Batal'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginPage), findsNothing);
+
+    await tester.tap(find.text('Keluar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Keluar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginPage), findsOneWidget);
+  });
+
+  testWidgets('cari "pindahan" membuka kategori Household', (tester) async {
+    await _pumpHome(
+      tester,
+      FakeCatalogRepository(
+        result: [
+          _category(1, 'personal', 'Personal'),
+          _category(3, 'household', 'Household'),
+        ],
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'pindahan');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HouseholdPage), findsOneWidget);
+  });
+
+  testWidgets('kata yang tidak dikenal diberi tahu, tetap di beranda', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      FakeCatalogRepository(result: [_category(1, 'personal', 'Personal')]),
+    );
+
+    await tester.enterText(find.byType(TextField), 'servis mobil');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+
+    expect(
+      find.text('Belum ada layanan untuk "servis mobil".'),
+      findsOneWidget,
+    );
   });
 }

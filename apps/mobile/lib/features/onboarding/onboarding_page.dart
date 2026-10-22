@@ -76,6 +76,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Jarak vertikal desain (frame 917 dp) diskalakan ke tinggi layar.
+    final k = OnboardingSlide.scaleOf(context);
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark, // ikon status bar gelap di latar putih
       child: Scaffold(
@@ -83,12 +86,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
           // Jarak atas-bawah diukur dari tepi layar, sama seperti desain.
           // Kalau status bar atau navigation bar lebih tinggi, SafeArea
           // memakai tinggi bar tersebut.
-          minimum: const EdgeInsets.only(top: 69, bottom: 60),
+          minimum: EdgeInsets.only(top: 69 * k, bottom: 60 * k),
           child: Stack(
             children: [
               Padding(
                 // Slide mulai tepat di bawah teks "Lewati" (100 dari atas).
-                padding: const EdgeInsets.only(top: 31),
+                padding: EdgeInsets.only(top: 31 * k),
                 child: Column(
                   children: [
                     Expanded(
@@ -99,9 +102,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         children: _slides,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: 32 * k),
                     PageIndicator(count: _slides.length, current: _currentPage),
-                    const SizedBox(height: 54),
+                    SizedBox(height: 54 * k),
                     // Tanpa glow (beda dengan PrimaryButton), sesuai desain.
                     SizedBox(
                       width: 280,

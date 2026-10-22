@@ -131,6 +131,12 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
     Navigator.of(context).maybePop();
   }
 
+  /// Rating tidak wajib: pesanan tetap ditutup dan masuk riwayat.
+  void _skipRating() {
+    _store.complete();
+    Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -139,7 +145,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
         final order = _store.active;
         if (order == null) {
           // Pesanan sudah ditutup (dibatalkan/dinilai) dari tempat lain.
-          return const Scaffold(body: SizedBox.shrink());
+          return const OrderEndedView();
         }
 
         final status = _store.status!;
@@ -149,6 +155,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
             name: helper.name,
             photoUrl: helper.photoUrl,
             onRate: _rate,
+            onSkip: _skipRating,
           );
         }
 
@@ -467,20 +474,25 @@ class _CountdownView extends StatelessWidget {
                         size: 46,
                       ),
                       const SizedBox(width: 18),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            helper.name,
-                            style: AppTypography.style(
-                              size: 12,
-                              weight: AppTypography.medium,
-                              height: 1.4,
+                      // Expanded: nama panjang dipotong, bukan meluap.
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              helper.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.style(
+                                size: 12,
+                                weight: AppTypography.medium,
+                                height: 1.4,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          StarRow(rating: helper.rating, size: 12, gap: 1),
-                        ],
+                            const SizedBox(height: 4),
+                            StarRow(rating: helper.rating, size: 12, gap: 1),
+                          ],
+                        ),
                       ),
                     ],
                   ),

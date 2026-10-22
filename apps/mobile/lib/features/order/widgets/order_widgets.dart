@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../theme/app_colors.dart';
@@ -285,6 +286,68 @@ class StarRow extends StatelessWidget {
   }
 }
 
+/// Nama helper (tebal) dan harganya di kartu daftar helper. Nama dipotong
+/// kalau kepanjangan, harga selalu utuh. Kalau keduanya tidak muat sebaris
+/// (layar 320 dp, font HP diperbesar), harga turun ke baris berikutnya.
+class NamePriceLine extends StatelessWidget {
+  const NamePriceLine({super.key, required this.name, required this.price});
+
+  final String name;
+  final String price;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        final nameText = Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.style(
+            size: 12,
+            weight: AppTypography.semiBold,
+            height: 1.5,
+          ),
+        );
+        final priceText = Text(
+          price,
+          maxLines: 1,
+          style: AppTypography.style(
+            size: 12,
+            weight: AppTypography.regular,
+            height: 1.5,
+          ),
+        );
+
+        // Nama minimal ±40% baris; kurang dari itu harga pindah ke bawah.
+        final painter = TextPainter(
+          text: TextSpan(text: price, style: priceText.style),
+          textScaler: MediaQuery.textScalerOf(context),
+          textDirection: Directionality.of(context),
+          maxLines: 1,
+        )..layout();
+        final fits = painter.width + 8 <= box.maxWidth * 0.6;
+        painter.dispose();
+
+        if (!fits) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [nameText, priceText],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: nameText),
+            const SizedBox(width: 8),
+            priceText,
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// Label kecil keahlian helper.
 class TagChip extends StatelessWidget {
   const TagChip(
@@ -358,7 +421,16 @@ class HelperStats extends StatelessWidget {
         children: [
           icon,
           const SizedBox(width: 6),
-          Text(text, style: style),
+          // Flexible: di layar sempit dengan font besar, teks dipotong
+          // alih-alih meluap keluar pil.
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
         ],
       );
       if (!pill) return content;
@@ -478,6 +550,47 @@ class OrderBottomBar extends StatelessWidget {
                 ],
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Halaman pesanan yang pesanannya sudah ditutup dari tempat lain
+/// (dibatalkan, dinilai, selesai). Tetap ada jalan kembali, bukan layar
+/// kosong tanpa tombol.
+class OrderEndedView extends StatelessWidget {
+  const OrderEndedView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: AppColors.light,
+        body: SafeArea(
+          child: Column(
+            children: [
+              const ArrowTitleBar(''),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Text(
+                      'Pesanan ini sudah selesai.\nLihat riwayatnya di Aktifitas.',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.style(
+                        size: AppTypography.small,
+                        weight: AppTypography.regular,
+                        color: AppColors.textDescription,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

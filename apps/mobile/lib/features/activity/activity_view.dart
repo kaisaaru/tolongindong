@@ -9,6 +9,7 @@ import '../home/home_assets.dart';
 import '../household/active_order_page.dart';
 import '../household/household_models.dart';
 import '../order/order_store.dart';
+import '../order/order_style.dart';
 import '../order/personal_order_page.dart';
 
 /// Isi tab "Aktifitas": pesanan yang sedang berjalan dan riwayatnya.
@@ -51,7 +52,7 @@ class _ActivityViewState extends State<ActivityView> {
 
   void _openDelivery(DeliveryOrder order) => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => DeliveryReviewPage.placed(order: order),
+      builder: (_) => DeliveryReviewPage.placed(order: order, store: _store),
     ),
   );
 
@@ -305,10 +306,7 @@ class _ActiveRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.disabled,
-            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.disabled),
           ],
         ),
       ),
@@ -425,16 +423,28 @@ class _Tab extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            // Garis bawah selebar 123 dp, berpusat di separuh kartu.
-            padding: const EdgeInsets.fromLTRB(29, 28, 29, 0),
+            // Garis bawah selebar 123 dp, berpusat di separuh kartu. Di layar
+            // sempit jarak tepinya ikut menyempit dan label tetap sebaris.
+            padding: EdgeInsets.fromLTRB(
+              OrderStyle.inset(context, 29),
+              28,
+              OrderStyle.inset(context, 29),
+              0,
+            ),
             child: Column(
               children: [
-                Text(
-                  label,
-                  style: AppTypography.style(
-                    size: 16,
-                    weight: AppTypography.regular,
-                    color: active ? AppColors.primary : AppColors.textSecondary,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: AppTypography.style(
+                      size: 16,
+                      weight: AppTypography.regular,
+                      color: active
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
