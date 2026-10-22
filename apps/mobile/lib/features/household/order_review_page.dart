@@ -116,11 +116,25 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
     final payment = _payment;
     if (payment == null || !mounted) return;
 
-    _store.place(draft: _draft, payment: payment, voucher: _voucher);
+    final draft = _draft;
+    _store.place(draft: draft, payment: payment, voucher: _voucher);
+    final helper = draft.helper.name;
+    final slot = draft.slot;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            OrderSuccessPage(next: (_) => ActiveOrderPage(store: _store)),
+        builder: (_) => OrderSuccessPage(
+          info: OrderSuccessInfo(
+            service: 'Household - ${draft.service.label}',
+            message: slot == null
+                ? '$helper menuju lokasimu, tiba sekitar '
+                      '${OrderStore.travelTime.inMinutes} menit lagi.'
+                : '$helper datang ${dateLabel(slot.day)}, '
+                      'pukul ${slot.hourLabel}.',
+            payment: payment.name,
+            total: _price.total,
+          ),
+          orderPage: (_) => ActiveOrderPage(store: _store),
+        ),
       ),
       (route) => route.isFirst,
     );

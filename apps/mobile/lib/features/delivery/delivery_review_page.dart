@@ -151,9 +151,27 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
     final payment = _payment;
     if (payment == null || !mounted) return;
 
-    _store.placeDelivery(draft: _draft, payment: payment, voucher: _voucher);
+    final draft = _draft;
+    final order = _store.placeDelivery(
+      draft: draft,
+      payment: payment,
+      voucher: _voucher,
+    );
+    // Jam yang sama dengan "Diantar sebelum jam ..." yang baru dilihat.
+    final when = scheduleLabels(draft.schedule, _orderedAt).subtitle;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const OrderSuccessPage()),
+      MaterialPageRoute<void>(
+        builder: (_) => OrderSuccessPage(
+          info: OrderSuccessInfo(
+            service: 'Delivery - ${draft.item.type.label}',
+            message: 'Paket untuk ${draft.recipient.name}. $when.',
+            payment: payment.name,
+            total: order.total,
+          ),
+          orderPage: (_) =>
+              DeliveryReviewPage.placed(order: order, store: _store),
+        ),
+      ),
       (route) => route.isFirst,
     );
   }
@@ -222,6 +240,14 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(22, 25, 22, 25),
                             children: [
+                              if (!edit) ...[
+                                OrderStatusBanner(
+                                  icon: Icons.moped_outlined,
+                                  title: 'Dalam pengantaran',
+                                  subtitle: labels.subtitle,
+                                ),
+                                const SizedBox(height: 21),
+                              ],
                               // Desain menulis "Pengataran" (salah ketik).
                               const SectionLabel('Detail Pengantaran'),
                               const SizedBox(height: 14),

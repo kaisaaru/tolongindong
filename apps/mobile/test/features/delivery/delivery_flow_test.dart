@@ -185,8 +185,12 @@ void main() {
     expect(order.payment.id, 'cod');
     expect(order.total, 20000);
     expect(order.draft.recipient.name, 'Agus');
+    expect(find.text('Paket untuk Agus. Diantar sebelum jam 11.00.'), findsOne);
 
-    await tester.pump(OrderSuccessPage.duration);
+    await tester.tap(find.text('Lihat Pesanan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dalam pengantaran'), findsOneWidget);
+    expect(find.text('Pesanan Diterima'), findsOneWidget);
   });
 
   testWidgets('Lihat Pesanan belum lengkap: beri tahu dan buka yang kurang', (

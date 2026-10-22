@@ -28,6 +28,7 @@ import 'widgets/home_bottom_nav.dart';
 import 'widgets/home_header.dart';
 import 'widgets/promo_carousel.dart';
 import 'widgets/service_offer_section.dart';
+import 'widgets/tips_section.dart';
 
 /// Beranda client (FR-PRF-004, FR-HLP-001, FR-NOT-001, FR-WLT-010).
 class HomePage extends StatefulWidget {
@@ -122,6 +123,8 @@ class _HomePageState extends State<HomePage> {
       (_) => false,
     );
   }
+
+  void _goTo(HomeTab tab) => setState(() => _tab = tab);
 
   void _soon(String feature) => ScaffoldMessenger.of(
     context,
@@ -227,7 +230,12 @@ class _HomePageState extends State<HomePage> {
         value: SystemUiOverlayStyle.dark,
         child: Scaffold(
           backgroundColor: AppColors.light,
-          body: AccountView(user: _user, onLogout: _logout),
+          body: AccountView(
+            user: _user,
+            onLogout: _logout,
+            onOpenOrders: () => _goTo(HomeTab.aktifitas),
+            onOpenChats: () => _goTo(HomeTab.obrolan),
+          ),
           bottomNavigationBar: nav,
         ),
       );
@@ -237,7 +245,10 @@ class _HomePageState extends State<HomePage> {
         value: SystemUiOverlayStyle.dark,
         child: Scaffold(
           backgroundColor: AppColors.light,
-          body: ActivityView(store: _orderStore),
+          body: ActivityView(
+            store: _orderStore,
+            onExplore: () => _goTo(HomeTab.beranda),
+          ),
           bottomNavigationBar: nav,
         ),
       );
@@ -247,7 +258,10 @@ class _HomePageState extends State<HomePage> {
         value: SystemUiOverlayStyle.dark,
         child: Scaffold(
           backgroundColor: OrderStyle.background,
-          body: ChatListView(store: _chatStore),
+          body: ChatListView(
+            store: _chatStore,
+            onExplore: () => _goTo(HomeTab.beranda),
+          ),
           bottomNavigationBar: nav,
         ),
       );
@@ -389,11 +403,8 @@ class _HomePageState extends State<HomePage> {
           const _SectionTitle('Seputar TolongDong'),
           const SizedBox(height: HomeMetrics.titleToContent),
           // Isi seksi ini terpotong di desain dan backend belum punya
-          // endpoint artikel, jadi sementara penanda saja.
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: HomeMetrics.bodyPadding),
-            child: _ComingSoonCard('Info dan tips TolongDong segera hadir.'),
-          ),
+          // endpoint artikel: tips statis tentang alur di aplikasi.
+          const TipsSection(),
           // Banner pesanan aktif melayang di atas akhir daftar. Tanpa ruang
           // ini, isi paling bawah tertutup banner walau sudah digulir mentok.
           // Hanya bagian ini yang dibangun ulang tiap detik oleh store.
@@ -422,33 +433,6 @@ class _SectionTitle extends StatelessWidget {
         style: AppTypography.style(
           size: HomeMetrics.sectionTitleSize,
           weight: AppTypography.bold,
-        ),
-      ),
-    );
-  }
-}
-
-class _ComingSoonCard extends StatelessWidget {
-  const _ComingSoonCard(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(HomeMetrics.offerCardRadius),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: AppTypography.style(
-          size: AppTypography.small,
-          weight: AppTypography.regular,
-          color: AppColors.textDescription,
         ),
       ),
     );

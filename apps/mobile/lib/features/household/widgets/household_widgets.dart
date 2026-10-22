@@ -106,6 +106,40 @@ class ColoredHeader extends StatelessWidget {
   }
 }
 
+/// Tombol chat bulat pink: menghubungi helper pesanan yang berjalan.
+class ChatHelperButton extends StatelessWidget {
+  const ChatHelperButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Chat helper',
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.primaryLight,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: const SizedBox.square(
+            dimension: 40,
+            child: Center(
+              child: OrderIcon(
+                OrderStyle.iconChat,
+                size: 18,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Tombol bantuan bulat putih di header pesanan aktif.
 class SupportButton extends StatelessWidget {
   const SupportButton({super.key, required this.onTap});
@@ -835,12 +869,16 @@ class HelperFooter extends StatelessWidget {
     required this.caption,
     required this.time,
     this.onTap,
+    this.onChat,
   });
 
   final HourlyHelper helper;
   final String caption;
   final String time;
   final VoidCallback? onTap;
+
+  /// Tombol chat di samping nama helper. Null: tidak tampil.
+  final VoidCallback? onChat;
 
   @override
   Widget build(BuildContext context) {
@@ -888,6 +926,10 @@ class HelperFooter extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (onChat case final chat?) ...[
+                  ChatHelperButton(onTap: chat),
+                  const SizedBox(width: 14),
+                ],
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,

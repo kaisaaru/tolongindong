@@ -4,20 +4,32 @@ import '../../core/format/rupiah.dart';
 import '../../models/auth_user.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../home/widgets/tips_section.dart';
 import '../order/widgets/order_widgets.dart';
 
-/// Isi tab "Akun": profil, saldo TD-Wallet, status verifikasi, dan keluar.
+/// Isi tab "Akun": profil, saldo TD-Wallet, status verifikasi, pintasan
+/// pesanan dan obrolan, bantuan, dan keluar.
 ///
 /// Desain Akun belum ada; tata letaknya mengikuti tab Aktifitas (judul 24,
 /// kartu bergaris 24 dp dari tepi). Data dari `GET /me` yang sudah dimuat
 /// beranda.
 class AccountView extends StatelessWidget {
-  const AccountView({super.key, required this.user, required this.onLogout});
+  const AccountView({
+    super.key,
+    required this.user,
+    required this.onLogout,
+    this.onOpenOrders,
+    this.onOpenChats,
+  });
 
   final AuthUser user;
 
   /// Dipanggil setelah pengguna mengonfirmasi keluar.
   final VoidCallback onLogout;
+
+  /// Pindah ke tab Aktifitas dan Obrolan. Null: barisnya tidak tampil.
+  final VoidCallback? onOpenOrders;
+  final VoidCallback? onOpenChats;
 
   Future<void> _confirmLogout(BuildContext context) async {
     final sure = await showDialog<bool>(
@@ -135,7 +147,62 @@ class AccountView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          if (onOpenOrders != null || onOpenChats != null) ...[
+            const SizedBox(height: 14),
+            _Card(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  if (onOpenOrders case final open?)
+                    _MenuRow(
+                      icon: Icons.receipt_long_outlined,
+                      label: 'Pesanan saya',
+                      onTap: open,
+                    ),
+                  if (onOpenChats case final open?)
+                    _MenuRow(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      label: 'Obrolan',
+                      onTap: open,
+                    ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 22),
+          Text(
+            'Bantuan',
+            style: AppTypography.style(
+              size: 14,
+              weight: AppTypography.semiBold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _Card(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (final tip in AppTip.all)
+                  _MenuRow(
+                    icon: tip.icon,
+                    label: tip.title,
+                    onTap: () => showTipSheet(context, tip),
+                  ),
+                _MenuRow(
+                  icon: Icons.info_outline_rounded,
+                  label: 'Tentang TolonginDong',
+                  onTap: () => showAboutDialog(
+                    context: context,
+                    applicationName: 'TolonginDong',
+                    applicationVersion: '1.0.0',
+                    applicationLegalese:
+                        'Bantuan helper terverifikasi untuk tugas harianmu.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
           OutlinedButton.icon(
             onPressed: () => _confirmLogout(context),
             style: OutlinedButton.styleFrom(
@@ -153,19 +220,64 @@ class AccountView extends StatelessWidget {
 
 /// Kartu bergaris seperti kartu di tab Aktifitas.
 class _Card extends StatelessWidget {
-  const _Card({required this.child});
+  const _Card({required this.child, this.padding = const EdgeInsets.all(16)});
 
   final Widget child;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: padding,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE6E6E6)),
       ),
       child: child,
+    );
+  }
+}
+
+/// Satu baris menu: ikon, label, panah.
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: AppColors.primary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.style(
+                  size: 13,
+                  weight: AppTypography.medium,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -65,7 +65,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'reomeo');
     await tester.pump();
-    expect(find.text('Helper tidak ditemukan.'), findsOneWidget);
+    expect(find.text('Helper tidak ditemukan'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'agus');
     await tester.pump();

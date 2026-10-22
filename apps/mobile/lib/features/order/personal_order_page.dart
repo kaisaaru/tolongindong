@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/primary_button.dart';
+import '../chat/chat_room_page.dart';
+import '../chat/chat_store.dart';
+import '../household/household_models.dart' show clockLabel;
 import '../household/widgets/household_widgets.dart' show SupportButton;
 import 'checkout_page.dart';
 import 'order_store.dart';
@@ -11,17 +14,19 @@ import 'order_style.dart';
 import 'widgets/helper_rating_view.dart';
 import 'widgets/order_widgets.dart';
 
-/// Pesanan Personal yang sedang dikerjakan (frame 202): helper, voucher,
-/// metode pembayaran, dan rincian. "Selesai" saat tugas sudah diterima,
-/// lalu beri rating; pesanan baru masuk riwayat setelah rating.
+/// Pesanan Personal yang sedang dikerjakan (frame 202): status, helper,
+/// voucher, metode pembayaran, dan rincian. Tugas dikirim dan diterima lewat
+/// chat; "Selesai" saat tugas sudah diterima, lalu beri rating.
 ///
 /// Voucher dan metode pembayaran hanya dibaca: sudah ditetapkan saat
 /// checkout, jadi panah di desain tidak dipasang.
 class PersonalOrderPage extends StatefulWidget {
-  const PersonalOrderPage({super.key, this.store});
+  const PersonalOrderPage({super.key, this.store, this.chatStore});
 
-  /// Diisi saat pengujian. Default: [OrderStore.instance].
+  /// Diisi saat pengujian. Default: [OrderStore.instance] dan
+  /// [ChatStore.instance].
   final OrderStore? store;
+  final ChatStore? chatStore;
 
   @override
   State<PersonalOrderPage> createState() => _PersonalOrderPageState();
@@ -32,6 +37,22 @@ class _PersonalOrderPageState extends State<PersonalOrderPage> {
 
   /// True setelah "Selesai": tampilkan halaman rating.
   bool _rating = false;
+
+  /// Ruang chat dengan helper; sudah dibuat saat checkout.
+  void _chat(PersonalOrder order) {
+    final chats = widget.chatStore ?? ChatStore.instance;
+    final helper = order.helper;
+    final room = chats.openWithHelper(
+      helperId: helper.id,
+      name: helper.name,
+      photoUrl: helper.photoUrl,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatRoomPage(room: room, store: chats),
+      ),
+    );
+  }
 
   void _rate(int stars) {
     _store.completePersonal(rating: stars);
@@ -116,6 +137,17 @@ class _PersonalOrderPageState extends State<PersonalOrderPage> {
               const SizedBox(height: 21),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: OrderStatusBanner(
+                  icon: Icons.edit_note_rounded,
+                  title: 'Sedang dikerjakan ${helper.name}',
+                  subtitle:
+                      'Dipesan pukul ${clockLabel(order.placedAt)}. '
+                      'Kirim detail tugas lewat chat.',
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: PersonalOrderSummary(
                   helper: helper,
                   // Desain: "Diskon Rp 2.000" — besar potongannya.
@@ -142,10 +174,29 @@ class _PersonalOrderPageState extends State<PersonalOrderPage> {
               // Row, bukan Align: Align di bottomNavigationBar melebar
               // setinggi layar dan menutupi isi halaman.
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  SizedBox(
-                    width: 160,
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _chat(order),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                      icon: const OrderIcon(
+                        OrderStyle.iconChat,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Chat Helper'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: PrimaryButton(
                       label: 'Selesai',
                       onPressed: () => setState(() => _rating = true),

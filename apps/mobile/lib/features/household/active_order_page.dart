@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
+import '../chat/chat_room_page.dart';
+import '../chat/chat_store.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
 import '../order/widgets/helper_rating_view.dart';
@@ -43,10 +45,12 @@ String countdownLabel(Duration d) {
 /// menuju lokasi (bisa batal sebentar), bekerja (hitung mundur + tambah
 /// durasi), lalu selesai (beri rating).
 class ActiveOrderPage extends StatefulWidget {
-  const ActiveOrderPage({super.key, this.store});
+  const ActiveOrderPage({super.key, this.store, this.chatStore});
 
-  /// Diisi saat pengujian. Default: [OrderStore.instance].
+  /// Diisi saat pengujian. Default: [OrderStore.instance] dan
+  /// [ChatStore.instance].
   final OrderStore? store;
+  final ChatStore? chatStore;
 
   @override
   State<ActiveOrderPage> createState() => _ActiveOrderPageState();
@@ -60,6 +64,22 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
 
   /// Dialog waktu habis sedang terbuka atau dijadwalkan.
   bool _askingTimeUp = false;
+
+  /// Chat dengan helper, misal menjelaskan patokan rumah. Nanti: ruang
+  /// chat milik pesanan (`POST /chats/orders/{id}`).
+  void _chat(HourlyHelper helper) {
+    final chats = widget.chatStore ?? ChatStore.instance;
+    final room = chats.openWithHelper(
+      helperId: helper.id,
+      name: helper.name,
+      photoUrl: helper.photoUrl,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatRoomPage(room: room, store: chats),
+      ),
+    );
+  }
 
   void _support() => ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(content: Text('Pusat bantuan belum tersedia.')),
@@ -176,6 +196,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
             remaining: _store.remaining,
             onExtend: _extend,
             onShowDetail: () => setState(() => _showDetail = true),
+            onChat: () => _chat(order.draft.helper),
           );
         }
 
@@ -230,6 +251,7 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
           ),
           bottomNavigationBar: HelperFooter(
             helper: draft.helper,
+            onChat: () => _chat(draft.helper),
             caption: working ? 'Selesai di jam' : 'Estimasi sampai',
             time: clockLabel(working ? order.finishAt : order.arriveAt),
           ),
@@ -414,6 +436,7 @@ class _CountdownView extends StatelessWidget {
     required this.remaining,
     required this.onExtend,
     required this.onShowDetail,
+    required this.onChat,
   });
 
   final Widget header;
@@ -421,6 +444,7 @@ class _CountdownView extends StatelessWidget {
   final Duration remaining;
   final VoidCallback onExtend;
   final VoidCallback onShowDetail;
+  final VoidCallback onChat;
 
   @override
   Widget build(BuildContext context) {
@@ -494,6 +518,7 @@ class _CountdownView extends StatelessWidget {
                           ],
                         ),
                       ),
+                      ChatHelperButton(onTap: onChat),
                     ],
                   ),
                 ),

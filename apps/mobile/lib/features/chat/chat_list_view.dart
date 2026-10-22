@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/empty_state.dart';
 import '../household/household_models.dart' show clockLabel, dateLabel;
 import '../order/order_style.dart';
 import '../order/widgets/order_widgets.dart';
@@ -15,11 +16,19 @@ import 'chat_store.dart';
 /// judulnya "Obrolan" tanpa tombol kembali karena ini isi tab, sama seperti
 /// tab Aktifitas.
 class ChatListView extends StatefulWidget {
-  const ChatListView({super.key, this.store, this.bottomPadding = 16});
+  const ChatListView({
+    super.key,
+    this.store,
+    this.bottomPadding = 16,
+    this.onExplore,
+  });
 
   /// Diisi saat pengujian. Default: [ChatStore.instance].
   final ChatStore? store;
   final double bottomPadding;
+
+  /// Ajakan "Cari Helper" saat belum ada obrolan, misal pindah ke Beranda.
+  final VoidCallback? onExplore;
 
   @override
   State<ChatListView> createState() => _ChatListViewState();
@@ -68,14 +77,30 @@ class _ChatListViewState extends State<ChatListView> {
 
   Widget _buildList() {
     final all = _store.rooms;
-    if (all.isEmpty) return const _Empty('Belum ada obrolan.');
+    if (all.isEmpty) {
+      return EmptyState(
+        icon: Icons.chat_bubble_outline_rounded,
+        title: 'Belum ada obrolan',
+        message:
+            'Chat helper dari profilnya, sebelum atau sesudah memesan. '
+            'Obrolannya tersimpan di sini.',
+        actionLabel: 'Cari Helper',
+        onAction: widget.onExplore,
+      );
+    }
 
     final q = _query.trim().toLowerCase();
     final rooms = [
       for (final room in all)
         if (q.isEmpty || room.peerName.toLowerCase().contains(q)) room,
     ];
-    if (rooms.isEmpty) return const _Empty('Helper tidak ditemukan.');
+    if (rooms.isEmpty) {
+      return const EmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'Helper tidak ditemukan',
+        message: 'Coba cari dengan nama lain.',
+      );
+    }
 
     return ListView.separated(
       padding: EdgeInsets.zero,
@@ -245,26 +270,6 @@ class _UnreadBadge extends StatelessWidget {
           size: 9,
           weight: AppTypography.semiBold,
           color: AppColors.light,
-        ),
-      ),
-    );
-  }
-}
-
-class _Empty extends StatelessWidget {
-  const _Empty(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        text,
-        style: AppTypography.style(
-          size: AppTypography.small,
-          weight: AppTypography.regular,
-          color: AppColors.textDescription,
         ),
       ),
     );

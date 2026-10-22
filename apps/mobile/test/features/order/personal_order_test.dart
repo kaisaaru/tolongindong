@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/activity/activity_view.dart';
+import 'package:mobile/features/chat/chat_room_page.dart';
 import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/order/checkout_page.dart';
@@ -51,8 +52,31 @@ void main() {
     expect(store.personal?.payment.name, 'BCA');
     expect(chats.rooms.single.helperId, _helper.id);
 
-    // Selesaikan timer halaman sukses sebelum test berakhir.
-    await tester.pump(OrderSuccessPage.duration);
+    // Halaman sukses tidak tertutup sendiri; lanjut lewat tombol.
+    await tester.pump(const Duration(seconds: 5));
+    expect(find.byType(OrderSuccessPage), findsOneWidget);
+    await tester.tap(find.text('Lihat Pesanan'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PersonalOrderPage), findsOneWidget);
+  });
+
+  testWidgets('pesanan berjalan: tombol Chat Helper membuka ruang chat', (
+    tester,
+  ) async {
+    final store = OrderStore()
+      ..placePersonal(
+        helper: _helper,
+        payment: HouseholdSamples.paymentMethods.first,
+      );
+    final chats = ChatStore(rooms: []);
+    await _pump(tester, PersonalOrderPage(store: store, chatStore: chats));
+
+    expect(find.text('Sedang dikerjakan ${_helper.name}'), findsOneWidget);
+    await tester.tap(find.text('Chat Helper'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatRoomPage), findsOneWidget);
+    expect(chats.rooms.single.helperId, _helper.id);
   });
 
   testWidgets('checkout menolak pesanan Personal kedua', (tester) async {

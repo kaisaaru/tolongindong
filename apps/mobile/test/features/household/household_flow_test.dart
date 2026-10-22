@@ -303,9 +303,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(OrderSuccessPage), findsOneWidget);
     expect(store.active?.payment.name, 'BCA');
+    // Ringkasan pesanan di halaman sukses.
+    expect(find.text('Household - Rumah'), findsOneWidget);
+    expect(find.text('BCA'), findsOneWidget);
 
-    await tester.pump(OrderSuccessPage.duration);
+    await tester.tap(find.text('Lihat Pesanan'));
     // Bar "Batal" beranimasi tiap frame, jadi tidak pernah "settle".
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(ActiveOrderPage), findsOneWidget);
     expect(find.byType(OrderSuccessPage), findsNothing);

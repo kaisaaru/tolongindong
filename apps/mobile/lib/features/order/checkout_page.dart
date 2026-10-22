@@ -12,6 +12,7 @@ import 'order_store.dart';
 import 'order_style.dart';
 import 'order_success_page.dart';
 import 'payment_method_page.dart';
+import 'personal_order_page.dart';
 import 'voucher_page.dart';
 import 'widgets/order_widgets.dart';
 
@@ -94,7 +95,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
       photoUrl: helper.photoUrl,
     );
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const OrderSuccessPage()),
+      MaterialPageRoute<void>(
+        builder: (_) => OrderSuccessPage(
+          info: OrderSuccessInfo(
+            service: 'Personal - ${helper.subcategory}',
+            message:
+                '${helper.name} siap mengerjakan. Kirim detail tugasmu '
+                'lewat chat.',
+            payment: payment.name,
+            total: _total,
+          ),
+          orderPage: (_) =>
+              PersonalOrderPage(store: _store, chatStore: _chatStore),
+        ),
+      ),
       // Sisakan beranda di bawahnya supaya halaman sukses bisa kembali ke sana.
       (route) => route.isFirst,
     );

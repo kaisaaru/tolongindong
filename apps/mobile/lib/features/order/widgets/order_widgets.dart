@@ -597,3 +597,68 @@ class OrderEndedView extends StatelessWidget {
     );
   }
 }
+
+/// Status pesanan yang sedang berjalan: ikon merah, status tebal, dan
+/// keterangan (misal jam pesan). Dipakai halaman pesanan Personal dan
+/// Delivery, yang tidak punya hitung mundur seperti Household.
+class OrderStatusBanner extends StatelessWidget {
+  const OrderStatusBanner({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: OrderStyle.tagBackground,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20, color: AppColors.light),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.style(
+                    size: 13,
+                    weight: AppTypography.semiBold,
+                    height: 1.4,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: AppTypography.style(
+                    size: 11,
+                    weight: AppTypography.regular,
+                    color: AppColors.textDescription,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

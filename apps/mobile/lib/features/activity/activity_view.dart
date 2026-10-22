@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/empty_state.dart';
 import '../delivery/delivery_models.dart';
 import '../delivery/delivery_review_page.dart';
 import '../home/home_assets.dart';
@@ -23,6 +24,7 @@ class ActivityView extends StatefulWidget {
     this.bottomPadding = 12,
     this.startOnHistory = false,
     this.showTitle = true,
+    this.onExplore,
   });
 
   final OrderStore? store;
@@ -33,6 +35,9 @@ class ActivityView extends StatefulWidget {
 
   /// False kalau halaman pembungkusnya sudah punya judul.
   final bool showTitle;
+
+  /// Ajakan "Cari Layanan" saat belum ada pesanan, misal pindah ke Beranda.
+  final VoidCallback? onExplore;
 
   @override
   State<ActivityView> createState() => _ActivityViewState();
@@ -127,7 +132,15 @@ class _ActivityViewState extends State<ActivityView> {
   static const _listPadding = EdgeInsets.fromLTRB(4, 27, 4, 14);
 
   Widget _buildActive() {
-    if (!_store.hasActive) return const _Empty('Belum ada pesanan berjalan.');
+    if (!_store.hasActive) {
+      return EmptyState(
+        icon: Icons.receipt_long_outlined,
+        title: 'Belum ada pesanan berjalan',
+        message: 'Pesanan yang sedang dikerjakan helper akan tampil di sini.',
+        actionLabel: 'Cari Layanan',
+        onAction: widget.onExplore,
+      );
+    }
 
     return ListView(
       padding: _listPadding,
@@ -158,7 +171,13 @@ class _ActivityViewState extends State<ActivityView> {
 
   Widget _buildHistory() {
     final records = _store.history;
-    if (records.isEmpty) return const _Empty('Belum ada riwayat pesanan.');
+    if (records.isEmpty) {
+      return const EmptyState(
+        icon: Icons.history_rounded,
+        title: 'Belum ada riwayat pesanan',
+        message: 'Pesanan yang selesai atau dibatalkan tersimpan di sini.',
+      );
+    }
 
     return ListView.builder(
       padding: _listPadding,
@@ -455,26 +474,6 @@ class _Tab extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Empty extends StatelessWidget {
-  const _Empty(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        text,
-        style: AppTypography.style(
-          size: AppTypography.small,
-          weight: AppTypography.regular,
-          color: AppColors.textDescription,
         ),
       ),
     );

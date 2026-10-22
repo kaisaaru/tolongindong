@@ -234,4 +234,46 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('Seputar TolongDong: tips membuka langkah lengkap', (
+    tester,
+  ) async {
+    await _pumpHome(tester, FakeCatalogRepository());
+
+    await tester.scrollUntilVisible(
+      find.text('Cara pesan helper'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Cara pesan helper'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Pilih kategori di beranda'), findsOneWidget);
+    await tester.tap(find.text('Mengerti'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Pilih kategori di beranda'), findsNothing);
+  });
+
+  testWidgets('Aktifitas kosong: Cari Layanan kembali ke Beranda', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      HomePage(
+        user: _user,
+        authRepo: FakeAuthRepository(),
+        catalogRepo: FakeCatalogRepository(),
+        orderStore: OrderStore(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Aktifitas'));
+    await tester.pumpAndSettle();
+    expect(find.text('Belum ada pesanan berjalan'), findsOneWidget);
+
+    await tester.tap(find.text('Cari Layanan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Jasa tersedia'), findsOneWidget);
+  });
 }
