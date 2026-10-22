@@ -22,7 +22,9 @@ import 'delivery_samples.dart';
 import 'delivery_sheets.dart';
 import 'recipient_form_page.dart';
 
-/// Warna ikon baris "Mau dianter kapan?" (hijau) dan "Barang apa?" (oranye).
+/// Warna ikon baris "Siapa penerimanya?" (biru), "Mau dianter kapan?"
+/// (hijau), dan "Barang apa?" (oranye).
+const deliveryRecipientColor = Color(0xFF3FA2F6);
 const deliveryTimeColor = Color(0xFF1E9E4A);
 const deliveryItemColor = Color(0xFFFF9F43);
 
@@ -226,6 +228,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
+    final cardSide = _Metrics.cardSide(context);
     final hasDestination = _destination != null;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -239,9 +242,17 @@ class _DeliveryPageState extends State<DeliveryPage> {
             // bawah header seperti desain.
             Stack(
               children: [
-                _Header(height: top + 150, onHistory: _openHistory),
+                _Header(
+                  height: top + _Metrics.headerHeight,
+                  onHistory: _openHistory,
+                ),
                 Padding(
-                  padding: EdgeInsets.fromLTRB(36, top + 100, 36, 0),
+                  padding: EdgeInsets.fromLTRB(
+                    cardSide,
+                    top + _Metrics.cardTop,
+                    cardSide,
+                    0,
+                  ),
                   child: _RouteCard(
                     origin: _origin,
                     destination: _destination,
@@ -259,10 +270,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
             if (hasDestination)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 36),
+                padding: EdgeInsets.fromLTRB(cardSide, 19, cardSide, 0),
                 child: _VoucherCard(voucher: _voucher, onTap: _pickVoucher),
               )
             else ...[
@@ -291,6 +301,27 @@ class _DeliveryPageState extends State<DeliveryPage> {
   }
 }
 
+/// Ukuran diukur dari desain Delivery (frame Android Compact 412 dp, status
+/// bar 52 dp). Jarak tepi diskalakan dengan lebar layar supaya proporsinya
+/// sama di HP yang lebih sempit atau lebar.
+class _Metrics {
+  const _Metrics._();
+
+  /// Tinggi header dan posisi atas kartu rute, di bawah status bar.
+  static const headerHeight = 125.0;
+  static const cardTop = 94.0;
+
+  static const _designWidth = 412.0;
+
+  /// Kartu rute, vocher, dan total: 54 dp dari tepi di desain.
+  static double cardSide(BuildContext context) =>
+      MediaQuery.sizeOf(context).width * 54 / _designWidth;
+
+  /// Pengantaran sebelumnya dan promo: 35 dp dari tepi di desain.
+  static double sectionSide(BuildContext context) =>
+      MediaQuery.sizeOf(context).width * 35 / _designWidth;
+}
+
 /// Header merah bergradasi dengan sudut bawah membulat, tombol kembali,
 /// judul, dan tombol riwayat.
 class _Header extends StatelessWidget {
@@ -309,19 +340,39 @@ class _Header extends StatelessWidget {
         gradient: LinearGradient(
           colors: [Color(0xFFFF9A9A), AppColors.primary],
         ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Stack(
         children: [
-          // Ilustrasi kardus di desain belum diekspor; ikon sementara,
-          // lebih pudar supaya tidak bersaing dengan tombol riwayat.
+          // Ilustrasi kardus di desain belum diekspor; ikon sementara di
+          // posisi yang sama (tengah-kanan, ±110 dp) dengan garis gerak.
           Positioned(
-            right: 76,
-            top: top + 18,
-            child: Icon(
-              Icons.inventory_2_outlined,
-              size: 72,
-              color: AppColors.light.withValues(alpha: 0.25),
+            right: 64,
+            top: top + 4,
+            child: Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (final w in [16.0, 24.0, 16.0])
+                      Container(
+                        width: w,
+                        height: 3,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.light.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 110,
+                  color: AppColors.light.withValues(alpha: 0.3),
+                ),
+              ],
             ),
           ),
           Positioned(
@@ -343,17 +394,24 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 ),
-                Material(
-                  color: AppColors.light,
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    tooltip: 'Riwayat pengiriman',
-                    onPressed: onHistory,
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(
-                      Icons.history_rounded,
-                      size: 20,
-                      color: AppColors.textPrimary,
+                Semantics(
+                  button: true,
+                  label: 'Riwayat pengiriman',
+                  excludeSemantics: true,
+                  child: Material(
+                    color: AppColors.light,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: onHistory,
+                      child: const SizedBox.square(
+                        dimension: 34,
+                        child: Icon(
+                          Icons.history_rounded,
+                          size: 20,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -403,9 +461,11 @@ class _RouteCard extends StatelessWidget {
     final item = this.item;
     final labels = schedule == null ? null : scheduleLabels(schedule, now);
 
+    // Ukuran dari desain: isi 21 dp dari tepi kartu, teks alamat 44 dp,
+    // baris alamat ±47 dp, baris pilihan ±60 dp.
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 8, 10, 8),
-      decoration: OrderStyle.card(radius: 14),
+      padding: const EdgeInsets.fromLTRB(21, 4, 8, 4),
+      decoration: OrderStyle.card(radius: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -417,7 +477,7 @@ class _RouteCard extends StatelessWidget {
                   child: Row(
                     children: [
                       const OrderIcon(OrderStyle.iconLocationOrigin, size: 14),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 9),
                       Expanded(
                         child: Text(
                           origin.fullAddress,
@@ -441,10 +501,7 @@ class _RouteCard extends StatelessWidget {
               ),
             ],
           ),
-          const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Divider(height: 1, indent: 28, color: cardBorder),
-          ),
+          const _RouteConnector(),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: _LineButton(
@@ -452,7 +509,7 @@ class _RouteCard extends StatelessWidget {
               child: Row(
                 children: [
                   const OrderIcon(OrderStyle.iconLocationPin, size: 14),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 9),
                   Expanded(
                     child: Text(
                       destination?.label ?? 'Mau dianter kemana',
@@ -469,29 +526,24 @@ class _RouteCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (destination != null && recipient == null)
-                    _DetailPill(onTap: onRecipient),
                 ],
               ),
             ),
           ),
-          if (recipient != null)
-            GestureDetector(
-              onTap: onRecipient,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(28, 0, 8, 8),
-                child: Text(
-                  recipient.contact,
-                  style: AppTypography.style(
-                    size: 9,
-                    weight: AppTypography.regular,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ),
           if (destination != null) ...[
+            // Desain memakai tombol kecil "+ Detail" di samping alamat
+            // tujuan; mudah terlewat, jadi penerima dibuat baris sendiri
+            // seperti waktu dan barang (disetujui, beda dari desain).
+            const Divider(height: 1, endIndent: 8, color: cardBorder),
+            _ChoiceRow(
+              icon: Icons.person_outline_rounded,
+              iconColor: deliveryRecipientColor,
+              title: recipient?.name ?? 'Siapa penerimanya?',
+              subtitle: recipient == null
+                  ? 'Isi nama dan nomor penerima'
+                  : recipient.phone,
+              onTap: onRecipient,
+            ),
             const Divider(height: 1, endIndent: 8, color: cardBorder),
             _ChoiceRow(
               icon: Icons.moped_outlined,
@@ -519,7 +571,8 @@ class _RouteCard extends StatelessWidget {
   }
 }
 
-/// Satu baris yang bisa diketuk, setinggi minimal 44 dp.
+/// Satu baris alamat yang bisa diketuk. Bersama [_RouteConnector], dua
+/// baris alamat berjarak ±47 dp seperti desain.
 class _LineButton extends StatelessWidget {
   const _LineButton({required this.onTap, required this.child});
 
@@ -531,40 +584,101 @@ class _LineButton extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
+        constraints: const BoxConstraints(minHeight: 40),
         child: Align(alignment: Alignment.centerLeft, child: child),
       ),
     );
   }
 }
 
-class _DetailPill extends StatelessWidget {
-  const _DetailPill({required this.onTap});
+/// Di antara alamat asal dan tujuan: titik-titik di bawah ikon asal dan
+/// garis putus-putus di bawah teks alamat.
+class _RouteConnector extends StatelessWidget {
+  const _RouteConnector();
 
-  final VoidCallback onTap;
+  static const _color = Color(0xFFB9C9D9);
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.primary,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-          child: Text(
-            '+ Detail',
-            style: AppTypography.style(
-              size: 10,
-              weight: AppTypography.medium,
-              color: AppColors.light,
+    return SizedBox(
+      height: 8,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 14,
+            child: OverflowBox(
+              maxHeight: 22,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (var i = 0; i < 3; i++)
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: _color,
+                        shape: BoxShape.circle,
+                      ),
+                      child: SizedBox.square(dimension: 2.5),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
+          const SizedBox(width: 9),
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: _DashedLine(),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// Garis putus-putus, mendatar atau tegak.
+class _DashedLine extends StatelessWidget {
+  const _DashedLine({this.axis = Axis.horizontal});
+
+  final Axis axis;
+
+  @override
+  Widget build(BuildContext context) {
+    final horizontal = axis == Axis.horizontal;
+    return CustomPaint(
+      size: horizontal
+          ? const Size(double.infinity, 1)
+          : const Size(1, double.infinity),
+      painter: _DashPainter(horizontal: horizontal),
+    );
+  }
+}
+
+class _DashPainter extends CustomPainter {
+  const _DashPainter({required this.horizontal});
+
+  final bool horizontal;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = cardBorder
+      ..strokeWidth = 1;
+    const dash = 4.0;
+    const gap = 3.0;
+    final length = horizontal ? size.width : size.height;
+    for (var p = 0.0; p < length; p += dash + gap) {
+      final end = (p + dash).clamp(0.0, length);
+      canvas.drawLine(
+        horizontal ? Offset(p, 0) : Offset(0, p),
+        horizontal ? Offset(end, 0) : Offset(0, end),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashPainter old) => old.horizontal != horizontal;
 }
 
 class _ChoiceRow extends StatelessWidget {
@@ -587,10 +701,10 @@ class _ChoiceRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 12, 4, 12),
+        padding: const EdgeInsets.fromLTRB(0, 16, 4, 16),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: iconColor),
+            Icon(icon, size: 22, color: iconColor),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -702,17 +816,19 @@ class _Landing extends StatelessWidget {
   Widget build(BuildContext context) {
     const past = DeliverySamples.pastDeliveries;
 
+    // Desain: judul 33 dp di bawah kartu rute, baris riwayat ±62 dp, kartu
+    // promo ±87 dp berjarak 15 dp.
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 26),
+      padding: EdgeInsets.symmetric(horizontal: _Metrics.sectionSide(context)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 10),
+          const SizedBox(height: 33),
           const SectionLabel('Pengantaran sebelumnya'),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            decoration: OrderStyle.card(radius: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 4),
+            decoration: OrderStyle.card(radius: 12),
             child: Column(
               children: [
                 for (var i = 0; i < past.length; i++) ...[
@@ -726,7 +842,7 @@ class _Landing extends StatelessWidget {
                   InkWell(
                     onTap: () => onPastDelivery(past[i].destination),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 17),
                       child: Row(
                         children: [
                           const Icon(
@@ -773,12 +889,12 @@ class _Landing extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: 30),
           const SectionLabel('Promo pengiriman'),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           for (final voucher in OrderSamples.vouchers)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 15),
               child: _PromoCard(
                 voucher: voucher,
                 selected: voucher.id == selectedVoucher?.id,
@@ -816,52 +932,66 @@ class _PromoCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+          // Seperti tiket: garis putus-putus tegak ±31 dp dari tepi kanan.
+          child: IntrinsicHeight(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Gambar promo di desain masih kotak abu-abu.
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD9D9D9),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        voucher.title,
-                        style: AppTypography.style(
-                          size: 13,
-                          weight: AppTypography.semiBold,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(13, 13, 8, 13),
+                    child: Row(
+                      children: [
+                        // Gambar promo di desain masih kotak abu-abu.
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD9D9D9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        voucher.description,
-                        style: AppTypography.style(
-                          size: 9,
-                          weight: AppTypography.regular,
-                          color: AppColors.textSecondary,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                voucher.title,
+                                style: AppTypography.style(
+                                  size: 13,
+                                  weight: AppTypography.semiBold,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                selected ? 'Dipakai' : voucher.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.style(
+                                  size: 9,
+                                  weight: selected
+                                      ? AppTypography.semiBold
+                                      : AppTypography.regular,
+                                  color: selected
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (selected)
-                  Text(
-                    'Dipakai',
-                    style: AppTypography.style(
-                      size: 10,
-                      weight: AppTypography.semiBold,
-                      color: AppColors.primary,
+                      ],
                     ),
                   ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: _DashedLine(axis: Axis.vertical),
+                ),
+                const SizedBox(width: 30),
               ],
             ),
           ),
@@ -897,8 +1027,13 @@ class _TotalCard extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(36, 8, 36, 16),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+        margin: EdgeInsets.fromLTRB(
+          _Metrics.cardSide(context),
+          8,
+          _Metrics.cardSide(context),
+          16,
+        ),
+        padding: const EdgeInsets.fromLTRB(26, 18, 26, 20),
         decoration: BoxDecoration(
           color: AppColors.light,
           borderRadius: BorderRadius.circular(18),

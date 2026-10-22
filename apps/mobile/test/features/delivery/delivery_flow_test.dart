@@ -119,12 +119,12 @@ void main() {
     // Pilih tujuan dari pengantaran sebelumnya.
     await tester.tap(find.text('4 hari lalu'));
     await tester.pumpAndSettle();
-    expect(find.text('+ Detail'), findsOneWidget);
+    expect(find.text('Isi nama dan nomor penerima'), findsOneWidget);
     expect(_button(tester, 'Lihat Pesanan').onPressed, isNull);
     expect(find.text('Rp 20.000'), findsOneWidget);
 
-    // Penerima.
-    await tester.tap(find.text('+ Detail'));
+    // Penerima: baris sendiri, sejajar waktu dan barang.
+    await tester.tap(find.text('Siapa penerimanya?'));
     await tester.pumpAndSettle();
     expect(find.byType(RecipientFormPage), findsOneWidget);
     expect(_button(tester, 'Konfirmasi').onPressed, isNull);
@@ -134,7 +134,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Konfirmasi'));
     await tester.pumpAndSettle();
-    expect(find.text('Agus · 08123541453'), findsOneWidget);
+    expect(find.text('Agus'), findsOneWidget);
+    expect(find.text('08123541453'), findsOneWidget);
 
     // Waktu antar.
     await tester.tap(find.text('Mau dianter kapan?'));
@@ -202,6 +203,58 @@ void main() {
 
     expect(find.text('Isi detail penerima dulu.'), findsOneWidget);
     expect(find.byType(RecipientFormPage), findsOneWidget);
+  });
+
+  group('pilihan di lembar tidak hilang', () {
+    Future<void> openForm(WidgetTester tester) async {
+      await _pump(tester, _page(OrderStore()));
+      await tester.tap(find.text('4 hari lalu'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Antar Nanti: Tetapkan Waktu langsung menyimpan', (
+      tester,
+    ) async {
+      await openForm(tester);
+      await tester.tap(find.text('Mau dianter kapan?'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Antar Nanti'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('10.00 - 11.00'));
+      await tester.pump();
+      await tester.tap(find.text('Tetapkan Waktu'));
+      await tester.pumpAndSettle();
+
+      // Lembar waktu ikut tertutup, tanpa "Pilih Pengantaran ini".
+      expect(find.text('Pilih Pengantaran ini'), findsNothing);
+      expect(find.text('Antar nanti'), findsOneWidget);
+      expect(find.text('Jadwal: 22 Okt 2026 - 10.00-11.00'), findsOneWidget);
+    });
+
+    testWidgets('Antar Sekarang lalu ketuk di luar lembar', (tester) async {
+      await openForm(tester);
+      await tester.tap(find.text('Mau dianter kapan?'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Antar Sekarang'));
+      await tester.pump();
+      await tester.tapAt(const Offset(200, 40)); // area gelap di atas lembar
+      await tester.pumpAndSettle();
+
+      expect(find.text('Antar sekarang'), findsOneWidget);
+    });
+
+    testWidgets('barang lengkap lalu tombol X', (tester) async {
+      await openForm(tester);
+      await tester.tap(find.text('Barang apa yang ingin dikirim?'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '12');
+      await tester.tap(find.text('Pakaian'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Tutup'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ukuran S, berat 12 kg'), findsOneWidget);
+    });
   });
 
   test('jadwal antar nanti seperti desain', () {

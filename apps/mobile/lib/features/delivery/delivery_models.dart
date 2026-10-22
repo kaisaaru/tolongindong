@@ -63,9 +63,6 @@ class Recipient {
 
   /// Catatan untuk pengemudi.
   final String? note;
-
-  /// "Agus · 08123541453".
-  String get contact => '$name · $phone';
 }
 
 /// Kapan barang diantar: sekarang ([slot] null) atau terjadwal.

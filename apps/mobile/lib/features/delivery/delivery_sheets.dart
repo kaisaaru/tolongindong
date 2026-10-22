@@ -13,6 +13,27 @@ const _sheetShape = RoundedRectangleBorder(
   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
 );
 
+/// Buka lembar dan kembalikan hasilnya. Kalau lembar ditutup tanpa tombol
+/// (geser ke bawah, ketuk di luar, tombol X), pilihan terakhir yang sudah
+/// lengkap ([latest]) tetap dipakai: pengguna sering mengira memilih sudah
+/// cukup, lalu kehilangan isiannya.
+Future<T?> _showSheet<T>(
+  BuildContext context,
+  Widget Function(ValueNotifier<T?> latest) builder,
+) async {
+  final latest = ValueNotifier<T?>(null);
+  final result = await showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.light,
+    shape: _sheetShape,
+    builder: (_) => builder(latest),
+  );
+  final fallback = latest.value;
+  latest.dispose();
+  return result ?? fallback;
+}
+
 /// "Kapan barang ini mau kamu kirimkan?" — Antar Sekarang atau Antar Nanti
 /// (membuka "Pilih waktu pengantaran"). Null kalau ditutup tanpa memilih.
 Future<DeliverySchedule?> showDeliveryTimeSheet(
@@ -20,20 +41,26 @@ Future<DeliverySchedule?> showDeliveryTimeSheet(
   DeliverySchedule? initial,
   DateTime? now,
 }) {
-  return showModalBottomSheet<DeliverySchedule>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: AppColors.light,
-    shape: _sheetShape,
-    builder: (_) => _TimeSheet(initial: initial, now: now ?? DateTime.now()),
+  return _showSheet<DeliverySchedule>(
+    context,
+    (latest) => _TimeSheet(
+      initial: initial,
+      now: now ?? DateTime.now(),
+      latest: latest,
+    ),
   );
 }
 
 class _TimeSheet extends StatefulWidget {
-  const _TimeSheet({required this.initial, required this.now});
+  const _TimeSheet({
+    required this.initial,
+    required this.now,
+    required this.latest,
+  });
 
   final DeliverySchedule? initial;
   final DateTime now;
+  final ValueNotifier<DeliverySchedule?> latest;
 
   @override
   State<_TimeSheet> createState() => _TimeSheetState();
@@ -42,15 +69,23 @@ class _TimeSheet extends StatefulWidget {
 class _TimeSheetState extends State<_TimeSheet> {
   late DeliverySchedule? _choice = widget.initial;
 
+  void _choose(DeliverySchedule choice) {
+    setState(() => _choice = choice);
+    widget.latest.value = choice;
+  }
+
+  /// "Tetapkan Waktu" sudah berarti memilih: lembar ini ikut tertutup,
+  /// tanpa harus menekan "Pilih Pengantaran ini" lagi.
   Future<void> _pickLater() async {
     final slot = await showScheduleSheet(
       context,
       initial: _choice?.slot,
       now: widget.now,
     );
-    if (slot != null && mounted) {
-      setState(() => _choice = DeliverySchedule.at(slot));
-    }
+    if (slot == null || !mounted) return;
+    final choice = DeliverySchedule.at(slot);
+    _choose(choice);
+    Navigator.of(context).pop(choice);
   }
 
   @override
@@ -60,7 +95,7 @@ class _TimeSheetState extends State<_TimeSheet> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 26, 24, 16),
+        padding: const EdgeInsets.fromLTRB(26, 30, 26, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -68,20 +103,19 @@ class _TimeSheetState extends State<_TimeSheet> {
             Text(
               'Kapan barang ini mau kamu kirimkan?',
               style: AppTypography.style(
-                size: 18,
+                size: 20,
                 weight: AppTypography.semiBold,
                 height: 1.3,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             _TimeOption(
               icon: Icons.inventory_2_outlined,
               title: 'Antar Sekarang',
               subtitle:
                   'Akan diantar sebelum jam ${clockLabel(deliverBy(widget.now))}',
               selected: choice != null && choice.isNow,
-              onTap: () =>
-                  setState(() => _choice = const DeliverySchedule.now()),
+              onTap: () => _choose(const DeliverySchedule.now()),
             ),
             const SizedBox(height: 10),
             _TimeOption(
@@ -150,12 +184,12 @@ class _TimeOption extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  size: 22,
+                  size: 24,
                   color: selected ? AppColors.primary : AppColors.textPrimary,
                 ),
                 const SizedBox(width: 16),
@@ -201,19 +235,20 @@ Future<DeliveryItem?> showItemSheet(
   BuildContext context, {
   DeliveryItem? initial,
 }) {
-  return showModalBottomSheet<DeliveryItem>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: AppColors.light,
-    shape: _sheetShape,
-    builder: (_) => _ItemSheet(initial: initial),
+  return _showSheet<DeliveryItem>(
+    context,
+    (latest) => _ItemSheet(initial: initial, latest: latest),
   );
 }
 
 class _ItemSheet extends StatefulWidget {
-  const _ItemSheet({required this.initial});
+  const _ItemSheet({required this.initial, required this.latest});
 
   final DeliveryItem? initial;
+
+  /// Isian terakhir yang sudah lengkap, dipakai kalau lembar ditutup tanpa
+  /// menekan "Selesai".
+  final ValueNotifier<DeliveryItem?> latest;
 
   @override
   State<_ItemSheet> createState() => _ItemSheetState();
@@ -231,6 +266,16 @@ class _ItemSheetState extends State<_ItemSheet> {
 
   bool get _complete => _weightKg > 0 && _type != null;
 
+  DeliveryItem? get _item => _complete
+      ? DeliveryItem(size: _size, weightKg: _weightKg, type: _type!)
+      : null;
+
+  /// Ubah isian lalu catat hasilnya kalau sudah lengkap.
+  void _update(VoidCallback change) {
+    setState(change);
+    widget.latest.value = _item;
+  }
+
   @override
   void dispose() {
     _weight.dispose();
@@ -245,8 +290,10 @@ class _ItemSheetState extends State<_ItemSheet> {
       // Lembar naik di atas keyboard saat mengisi berat.
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
+        // Ukuran dari Frame 89: isi 31 dp dari tepi, judul 18 sp, tombol
+        // ukuran 60×32, kotak berat 66×44, tombol Selesai ±80% lebar.
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 24, 16),
+          padding: const EdgeInsets.fromLTRB(18, 22, 26, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,14 +305,16 @@ class _ItemSheetState extends State<_ItemSheet> {
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(
                       Icons.close_rounded,
+                      size: 22,
                       color: AppColors.textSecondary,
                     ),
                   ),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       'Barang apa ya mau dikirim?',
                       style: AppTypography.style(
-                        size: 16,
+                        size: 18,
                         weight: AppTypography.semiBold,
                       ),
                     ),
@@ -273,7 +322,7 @@ class _ItemSheetState extends State<_ItemSheet> {
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 0, 0),
+                padding: const EdgeInsets.fromLTRB(13, 18, 0, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -282,26 +331,26 @@ class _ItemSheetState extends State<_ItemSheet> {
                     Text(
                       _size.dimensions,
                       style: AppTypography.style(
-                        size: 10,
+                        size: 11,
                         weight: AppTypography.regular,
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     _SizeToggle(
                       selected: _size,
-                      onSelected: (s) => setState(() => _size = s),
+                      onSelected: (s) => _update(() => _size = s),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 28),
                     const _FieldLabel('Berat'),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         SizedBox(
-                          width: 56,
+                          width: 66,
                           child: TextField(
                             controller: _weight,
-                            onChanged: (_) => setState(() {}),
+                            onChanged: (_) => _update(() {}),
                             keyboardType: TextInputType.number,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
@@ -309,64 +358,57 @@ class _ItemSheetState extends State<_ItemSheet> {
                             ],
                             textAlign: TextAlign.center,
                             style: AppTypography.style(
-                              size: 18,
+                              size: 20,
                               weight: AppTypography.regular,
                             ),
                             decoration: InputDecoration(
                               isDense: true,
                               filled: false,
                               contentPadding: const EdgeInsets.symmetric(
-                                vertical: 8,
+                                vertical: 10,
                               ),
                               enabledBorder: _weightBorder(),
                               focusedBorder: _weightBorder(width: 1.5),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
                         Text(
                           'Kg',
                           style: AppTypography.style(
-                            size: 18,
+                            size: 20,
                             weight: AppTypography.regular,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 28),
                     const _FieldLabel('Jenis Barang'),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
                         for (final t in ItemType.values)
                           _TypeChip(
                             type: t,
                             selected: t == type,
-                            onTap: () => setState(() => _type = t),
+                            onTap: () => _update(() => _type = t),
                           ),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
-              // Desain: tombol Selesai selebar lembar.
-              Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: SizedBox(
-                  width: double.infinity,
+              const SizedBox(height: 48),
+              // Desain: tombol Selesai ±80% lebar lembar, di tengah.
+              Center(
+                child: FractionallySizedBox(
+                  widthFactor: 0.8,
                   child: PrimaryButton(
                     label: 'Selesai',
                     onPressed: _complete
-                        ? () => Navigator.of(context).pop(
-                            DeliveryItem(
-                              size: _size,
-                              weightKg: _weightKg,
-                              type: type!,
-                            ),
-                          )
+                        ? () => Navigator.of(context).pop(_item)
                         : null,
                   ),
                 ),
@@ -406,8 +448,8 @@ class _SizeToggle extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onSelected(size),
               child: Container(
-                width: 48,
-                height: 28,
+                width: 60,
+                height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: size == selected
@@ -422,7 +464,7 @@ class _SizeToggle extends StatelessWidget {
                 child: Text(
                   size.label,
                   style: AppTypography.style(
-                    size: 11,
+                    size: 13,
                     weight: AppTypography.semiBold,
                     color: size == selected
                         ? AppColors.light
@@ -464,20 +506,20 @@ class _TypeChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   type.label,
                   style: AppTypography.style(
-                    size: 10,
+                    size: 11,
                     weight: AppTypography.medium,
                     color: color,
                   ),
                 ),
                 const SizedBox(width: 6),
-                Icon(type.icon, size: 13, color: color),
+                Icon(type.icon, size: 15, color: color),
               ],
             ),
           ),
@@ -498,7 +540,7 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: AppTypography.style(size: 13, weight: AppTypography.medium),
+      style: AppTypography.style(size: 15, weight: AppTypography.medium),
     );
   }
 }
