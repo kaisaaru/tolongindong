@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/storage/app_preferences.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/app_logo.dart';
 import '../auth/auth_repository.dart';
 import '../auth/session_store.dart';
 import '../auth/login_page.dart';
@@ -36,10 +38,25 @@ class _SplashPageState extends State<SplashPage> {
   late final _authRepo = context.read<AuthRepository>();
   final _prefs = AppPreferences();
 
+  /// Server deploy (Render gratis) bisa butuh ±1 menit untuk bangun. Lewat
+  /// [_slowAfter], pengguna diberi tahu supaya tidak mengira app macet.
+  static const _slowAfter = Duration(seconds: 4);
+  Timer? _slowTimer;
+  bool _slow = false;
+
   @override
   void initState() {
     super.initState();
+    _slowTimer = Timer(_slowAfter, () {
+      if (mounted) setState(() => _slow = true);
+    });
     unawaited(_decideNextPage());
+  }
+
+  @override
+  void dispose() {
+    _slowTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _decideNextPage() async {
@@ -83,20 +100,42 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const AnnotatedRegion<SystemUiOverlayStyle>(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark, // ikon status bar gelap di latar putih
       child: Scaffold(
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Align(alignment: Alignment.bottomCenter, child: SplashWaves()),
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: SplashWaves(),
+            ),
             // Pusat logo di sekitar 32% tinggi layar, sama seperti desain.
-            // TODO: ganti kotak merah (placeholder di desain) dengan logo.
+            // Desain masih kotak merah polos; AppLogo juga logo sementara.
+            const Align(alignment: Alignment(0, -0.4), child: AppLogo()),
             Align(
-              alignment: Alignment(0, -0.4),
-              child: SizedBox.square(
-                dimension: 106,
-                child: ColoredBox(color: AppColors.primary),
+              alignment: const Alignment(0, 0.05),
+              child: AnimatedOpacity(
+                opacity: _slow ? 1 : 0,
+                duration: const Duration(milliseconds: 300),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Menghubungkan ke server...',
+                      style: AppTypography.style(
+                        size: AppTypography.small,
+                        weight: AppTypography.regular,
+                        color: AppColors.textDescription,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

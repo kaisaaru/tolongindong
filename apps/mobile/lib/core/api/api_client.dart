@@ -16,11 +16,12 @@ class ApiClient {
   /// [baseUrl] hanya diisi saat pengujian; aplikasi memakai [ApiConfig].
   ApiClient({TokenStorage? storage, Dio? dio, String? baseUrl})
     : _storage = storage ?? TokenStorage(),
-      _dio = dio ?? Dio() {
+      _dio = dio ?? Dio(),
+      _baseUrl = baseUrl ?? ApiConfig.baseUrl {
     _dio.options
-      ..baseUrl = baseUrl ?? ApiConfig.baseUrl
-      ..connectTimeout = const Duration(seconds: 15)
-      ..receiveTimeout = const Duration(seconds: 15)
+      ..baseUrl = _baseUrl
+      ..connectTimeout = ApiConfig.timeoutFor(_baseUrl)
+      ..receiveTimeout = ApiConfig.timeoutFor(_baseUrl)
       // Tanpa header ini Laravel bisa membalas halaman HTML saat error,
       // bukan JSON, dan parsing di bawah ikut hancur.
       ..headers['Accept'] = 'application/json'
@@ -44,6 +45,7 @@ class ApiClient {
 
   final Dio _dio;
   final TokenStorage _storage;
+  final String _baseUrl;
 
   Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
       _send(() => _dio.get<dynamic>(path, queryParameters: query));
@@ -60,9 +62,13 @@ class ApiClient {
     } on DioException catch (e) {
       throw ApiException(
         code: 'NETWORK_ERROR',
-        message:
-            'Tidak bisa menghubungi server. Pastikan backend menyala dan '
-            'perangkat berada di jaringan yang sama.',
+        // Pengguna app tidak tahu soal "backend"; itu urusan pengembang
+        // yang menjalankan server di laptop.
+        message: ApiConfig.isLocal(_baseUrl)
+            ? 'Tidak bisa menghubungi server. Pastikan backend menyala dan '
+                  'perangkat berada di jaringan yang sama.'
+            : 'Tidak bisa menghubungi server. Periksa koneksi internetmu, '
+                  'lalu coba lagi.',
         detail: {'dio_type': e.type.name},
       );
     }

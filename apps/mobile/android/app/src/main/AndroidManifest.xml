@@ -3,7 +3,7 @@
          Manifest debug/profile sudah punya sendiri, release belum. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="mobile"
+        android:label="TolonginDong"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
