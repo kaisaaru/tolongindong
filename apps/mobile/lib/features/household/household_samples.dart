@@ -1,5 +1,3 @@
-import 'dart:ui' show Color;
-
 import 'household_models.dart';
 
 /// Data contoh dari desain Figma untuk alur Household.
@@ -122,37 +120,37 @@ class HouseholdSamples {
       id: 'ovo',
       name: 'OVO',
       group: PaymentGroup.eWallet,
-      brandColor: Color(0xFF4C3494),
+      logo: 'assets/icons/payment/ovo.svg',
     ),
     PaymentMethod(
       id: 'gopay',
       name: 'GoPay',
       group: PaymentGroup.eWallet,
-      brandColor: Color(0xFF00AED6),
+      logo: 'assets/icons/payment/gopay.svg',
     ),
     PaymentMethod(
       id: 'dana',
       name: 'DANA',
       group: PaymentGroup.eWallet,
-      brandColor: Color(0xFF118EEA),
+      logo: 'assets/icons/payment/dana.svg',
     ),
     PaymentMethod(
       id: 'bca',
       name: 'BCA',
       group: PaymentGroup.bank,
-      brandColor: Color(0xFF0060AF),
+      logo: 'assets/icons/payment/bca.svg',
     ),
     PaymentMethod(
       id: 'bni',
       name: 'BNI',
       group: PaymentGroup.bank,
-      brandColor: Color(0xFFF15A23),
+      logo: 'assets/icons/payment/bni.svg',
     ),
     PaymentMethod(
       id: 'mandiri',
       name: 'Mandiri',
       group: PaymentGroup.bank,
-      brandColor: Color(0xFF003D79),
+      logo: 'assets/icons/payment/mandiri.svg',
     ),
     // Di akhir supaya urutan metode lain (dan indeksnya) tidak berubah;
     // tampilannya tetap paling atas karena urutan grup.
@@ -160,7 +158,6 @@ class HouseholdSamples {
       id: 'cod',
       name: 'Bayar di Tempat',
       group: PaymentGroup.cashOnDelivery,
-      brandColor: Color(0xFF6B6B6B),
     ),
   ];
 

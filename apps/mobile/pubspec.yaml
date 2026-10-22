@@ -66,6 +66,7 @@ flutter:
     - assets/icons/nav/
     - assets/icons/ui/
     - assets/icons/categories/
+    - assets/icons/payment/
     - assets/images/promo/
     - assets/images/order/
     - assets/images/onboarding/

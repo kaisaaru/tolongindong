@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -120,29 +121,19 @@ class _MethodTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                // Penanda logo sementara: logo merchant belum diekspor.
-                Container(
-                  width: 52,
-                  height: 26,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: method.brandColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: method.group == PaymentGroup.cashOnDelivery
-                      ? Icon(
-                          Icons.storefront_outlined,
-                          size: 18,
-                          color: method.brandColor,
-                        )
-                      : Text(
-                          method.name,
-                          style: AppTypography.style(
-                            size: 10,
-                            weight: AppTypography.bold,
-                            color: method.brandColor,
-                          ),
-                        ),
+                // Logo diekspor selebar 44 (OVO 28 x 28); slot tetap supaya
+                // nama metode sejajar.
+                SizedBox(
+                  width: 44,
+                  height: 28,
+                  child: switch (method.logo) {
+                    final logo? => SvgPicture.asset(logo),
+                    null => const Icon(
+                      Icons.storefront_outlined,
+                      size: 22,
+                      color: AppColors.textDescription,
+                    ),
+                  },
                 ),
                 const SizedBox(width: 14),
                 Expanded(

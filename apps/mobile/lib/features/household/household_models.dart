@@ -216,15 +216,15 @@ class PaymentMethod {
     required this.id,
     required this.name,
     required this.group,
-    required this.brandColor,
+    this.logo,
   });
 
   final String id;
   final String name;
   final PaymentGroup group;
 
-  /// Warna penanda logo. Logo asli belum diekspor dari Figma.
-  final Color brandColor;
+  /// Aset SVG logo merchant. Null untuk Bayar di Tempat (pakai ikon toko).
+  final String? logo;
 
   @override
   bool operator ==(Object other) => other is PaymentMethod && other.id == id;

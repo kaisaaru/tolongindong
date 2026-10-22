@@ -299,7 +299,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PaymentMethodPage), findsOneWidget);
 
-    await tester.tap(find.text('BCA').last); // .first = teks logo
+    await tester.tap(find.text('BCA'));
     await tester.pumpAndSettle();
     expect(find.byType(OrderSuccessPage), findsOneWidget);
     expect(store.active?.payment.name, 'BCA');

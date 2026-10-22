@@ -40,7 +40,7 @@ void main() {
 
     await tester.tap(find.text('Pilih metode pembayaran'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('BCA').last); // .first = teks logo
+    await tester.tap(find.text('BCA'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Pesan Sekarang'));
     await tester.pumpAndSettle();
@@ -67,7 +67,7 @@ void main() {
 
     await tester.tap(find.text('Pilih metode pembayaran'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('OVO').last); // .first = teks logo
+    await tester.tap(find.text('OVO'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Pesan Sekarang'));
     await tester.pump();

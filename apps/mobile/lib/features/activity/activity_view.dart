@@ -19,7 +19,7 @@ class ActivityView extends StatefulWidget {
   const ActivityView({
     super.key,
     this.store,
-    this.bottomPadding = 16,
+    this.bottomPadding = 12,
     this.startOnHistory = false,
     this.showTitle = true,
   });
@@ -57,13 +57,15 @@ class _ActivityViewState extends State<ActivityView> {
 
   @override
   Widget build(BuildContext context) {
+    // Ukuran diukur dari Figma (frame 207): kartu 24 dp dari tepi layar,
+    // judul 24, tab 16, baris pesanan setinggi 60 dengan ilustrasi 40.
     return SafeArea(
       bottom: false,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          22,
+          24,
           widget.showTitle ? 24 : 8,
-          22,
+          24,
           widget.bottomPadding,
         ),
         child: Column(
@@ -73,11 +75,11 @@ class _ActivityViewState extends State<ActivityView> {
               Text(
                 'Aktifitas',
                 style: AppTypography.style(
-                  size: 22,
+                  size: 24,
                   weight: AppTypography.semiBold,
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 22),
             ],
             Expanded(
               child: Container(
@@ -119,27 +121,31 @@ class _ActivityViewState extends State<ActivityView> {
     );
   }
 
+  // Ilustrasi baris pertama 15 dp dari tepi kiri kartu dan pusatnya 111 dp
+  // dari tepi atas kartu; sisa jaraknya ada di padding tiap baris.
+  static const _listPadding = EdgeInsets.fromLTRB(4, 27, 4, 14);
+
   Widget _buildActive() {
     if (!_store.hasActive) return const _Empty('Belum ada pesanan berjalan.');
 
     return ListView(
-      padding: const EdgeInsets.all(14),
+      padding: _listPadding,
       children: [
         if (_store.active != null)
-          ActiveOrderTile(
+          _ActiveRow(
             title: 'Household',
             status: activeStatusLabel(_store),
             onTap: _openActive,
           ),
         if (_store.personal case final order?)
-          ActiveOrderTile(
+          _ActiveRow(
             title: 'Personal',
             status: personalStatusLabel(order),
             categoryCode: 'personal',
             onTap: _openPersonal,
           ),
         for (final order in _store.deliveries)
-          ActiveOrderTile(
+          _ActiveRow(
             title: 'Delivery',
             status: deliveryStatusLabel(order),
             categoryCode: 'delivery',
@@ -154,7 +160,7 @@ class _ActivityViewState extends State<ActivityView> {
     if (records.isEmpty) return const _Empty('Belum ada riwayat pesanan.');
 
     return ListView.builder(
-      padding: const EdgeInsets.all(14),
+      padding: _listPadding,
       itemCount: records.length,
       itemBuilder: (context, index) => _HistoryRow(record: records[index]),
     );
@@ -169,7 +175,8 @@ String personalStatusLabel(PersonalOrder order) =>
 String deliveryStatusLabel(DeliveryOrder order) =>
     scheduleLabels(order.draft.schedule, order.placedAt).subtitle;
 
-/// Baris pesanan aktif. Dipakai juga sebagai banner melayang di beranda.
+/// Banner pesanan aktif yang melayang di beranda. Di kartu Aktifitas
+/// barisnya [_ActiveRow], yang lebih besar sesuai desain.
 class ActiveOrderTile extends StatelessWidget {
   const ActiveOrderTile({
     super.key,
@@ -244,6 +251,71 @@ class ActiveOrderTile extends StatelessWidget {
   }
 }
 
+/// Baris pesanan berjalan di kartu Aktifitas: kategori di atas, status
+/// tebal di bawah, chevron di kanan.
+class _ActiveRow extends StatelessWidget {
+  const _ActiveRow({
+    required this.title,
+    required this.status,
+    required this.onTap,
+    this.categoryCode = 'household',
+  });
+
+  final String title;
+  final String status;
+  final VoidCallback onTap;
+
+  /// Kode kategori backend, untuk ikonnya.
+  final String categoryCode;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Padding(
+        // Kanan 26: chevron 30 dp dari tepi kanan kartu, sesuai desain.
+        padding: const EdgeInsets.fromLTRB(10, 10, 26, 10),
+        child: Row(
+          children: [
+            ClipOval(child: _CategoryIcon(categoryCode, size: 40)),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.style(
+                      size: 12,
+                      weight: AppTypography.regular,
+                      height: 1.4,
+                    ),
+                  ),
+                  Text(
+                    status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.style(
+                      size: 14,
+                      weight: AppTypography.semiBold,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.disabled,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.record});
 
@@ -254,43 +326,61 @@ class _HistoryRow extends StatelessWidget {
     final cancelled = record.outcome == HistoryOutcome.cancelled;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      // Kanan 24: harga 29 dp dari tepi kanan kartu, sesuai desain.
+      padding: const EdgeInsets.fromLTRB(10, 10, 24, 10),
+      // Teks rata atas dengan ilustrasi, tidak di tengah: di desain blok
+      // judul+tanggal sedikit di atas pusat ilustrasi.
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: _CategoryIcon(record.categoryCode),
-          ),
-          const SizedBox(width: 12),
+          ClipOval(child: _CategoryIcon(record.categoryCode, size: 40)),
+          const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  record.title,
-                  style: AppTypography.style(
-                    size: 12,
-                    weight: AppTypography.semiBold,
-                    height: 1.4,
-                  ),
+                // Harga sebaris dengan judul, bukan di tengah baris.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        record.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.style(
+                          size: 14,
+                          weight: AppTypography.semiBold,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      cancelled
+                          ? 'Dibatalkan'
+                          : rupiah(record.total, spaced: false),
+                      style: AppTypography.style(
+                        size: 12,
+                        weight: AppTypography.medium,
+                        color: cancelled
+                            ? AppColors.primary
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
                   dateLabel(record.date),
                   style: AppTypography.style(
-                    size: 9,
+                    size: 12,
                     weight: AppTypography.regular,
                     color: AppColors.textSecondary,
+                    height: 1.4,
                   ),
                 ),
               ],
-            ),
-          ),
-          Text(
-            cancelled ? 'Dibatalkan' : rupiah(record.total, spaced: false),
-            style: AppTypography.style(
-              size: 11,
-              weight: AppTypography.medium,
-              color: cancelled ? AppColors.primary : AppColors.textPrimary,
             ),
           ),
         ],
@@ -299,22 +389,23 @@ class _HistoryRow extends StatelessWidget {
   }
 }
 
-/// Ilustrasi kategori 30 dp; kotak abu-abu kalau ilustrasinya belum ada.
+/// Ilustrasi kategori; kotak abu-abu kalau ilustrasinya belum ada.
 class _CategoryIcon extends StatelessWidget {
-  const _CategoryIcon(this.code);
+  const _CategoryIcon(this.code, {this.size = 30});
 
   final String code;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     final asset = HomeAssets.categoryIcon(code);
     if (asset == null) {
-      return const ColoredBox(
+      return ColoredBox(
         color: AppColors.disabled,
-        child: SizedBox.square(dimension: 30),
+        child: SizedBox.square(dimension: size),
       );
     }
-    return Image.asset(asset, width: 30, height: 30);
+    return Image.asset(asset, width: size, height: size);
   }
 }
 
@@ -334,18 +425,19 @@ class _Tab extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            // Garis bawah selebar 123 dp, berpusat di separuh kartu.
+            padding: const EdgeInsets.fromLTRB(29, 28, 29, 0),
             child: Column(
               children: [
                 Text(
                   label,
                   style: AppTypography.style(
-                    size: 13,
+                    size: 16,
                     weight: AppTypography.regular,
                     color: active ? AppColors.primary : AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Container(
                   height: 1.5,
                   color: active ? AppColors.primary : Colors.transparent,
