@@ -10,6 +10,7 @@ import 'features/household/household_models.dart';
 import 'features/household/household_samples.dart';
 import 'features/order/order_store.dart';
 import 'features/order/payment_method_page.dart';
+import 'app_scope.dart';
 import 'main.dart';
 import 'theme/app_typography.dart';
 
@@ -23,7 +24,7 @@ void main() {
     debugPrint('DEBUG PlatformError: $e\n$st');
     return false;
   };
-  final store = OrderStore.instance;
+  final store = OrderStore();
   HouseholdOrderDraft d(HouseholdService svc) => HouseholdOrderDraft(
     service: svc,
     address: HouseholdSamples.savedAddresses.first,
@@ -42,7 +43,7 @@ void main() {
     ..place(draft: d(HouseholdService.rumah), payment: pay)
     ..complete()
     ..place(draft: d(HouseholdService.rumah), payment: pay);
-  runApp(const _Debug(child: MyApp()));
+  runApp(_Debug(child: AppScope(orderStore: store, child: const MyApp())));
   HardwareKeyboard.instance.addHandler((e) {
     if (e is KeyDownEvent) debugPrint('DEBUG key ${e.logicalKey.keyLabel}');
     return false;

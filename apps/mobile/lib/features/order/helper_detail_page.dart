@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
@@ -16,24 +17,14 @@ import 'widgets/order_widgets.dart';
 
 /// Profil helper: tentang, keahlian, review, dan tombol pesan.
 class HelperDetailPage extends StatelessWidget {
-  const HelperDetailPage({
-    super.key,
-    required this.helper,
-    this.chatStore,
-    this.store,
-  });
+  const HelperDetailPage({super.key, required this.helper});
 
   final HelperListing helper;
-
-  /// Diisi saat pengujian. Default: [ChatStore.instance] dan
-  /// [OrderStore.instance].
-  final ChatStore? chatStore;
-  final OrderStore? store;
 
   /// Hanya satu pesanan Personal boleh berjalan. Diberi tahu sebelum
   /// checkout, bukan setelah voucher dan pembayaran dipilih.
   void _order(BuildContext context) {
-    final orders = store ?? OrderStore.instance;
+    final orders = context.read<OrderStore>();
     if (orders.personal != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -43,9 +34,7 @@ class HelperDetailPage extends StatelessWidget {
             action: SnackBarAction(
               label: 'Lihat',
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => PersonalOrderPage(store: orders),
-                ),
+                MaterialPageRoute<void>(builder: (_) => PersonalOrderPage()),
               ),
             ),
           ),
@@ -53,10 +42,7 @@ class HelperDetailPage extends StatelessWidget {
       return;
     }
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            CheckoutPage(helper: helper, store: orders, chatStore: chatStore),
-      ),
+      MaterialPageRoute<void>(builder: (_) => CheckoutPage(helper: helper)),
     );
   }
 
@@ -66,17 +52,15 @@ class HelperDetailPage extends StatelessWidget {
 
   /// Chat sebelum memesan. Nanti: `POST /chats/helpers/{id}`.
   void _chat(BuildContext context) {
-    final store = chatStore ?? ChatStore.instance;
+    final store = context.read<ChatStore>();
     final room = store.openWithHelper(
       helperId: helper.id,
       name: helper.name,
       photoUrl: helper.photoUrl,
     );
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatRoomPage(room: room, store: store),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
   }
 
   @override

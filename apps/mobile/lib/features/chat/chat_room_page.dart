@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -12,19 +13,16 @@ import 'chat_store.dart';
 /// pesan di bawah. Pesan terkirim lewat tombol kirim di keyboard, seperti
 /// desain (tidak ada tombol kirim di layar).
 class ChatRoomPage extends StatefulWidget {
-  const ChatRoomPage({super.key, required this.room, this.store});
+  const ChatRoomPage({super.key, required this.room});
 
   final ChatRoom room;
-
-  /// Diisi saat pengujian. Default: [ChatStore.instance].
-  final ChatStore? store;
 
   @override
   State<ChatRoomPage> createState() => _ChatRoomPageState();
 }
 
 class _ChatRoomPageState extends State<ChatRoomPage> {
-  late final _store = widget.store ?? ChatStore.instance;
+  late final _store = context.read<ChatStore>();
   final _text = TextEditingController();
   final _focus = FocusNode();
 

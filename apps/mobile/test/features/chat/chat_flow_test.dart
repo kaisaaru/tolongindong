@@ -6,7 +6,8 @@ import 'package:mobile/features/chat/chat_room_page.dart';
 import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/order/helper_detail_page.dart';
 import 'package:mobile/features/order/order_samples.dart';
-import 'package:mobile/theme/app_theme.dart';
+
+import '../../helpers/pump_page.dart';
 
 /// Jam 15.00, jadi pesan contoh pukul 12.00 masih "hari ini".
 DateTime _now() => DateTime(2026, 10, 22, 15);
@@ -17,11 +18,9 @@ Future<void> _pump(
   WidgetTester tester,
   Widget page, {
   Size size = const Size(412, 917),
+  ChatStore? chatStore,
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
+  await pumpPage(tester, page, size: size, chatStore: chatStore);
   await tester.pump();
 }
 
@@ -56,7 +55,7 @@ void main() {
   testWidgets('daftar obrolan: isi seperti desain, bisa dicari', (
     tester,
   ) async {
-    await _pump(tester, Scaffold(body: ChatListView(store: _store())));
+    await _pump(tester, Scaffold(body: ChatListView()), chatStore: _store());
 
     expect(find.text('Obrolan'), findsOneWidget);
     expect(find.text('Agus Nomercy'), findsOneWidget);
@@ -94,7 +93,7 @@ void main() {
         ),
       ],
     );
-    await _pump(tester, Scaffold(body: ChatListView(store: store)));
+    await _pump(tester, Scaffold(body: ChatListView()), chatStore: store);
     expect(find.text('2'), findsOneWidget);
 
     await tester.tap(find.text('Reomeo Asgar'));
@@ -108,7 +107,7 @@ void main() {
   ) async {
     final store = _store();
     final room = store.rooms.single;
-    await _pump(tester, ChatRoomPage(room: room, store: store));
+    await _pump(tester, ChatRoomPage(room: room), chatStore: store);
 
     expect(find.text('Agus Nomercy'), findsOneWidget);
     expect(find.text('Ya tentu! silahkan kirimkan tugasnya'), findsOneWidget);
@@ -136,7 +135,7 @@ void main() {
     final helper = OrderSamples.listingsFor(
       'personal',
     ).firstWhere((h) => h.name == 'Reomeo Asgar');
-    await _pump(tester, HelperDetailPage(helper: helper, chatStore: store));
+    await _pump(tester, HelperDetailPage(helper: helper), chatStore: store);
 
     await tester.tap(find.bySemanticsLabel('Chat helper'));
     await tester.pumpAndSettle();
@@ -149,8 +148,9 @@ void main() {
     testWidgets('daftar obrolan', (tester) async {
       await _pump(
         tester,
-        Scaffold(body: ChatListView(store: _store())),
+        Scaffold(body: ChatListView()),
         size: const Size(360, 740),
+        chatStore: _store(),
       );
       expect(find.text('Agus Nomercy'), findsOneWidget);
     });
@@ -159,8 +159,9 @@ void main() {
       final store = _store();
       await _pump(
         tester,
-        ChatRoomPage(room: store.rooms.single, store: store),
+        ChatRoomPage(room: store.rooms.single),
         size: const Size(360, 740),
+        chatStore: store,
       );
       expect(find.text('Ketik pesan'), findsOneWidget);
     });

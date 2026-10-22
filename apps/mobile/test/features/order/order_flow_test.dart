@@ -113,7 +113,7 @@ void main() {
       'personal',
     ).firstWhere((h) => h.price == 40000);
     final store = OrderStore();
-    await pumpPage(tester, CheckoutPage(helper: helper, store: store));
+    await pumpPage(tester, CheckoutPage(helper: helper), orderStore: store);
     await tester.pumpAndSettle();
 
     expect(find.text('Rp 40.000'), findsOneWidget); // total di bilah bawah

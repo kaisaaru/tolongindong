@@ -2,13 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/storage/app_preferences.dart';
 import '../../theme/app_colors.dart';
 import '../auth/auth_repository.dart';
+import '../auth/session_store.dart';
 import '../auth/login_page.dart';
-import '../home/catalog_repository.dart';
 import '../home/home_page.dart';
 import '../onboarding/onboarding_page.dart';
 import 'widgets/splash_waves.dart';
@@ -22,14 +23,7 @@ import 'widgets/splash_waves.dart';
 /// sisanya                        -> Login
 /// ```
 class SplashPage extends StatefulWidget {
-  const SplashPage({super.key, this.authRepo, this.catalogRepo});
-
-  /// Diisi hanya saat pengujian, supaya splash bisa diuji tanpa server.
-  final AuthRepository? authRepo;
-
-  /// Diteruskan ke beranda. Splash sendiri tidak memakainya — ada di sini
-  /// supaya beranda tetap bisa diuji walau dibuka lewat splash.
-  final CatalogRepository? catalogRepo;
+  const SplashPage({super.key});
 
   /// Lama splash tampil minimal, walau pengecekan selesai lebih cepat.
   static const duration = Duration(seconds: 2);
@@ -39,7 +33,7 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
   final _prefs = AppPreferences();
 
   @override
@@ -69,13 +63,13 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<Widget> _resolveDestination() async {
+    // Diambil sebelum menunggu apa pun: context tidak boleh dipakai lagi
+    // kalau halaman sudah ditutup saat balasan tiba.
+    final session = context.read<SessionStore>();
     if (await _authRepo.hasSession()) {
       try {
-        return HomePage(
-          user: await _authRepo.me(),
-          authRepo: widget.authRepo,
-          catalogRepo: widget.catalogRepo,
-        );
+        session.signIn(await _authRepo.me());
+        return const HomePage();
       } on ApiException catch (e) {
         // Token hanya dibuang kalau server benar-benar menolaknya. Jaringan
         // mati bukan alasan menghapus sesi — pengguna cuma diminta login lagi.

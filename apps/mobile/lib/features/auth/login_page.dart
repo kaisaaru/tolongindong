@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../theme/app_colors.dart';
@@ -10,16 +11,14 @@ import '../home/home_page.dart';
 import 'auth_repository.dart';
 import 'forgot_password_page.dart';
 import 'register_page.dart';
+import 'session_store.dart';
 import 'widgets/auth_layout.dart';
 import 'widgets/auth_switch_prompt.dart';
 import 'widgets/google_sign_in_button.dart';
 import 'widgets/or_divider.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.authRepo});
-
-  /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
-  final AuthRepository? authRepo;
+  const LoginPage({super.key});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -31,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
 
   /// Pesan kalau login ditolak server. Selama tidak null, kedua field merah.
   String? _errorText;
@@ -68,10 +67,11 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (!mounted) return;
+      context.read<SessionStore>().signIn(user);
       // pushReplacement, bukan push: tombol kembali tidak boleh membawa
       // pengguna balik ke layar login setelah berhasil masuk.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => HomePage(user: user)),
+        MaterialPageRoute<void>(builder: (_) => const HomePage()),
       );
     } on ApiException catch (e) {
       if (mounted) setState(() => _errorText = _messageFor(e));
@@ -102,10 +102,8 @@ class _LoginPageState extends State<LoginPage> {
     final isPhone = RegExp(r'^\d{9,}$').hasMatch(typed);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ForgotPasswordPage(
-          initialPhone: isPhone ? typed : null,
-          authRepo: widget.authRepo,
-        ),
+        builder: (_) =>
+            ForgotPasswordPage(initialPhone: isPhone ? typed : null),
       ),
     );
   }

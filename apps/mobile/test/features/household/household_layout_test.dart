@@ -16,6 +16,8 @@ import 'package:mobile/features/order/payment_method_page.dart';
 import 'package:mobile/models/service_category.dart';
 import 'package:mobile/theme/app_theme.dart';
 
+import '../../helpers/pump_page.dart';
+
 const _household = ServiceCategory(
   id: 3,
   code: 'household',
@@ -39,11 +41,17 @@ final _draft = HouseholdOrderDraft(
 
 /// Render [page] di layar HP sempit (360x740). Overflow apa pun membuat
 /// test gagal, jadi ini menjaga tata letak tidak meluap di layar kecil.
-Future<void> _pumpNarrow(WidgetTester tester, Widget page) async {
-  tester.view.physicalSize = const Size(360, 740);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
+Future<void> _pumpNarrow(
+  WidgetTester tester,
+  Widget page, {
+  OrderStore? orderStore,
+}) async {
+  await pumpPage(
+    tester,
+    page,
+    size: const Size(360, 740),
+    orderStore: orderStore,
+  );
   await tester.pump();
 }
 
@@ -79,7 +87,8 @@ void main() {
 
     await _pumpNarrow(
       tester,
-      HouseholdPage(category: _household, store: store),
+      HouseholdPage(category: _household),
+      orderStore: store,
     );
     await tester.tap(find.text('Rumah'));
     await tester.pump();
@@ -171,7 +180,7 @@ void main() {
     tearDown(() => store.reset());
 
     testWidgets('menuju lokasi, masih bisa batal', (tester) async {
-      await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
       expect(find.bySemanticsLabel('Batalkan pesanan'), findsOneWidget);
       expect(find.text('Estimasi sampai'), findsOneWidget);
     });
@@ -179,7 +188,7 @@ void main() {
     testWidgets('jendela batal habis: bar hilang dengan animasi', (
       tester,
     ) async {
-      await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
       expect(find.bySemanticsLabel('Batalkan pesanan'), findsOneWidget);
 
       // 11 detik nyata = 11 menit pesanan, lewat dari jendela 10 menit.
@@ -193,7 +202,7 @@ void main() {
 
     testWidgets('bekerja: hitung mundur lalu detail', (tester) async {
       real = real.add(const Duration(seconds: 31)); // 31 menit pesanan
-      await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
       expect(find.text('Durasi tersisa'), findsOneWidget);
 
       await tester.tap(find.text('Lihat detail pesanan'));
@@ -203,13 +212,13 @@ void main() {
 
     testWidgets('tambah durasi', (tester) async {
       real = real.add(const Duration(seconds: 31));
-      await _pumpNarrow(tester, ExtendDurationPage(store: store));
+      await _pumpNarrow(tester, ExtendDurationPage(), orderStore: store);
       expect(find.text('Biaya tambahan'), findsOneWidget);
     });
 
     testWidgets('waktu habis: dialog, Selesai, lalu rating', (tester) async {
       real = real.add(const Duration(seconds: 120));
-      await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
       await tester.pump(); // dialog dibuka sesudah frame pertama
       await tester.pump(const Duration(milliseconds: 300));
 
@@ -224,7 +233,7 @@ void main() {
 
     testWidgets('waktu habis: Tambah membuka Tambah Durasi', (tester) async {
       real = real.add(const Duration(seconds: 120));
-      await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 

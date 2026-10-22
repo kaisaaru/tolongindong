@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
@@ -21,37 +22,30 @@ import 'widgets/order_widgets.dart';
 /// Voucher dan metode pembayaran hanya dibaca: sudah ditetapkan saat
 /// checkout, jadi panah di desain tidak dipasang.
 class PersonalOrderPage extends StatefulWidget {
-  const PersonalOrderPage({super.key, this.store, this.chatStore});
-
-  /// Diisi saat pengujian. Default: [OrderStore.instance] dan
-  /// [ChatStore.instance].
-  final OrderStore? store;
-  final ChatStore? chatStore;
+  const PersonalOrderPage({super.key});
 
   @override
   State<PersonalOrderPage> createState() => _PersonalOrderPageState();
 }
 
 class _PersonalOrderPageState extends State<PersonalOrderPage> {
-  late final _store = widget.store ?? OrderStore.instance;
+  late final _store = context.read<OrderStore>();
 
   /// True setelah "Selesai": tampilkan halaman rating.
   bool _rating = false;
 
   /// Ruang chat dengan helper; sudah dibuat saat checkout.
   void _chat(PersonalOrder order) {
-    final chats = widget.chatStore ?? ChatStore.instance;
+    final chats = context.read<ChatStore>();
     final helper = order.helper;
     final room = chats.openWithHelper(
       helperId: helper.id,
       name: helper.name,
       photoUrl: helper.photoUrl,
     );
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatRoomPage(room: room, store: chats),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
   }
 
   void _rate(int stars) {

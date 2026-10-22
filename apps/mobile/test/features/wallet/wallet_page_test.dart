@@ -31,7 +31,7 @@ void main() {
         _tx(1, WalletTxType.topup, 200000),
       ],
     );
-    await pumpPage(tester, WalletPage(repo: repo));
+    await pumpPage(tester, WalletPage(), walletRepo: repo);
     await tester.pumpAndSettle();
 
     expect(find.text('Rp 150.000'), findsOneWidget);
@@ -45,7 +45,7 @@ void main() {
   });
 
   testWidgets('belum ada mutasi: ajakan isi saldo', (tester) async {
-    await pumpPage(tester, WalletPage(repo: FakeWalletRepository()));
+    await pumpPage(tester, WalletPage(), walletRepo: FakeWalletRepository());
     await tester.pumpAndSettle();
 
     expect(find.text('Belum ada transaksi'), findsOneWidget);
@@ -53,7 +53,7 @@ void main() {
 
   testWidgets('isi saldo lewat pilihan nominal', (tester) async {
     final repo = FakeWalletRepository(balance: 150000);
-    await pumpPage(tester, WalletPage(repo: repo));
+    await pumpPage(tester, WalletPage(), walletRepo: repo);
     await tester.pumpAndSettle();
 
     await _openTopup(tester);
@@ -71,7 +71,7 @@ void main() {
     tester,
   ) async {
     final repo = FakeWalletRepository();
-    await pumpPage(tester, WalletPage(repo: repo));
+    await pumpPage(tester, WalletPage(), walletRepo: repo);
     await tester.pumpAndSettle();
 
     await _openTopup(tester);
@@ -92,7 +92,7 @@ void main() {
         code: 'NETWORK_ERROR',
         message: 'Tidak bisa menghubungi server.',
       );
-    await pumpPage(tester, WalletPage(repo: repo));
+    await pumpPage(tester, WalletPage(), walletRepo: repo);
     await tester.pumpAndSettle();
 
     await _openTopup(tester);

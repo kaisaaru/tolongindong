@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
@@ -23,27 +24,17 @@ import 'widgets/order_widgets.dart';
 /// dan alur direct booking di sana meminta quote helper dulu sebelum dana
 /// ditahan — beda dengan desain yang harganya sudah tetap.
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({
-    super.key,
-    required this.helper,
-    this.store,
-    this.chatStore,
-  });
+  const CheckoutPage({super.key, required this.helper});
 
   final HelperListing helper;
-
-  /// Diisi saat pengujian. Default: [OrderStore.instance] dan
-  /// [ChatStore.instance].
-  final OrderStore? store;
-  final ChatStore? chatStore;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  late final _store = widget.store ?? OrderStore.instance;
-  late final _chatStore = widget.chatStore ?? ChatStore.instance;
+  late final _store = context.read<OrderStore>();
+  late final _chatStore = context.read<ChatStore>();
 
   Voucher? _voucher;
   PaymentMethod? _payment;
@@ -105,8 +96,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             payment: payment.name,
             total: _total,
           ),
-          orderPage: (_) =>
-              PersonalOrderPage(store: _store, chatStore: _chatStore),
+          orderPage: (_) => const PersonalOrderPage(),
         ),
       ),
       // Sisakan beranda di bawahnya supaya halaman sukses bisa kembali ke sana.

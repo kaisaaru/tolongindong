@@ -10,7 +10,8 @@ import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/features/order/order_success_page.dart';
 import 'package:mobile/features/order/personal_order_page.dart';
-import 'package:mobile/theme/app_theme.dart';
+
+import '../../helpers/pump_page.dart';
 
 /// Reomeo Asgar, Rp40.000 — seperti frame 202.
 final _helper = OrderSamples.listingsFor(
@@ -21,11 +22,16 @@ Future<void> _pump(
   WidgetTester tester,
   Widget page, {
   Size size = const Size(412, 917),
+  OrderStore? orderStore,
+  ChatStore? chatStore,
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
+  await pumpPage(
+    tester,
+    page,
+    size: size,
+    orderStore: orderStore,
+    chatStore: chatStore,
+  );
   await tester.pump();
 }
 
@@ -37,7 +43,9 @@ void main() {
     final chats = ChatStore(rooms: []);
     await _pump(
       tester,
-      CheckoutPage(helper: _helper, store: store, chatStore: chats),
+      CheckoutPage(helper: _helper),
+      orderStore: store,
+      chatStore: chats,
     );
 
     await tester.tap(find.text('Pilih metode pembayaran'));
@@ -69,7 +77,12 @@ void main() {
         payment: HouseholdSamples.paymentMethods.first,
       );
     final chats = ChatStore(rooms: []);
-    await _pump(tester, PersonalOrderPage(store: store, chatStore: chats));
+    await _pump(
+      tester,
+      PersonalOrderPage(),
+      orderStore: store,
+      chatStore: chats,
+    );
 
     expect(find.text('Sedang dikerjakan ${_helper.name}'), findsOneWidget);
     await tester.tap(find.text('Chat Helper'));
@@ -87,7 +100,9 @@ void main() {
       );
     await _pump(
       tester,
-      CheckoutPage(helper: _helper, store: store, chatStore: ChatStore()),
+      CheckoutPage(helper: _helper),
+      orderStore: store,
+      chatStore: ChatStore(),
     );
 
     await tester.tap(find.text('Pilih metode pembayaran'));
@@ -112,7 +127,7 @@ void main() {
         payment: HouseholdSamples.paymentMethods[3], // BCA
         voucher: OrderSamples.vouchers.first,
       );
-    await _pump(tester, PersonalOrderPage(store: store));
+    await _pump(tester, PersonalOrderPage(), orderStore: store);
 
     expect(find.text(_helper.name), findsOneWidget);
     expect(find.text('BCA'), findsOneWidget);
@@ -144,7 +159,7 @@ void main() {
         helper: _helper,
         payment: HouseholdSamples.paymentMethods.first,
       );
-    await _pump(tester, PersonalOrderPage(store: store));
+    await _pump(tester, PersonalOrderPage(), orderStore: store);
 
     await tester.tap(find.text('Selesai'));
     await tester.pump();
@@ -169,13 +184,12 @@ void main() {
         Builder(
           builder: (context) => TextButton(
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PersonalOrderPage(store: store),
-              ),
+              MaterialPageRoute<void>(builder: (_) => PersonalOrderPage()),
             ),
             child: const Text('Buka'),
           ),
         ),
+        orderStore: store,
       );
       await tester.tap(find.text('Buka'));
       await tester.pumpAndSettle();
@@ -204,7 +218,7 @@ void main() {
         helper: _helper,
         payment: HouseholdSamples.paymentMethods.first,
       );
-    await _pump(tester, PersonalOrderPage(store: store));
+    await _pump(tester, PersonalOrderPage(), orderStore: store);
 
     await tester.tap(find.text('Selesai'));
     await tester.pump();
@@ -229,7 +243,9 @@ void main() {
       );
     await _pump(
       tester,
-      HelperDetailPage(helper: _helper, store: store, chatStore: ChatStore()),
+      HelperDetailPage(helper: _helper),
+      orderStore: store,
+      chatStore: ChatStore(),
     );
 
     await tester.tap(find.text('Pesan Sekarang'));
@@ -249,7 +265,7 @@ void main() {
   testWidgets('halaman pesanan yang sudah ditutup tetap bisa kembali', (
     tester,
   ) async {
-    await _pump(tester, PersonalOrderPage(store: OrderStore()));
+    await _pump(tester, PersonalOrderPage(), orderStore: OrderStore());
 
     expect(find.textContaining('Pesanan ini sudah selesai'), findsOneWidget);
     expect(find.byTooltip('Kembali'), findsOneWidget);
@@ -261,7 +277,7 @@ void main() {
         helper: _helper,
         payment: HouseholdSamples.paymentMethods.first,
       );
-    await _pump(tester, Scaffold(body: ActivityView(store: store)));
+    await _pump(tester, Scaffold(body: ActivityView()), orderStore: store);
 
     expect(find.text('Personal'), findsOneWidget);
     expect(find.text('Dikerjakan ${_helper.name}'), findsOneWidget);
@@ -279,8 +295,9 @@ void main() {
       );
     await _pump(
       tester,
-      PersonalOrderPage(store: store),
+      PersonalOrderPage(),
       size: const Size(360, 740),
+      orderStore: store,
     );
     expect(find.text('Selesai'), findsOneWidget);
   });

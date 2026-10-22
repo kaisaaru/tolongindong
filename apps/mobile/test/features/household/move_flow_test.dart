@@ -11,7 +11,8 @@ import 'package:mobile/features/household/widgets/household_widgets.dart';
 import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/models/service_category.dart';
-import 'package:mobile/theme/app_theme.dart';
+
+import '../../helpers/pump_page.dart';
 
 const _household = ServiceCategory(
   id: 3,
@@ -37,17 +38,22 @@ final _moveDraft = HouseholdOrderDraft(
   hours: 1,
 );
 
-Future<void> _pump(WidgetTester tester, Widget page, Size size) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
+Future<void> _pump(
+  WidgetTester tester,
+  Widget page,
+  Size size, {
+  OrderStore? orderStore,
+}) async {
+  await pumpPage(tester, page, size: size, orderStore: orderStore);
   await tester.pump();
 }
 
 /// Layar HP sempit: overflow apa pun membuat test gagal.
-Future<void> _pumpNarrow(WidgetTester tester, Widget page) =>
-    _pump(tester, page, const Size(360, 740));
+Future<void> _pumpNarrow(
+  WidgetTester tester,
+  Widget page, {
+  OrderStore? orderStore,
+}) => _pump(tester, page, const Size(360, 740), orderStore: orderStore);
 
 void main() {
   group('biaya Pindahan', () {
@@ -208,7 +214,7 @@ void main() {
         payment: HouseholdSamples.paymentMethods.first,
       );
 
-      await _pumpNarrow(tester, ActiveOrderPage(store: store));
+      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
       expect(find.text('Lokasi tujuan'), findsOneWidget);
       expect(find.text('Muatan - Sedang'), findsOneWidget);
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
@@ -18,19 +19,18 @@ import 'widgets/household_widgets.dart';
 /// Voucher tidak berlaku untuk tambahan durasi, jadi baris "Gunakan Vocher"
 /// dari desain tidak dipasang (lihat catatan di ringkasan pekerjaan).
 class ExtendDurationPage extends StatefulWidget {
-  const ExtendDurationPage({super.key, required this.store});
-
-  final OrderStore store;
+  const ExtendDurationPage({super.key});
 
   @override
   State<ExtendDurationPage> createState() => _ExtendDurationPageState();
 }
 
 class _ExtendDurationPageState extends State<ExtendDurationPage> {
+  late final _store = context.read<OrderStore>();
   int _hours = HouseholdSamples.durationOptions.first;
-  late PaymentMethod? _payment = widget.store.active?.payment;
+  late PaymentMethod? _payment = _store.active?.payment;
 
-  int get _rate => widget.store.active?.draft.helper.hourlyRate ?? 0;
+  int get _rate => _store.active?.draft.helper.hourlyRate ?? 0;
   int get _total => _rate * _hours;
 
   Future<void> _pickPayment() async {
@@ -42,7 +42,7 @@ class _ExtendDurationPageState extends State<ExtendDurationPage> {
 
   void _submit() {
     // Saat waktu habis pun durasi masih boleh ditambah (dialog "Tambah").
-    final status = widget.store.status;
+    final status = _store.status;
     if (status != ActiveStatus.working && status != ActiveStatus.timeUp) {
       ScaffoldMessenger.of(
         context,
@@ -50,14 +50,13 @@ class _ExtendDurationPageState extends State<ExtendDurationPage> {
       Navigator.of(context).maybePop();
       return;
     }
-    widget.store.addHours(_hours);
+    _store.addHours(_hours);
     Navigator.of(context).maybePop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final service =
-        widget.store.active?.draft.service ?? HouseholdService.rumah;
+    final service = _store.active?.draft.service ?? HouseholdService.rumah;
 
     return Scaffold(
       backgroundColor: AppColors.light,

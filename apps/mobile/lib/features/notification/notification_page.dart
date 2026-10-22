@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../theme/app_colors.dart';
@@ -15,10 +16,9 @@ import 'notification_repository.dart';
 /// Backend baru membuat notifikasi untuk pesan chat; status pesanan dan
 /// mutasi saldo menyusul (jenisnya sudah ada di `NotificationType`).
 class NotificationPage extends StatefulWidget {
-  const NotificationPage({super.key, this.repo, this.clock});
+  const NotificationPage({super.key, this.clock});
 
-  /// Diisi saat pengujian. Default: [NotificationRepository] ke server.
-  final NotificationRepository? repo;
+  /// Diisi saat pengujian. Default: jam nyata.
   final DateTime Function()? clock;
 
   @override
@@ -26,7 +26,7 @@ class NotificationPage extends StatefulWidget {
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  late final _repo = widget.repo ?? NotificationRepository();
+  late final _repo = context.read<NotificationRepository>();
   late final _clock = widget.clock ?? DateTime.now;
 
   final _items = <AppNotification>[];

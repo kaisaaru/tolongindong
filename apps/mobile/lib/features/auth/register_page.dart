@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../widgets/app_text_field.dart';
@@ -12,10 +13,7 @@ import 'widgets/google_sign_in_button.dart';
 import 'widgets/or_divider.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key, this.authRepo});
-
-  /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
-  final AuthRepository? authRepo;
+  const RegisterPage({super.key});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -29,7 +27,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
 
   // Error per field. Email dan nomor dari server, password dicek di aplikasi.
   String? _nameError;

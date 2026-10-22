@@ -264,7 +264,7 @@ void main() {
     store.cancel();
     store.place(draft: _draft(), payment: payment);
 
-    await pumpPage(tester, Scaffold(body: ActivityView(store: store)));
+    await pumpPage(tester, Scaffold(body: ActivityView()), orderStore: store);
     await tester.pump();
 
     expect(find.text('Tiba dalam 30 menit'), findsOneWidget);
@@ -285,7 +285,7 @@ void main() {
     final store = OrderStore(clock: () => clock.real);
     addTearDown(store.dispose);
 
-    await pumpPage(tester, OrderReviewPage(draft: _draft(), store: store));
+    await pumpPage(tester, OrderReviewPage(draft: _draft()), orderStore: store);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Pesan'));
@@ -322,7 +322,7 @@ void main() {
     final store = OrderStore();
     addTearDown(store.dispose);
 
-    await pumpPage(tester, OrderReviewPage(draft: _draft(), store: store));
+    await pumpPage(tester, OrderReviewPage(draft: _draft()), orderStore: store);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Pesan'));
@@ -345,7 +345,7 @@ void main() {
       payment: HouseholdSamples.paymentMethods.first,
     );
 
-    await pumpPage(tester, OrderReviewPage(draft: _draft(), store: store));
+    await pumpPage(tester, OrderReviewPage(draft: _draft()), orderStore: store);
     await tester.pump();
 
     await tester.tap(find.text('Pesan'));

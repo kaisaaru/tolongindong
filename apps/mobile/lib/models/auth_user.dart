@@ -79,6 +79,18 @@ class AuthUser {
   final bool isAdmin;
   final Wallet wallet;
 
+  /// Saldo terbaru, misal setelah isi saldo, tanpa memuat ulang `/me`.
+  AuthUser withWallet(Wallet wallet) => AuthUser(
+    id: id,
+    fullName: fullName,
+    email: email,
+    phoneNumber: phoneNumber,
+    photoUrl: photoUrl,
+    verificationStatus: verificationStatus,
+    isAdmin: isAdmin,
+    wallet: wallet,
+  );
+
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
     id: json['id'] as String? ?? '',
     fullName: json['full_name'] as String? ?? '',

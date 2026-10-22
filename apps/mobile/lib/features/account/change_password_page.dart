@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../theme/app_colors.dart';
@@ -11,10 +12,7 @@ import '../order/widgets/order_widgets.dart';
 /// Ganti password saat sudah masuk (`POST /password/change`). Sesi tetap
 /// berjalan; password baru dipakai saat masuk berikutnya.
 class ChangePasswordPage extends StatefulWidget {
-  const ChangePasswordPage({super.key, this.authRepo});
-
-  /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
-  final AuthRepository? authRepo;
+  const ChangePasswordPage({super.key});
 
   @override
   State<ChangePasswordPage> createState() => _ChangePasswordPageState();
@@ -26,7 +24,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   final _currentController = TextEditingController();
   final _newController = TextEditingController();
   final _confirmController = TextEditingController();
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
 
   String? _currentError;
   String? _newError;

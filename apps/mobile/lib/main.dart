@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'app_scope.dart';
 import 'features/splash/splash_page.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const AppScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

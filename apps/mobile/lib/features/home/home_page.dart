@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../app_scope.dart';
 import '../../core/api/api_exception.dart';
 import '../../models/auth_user.dart';
 import '../../models/service_category.dart';
@@ -9,8 +11,8 @@ import '../../theme/app_typography.dart';
 import '../account/account_view.dart';
 import '../account/change_password_page.dart';
 import '../activity/activity_view.dart';
-import '../auth/auth_repository.dart';
 import '../auth/login_page.dart';
+import '../auth/session_store.dart';
 import '../chat/chat_list_view.dart';
 import '../chat/chat_store.dart';
 import '../delivery/delivery_page.dart';
@@ -18,13 +20,11 @@ import '../delivery/delivery_review_page.dart';
 import '../household/active_order_page.dart';
 import '../household/household_page.dart';
 import '../notification/notification_page.dart';
-import '../notification/notification_repository.dart';
 import '../order/category_helpers_page.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
 import '../order/personal_order_page.dart';
 import '../wallet/wallet_page.dart';
-import '../wallet/wallet_repository.dart';
 import 'catalog_repository.dart';
 import 'home_assets.dart';
 import 'home_metrics.dart';
@@ -36,40 +36,21 @@ import 'widgets/service_offer_section.dart';
 import 'widgets/tips_section.dart';
 
 /// Beranda client (FR-PRF-004, FR-HLP-001, FR-NOT-001, FR-WLT-010).
+///
+/// Pengguna dari [SessionStore]; repository dan store pesanan/obrolan dari
+/// [AppScope] (lihat `app_scope.dart`).
 class HomePage extends StatefulWidget {
-  const HomePage({
-    super.key,
-    required this.user,
-    this.authRepo,
-    this.catalogRepo,
-    this.orderStore,
-    this.chatStore,
-    this.walletRepo,
-    this.notificationRepo,
-  });
-
-  final AuthUser user;
-
-  /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
-  final AuthRepository? authRepo;
-  final CatalogRepository? catalogRepo;
-  final OrderStore? orderStore;
-  final ChatStore? chatStore;
-  final WalletRepository? walletRepo;
-  final NotificationRepository? notificationRepo;
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  late final _authRepo = widget.authRepo ?? AuthRepository();
-  late final _catalogRepo = widget.catalogRepo ?? CatalogRepository();
-  late final _orderStore = widget.orderStore ?? OrderStore.instance;
-  late final _chatStore = widget.chatStore ?? ChatStore.instance;
+  late final _catalogRepo = context.read<CatalogRepository>();
+  late final _orderStore = context.read<OrderStore>();
 
   late Future<List<ServiceCategory>> _categories = _catalogRepo.categories();
-  late AuthUser _user = widget.user;
 
   /// Null = belum dimuat atau user belum punya alamat.
   String? _address;
@@ -111,54 +92,42 @@ class _HomePageState extends State<HomePage> {
     final reloaded = _catalogRepo.categories();
     setState(() => _categories = reloaded);
 
-    await _reloadUser();
     await Future.wait([
+      context.read<SessionStore>().refresh(),
       _loadHeader(),
       reloaded.catchError((_) => <ServiceCategory>[]),
     ]);
   }
 
-  /// Profil terbaru dari `/me`, misal saldo setelah isi saldo.
-  Future<void> _reloadUser() async {
-    try {
-      final fresh = await _authRepo.me();
-      if (mounted) setState(() => _user = fresh);
-    } on ApiException {
-      // Profil gagal dimuat ulang bukan alasan mengosongkan beranda —
-      // data lama tetap dipakai.
-    }
-  }
-
   Future<void> _openNotifications() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NotificationPage(repo: widget.notificationRepo),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const NotificationPage()));
     // Titik merah di lonceng mengikuti yang baru dibaca.
     if (mounted) await _loadHeader();
   }
 
-  Future<void> _openWallet() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            WalletPage(repo: widget.walletRepo, initial: _user.wallet),
-      ),
-    );
-    if (mounted) await _reloadUser();
-  }
+  // Saldo di tab Akun ikut berubah sendiri: TD-Wallet memperbarui
+  // SessionStore setelah isi saldo.
+  void _openWallet() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const WalletPage()));
 
-  void _openChangePassword() => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => ChangePasswordPage(authRepo: widget.authRepo),
-    ),
-  );
+  void _openChangePassword() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const ChangePasswordPage()));
 
   Future<void> _logout() async {
-    await _authRepo.logout();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
+    // Diambil sebelum menunggu: context tidak dipakai lagi setelah await.
+    final session = context.read<SessionStore>();
+    final chats = context.read<ChatStore>();
+    final navigator = Navigator.of(context);
+
+    await session.signOut();
+    // Pesanan dan obrolan akun ini tidak boleh terlihat akun berikutnya.
+    _orderStore.reset();
+    chats.reset();
+    navigator.pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const LoginPage()),
       (_) => false,
     );
@@ -174,12 +143,8 @@ class _HomePageState extends State<HomePage> {
     // Household dan Delivery punya alur sendiri; kategori lain masih daftar
     // helper.
     final Widget page = switch (category.code) {
-      'household' => HouseholdPage(category: category, store: _orderStore),
-      'delivery' => DeliveryPage(
-        senderName: _user.fullName,
-        senderPhone: _user.phoneNumber,
-        store: _orderStore,
-      ),
+      'household' => HouseholdPage(category: category),
+      'delivery' => const DeliveryPage(),
       _ => CategoryHelpersPage(category: category),
     };
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
@@ -247,6 +212,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<SessionStore>().user;
+    // Sesaat setelah keluar akun, sebelum pindah ke halaman masuk.
+    if (user == null) return const Scaffold(backgroundColor: AppColors.light);
+
     // Tombol kembali Android di tab lain membawa ke Beranda dulu, bukan
     // langsung menutup aplikasi.
     return PopScope(
@@ -254,11 +223,11 @@ class _HomePageState extends State<HomePage> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) setState(() => _tab = HomeTab.beranda);
       },
-      child: _buildTab(context),
+      child: _buildTab(context, user),
     );
   }
 
-  Widget _buildTab(BuildContext context) {
+  Widget _buildTab(BuildContext context, AuthUser user) {
     final nav = HomeBottomNav(
       current: _tab,
       onSelected: (tab) => setState(() => _tab = tab),
@@ -271,7 +240,7 @@ class _HomePageState extends State<HomePage> {
         child: Scaffold(
           backgroundColor: AppColors.light,
           body: AccountView(
-            user: _user,
+            user: user,
             onLogout: _logout,
             onOpenOrders: () => _goTo(HomeTab.aktifitas),
             onOpenChats: () => _goTo(HomeTab.obrolan),
@@ -287,10 +256,7 @@ class _HomePageState extends State<HomePage> {
         value: SystemUiOverlayStyle.dark,
         child: Scaffold(
           backgroundColor: AppColors.light,
-          body: ActivityView(
-            store: _orderStore,
-            onExplore: () => _goTo(HomeTab.beranda),
-          ),
+          body: ActivityView(onExplore: () => _goTo(HomeTab.beranda)),
           bottomNavigationBar: nav,
         ),
       );
@@ -300,10 +266,7 @@ class _HomePageState extends State<HomePage> {
         value: SystemUiOverlayStyle.dark,
         child: Scaffold(
           backgroundColor: OrderStyle.background,
-          body: ChatListView(
-            store: _chatStore,
-            onExplore: () => _goTo(HomeTab.beranda),
-          ),
+          body: ChatListView(onExplore: () => _goTo(HomeTab.beranda)),
           bottomNavigationBar: nav,
         ),
       );
@@ -327,7 +290,7 @@ class _HomePageState extends State<HomePage> {
               left: 0,
               right: 0,
               child: HomeHeader(
-                user: _user,
+                user: user,
                 location: _address ?? 'Atur alamat',
                 hasUnreadNotification: _unreadCount > 0,
                 onNotificationTap: _openNotifications,
@@ -361,7 +324,7 @@ class _HomePageState extends State<HomePage> {
                     elevated: true,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => ActiveOrderPage(store: _orderStore),
+                        builder: (_) => const ActiveOrderPage(),
                       ),
                     ),
                   );
@@ -373,7 +336,7 @@ class _HomePageState extends State<HomePage> {
                     elevated: true,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => PersonalOrderPage(store: _orderStore),
+                        builder: (_) => const PersonalOrderPage(),
                       ),
                     ),
                   );
@@ -386,10 +349,8 @@ class _HomePageState extends State<HomePage> {
                     elevated: true,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => DeliveryReviewPage.placed(
-                          order: delivery,
-                          store: _orderStore,
-                        ),
+                        builder: (_) =>
+                            DeliveryReviewPage.placed(order: delivery),
                       ),
                     ),
                   );

@@ -28,14 +28,13 @@ void main() {
         builder: (context) => Scaffold(
           body: TextButton(
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => ChangePasswordPage(authRepo: repo),
-              ),
+              MaterialPageRoute<void>(builder: (_) => ChangePasswordPage()),
             ),
             child: const Text('Akun'),
           ),
         ),
       ),
+      authRepo: repo,
     );
     await tester.tap(find.text('Akun'));
     await tester.pumpAndSettle();
@@ -59,7 +58,7 @@ void main() {
         message: 'Kata sandi saat ini yang Anda masukkan salah.',
       ),
     );
-    await pumpPage(tester, ChangePasswordPage(authRepo: repo));
+    await pumpPage(tester, ChangePasswordPage(), authRepo: repo);
 
     await _fill(tester, 'salah', 'password-baru');
     await tester.tap(find.text('Simpan Password'));
@@ -75,7 +74,7 @@ void main() {
     tester,
   ) async {
     final repo = FakeAuthRepository();
-    await pumpPage(tester, ChangePasswordPage(authRepo: repo));
+    await pumpPage(tester, ChangePasswordPage(), authRepo: repo);
 
     await _fill(tester, 'password-sama', 'password-sama');
     await tester.tap(find.text('Simpan Password'));

@@ -15,8 +15,6 @@ class ChatStore extends ChangeNotifier {
     : _clock = clock ?? DateTime.now,
       _rooms = rooms ?? ChatSamples.rooms((clock ?? DateTime.now)());
 
-  static final instance = ChatStore();
-
   final DateTime Function() _clock;
   final List<ChatRoom> _rooms;
 
@@ -54,6 +52,14 @@ class ChatStore extends ChangeNotifier {
     room.messages.add(
       ChatMessage(fromMe: true, sentAt: _clock(), text: trimmed),
     );
+    notifyListeners();
+  }
+
+  /// Kembali ke isi awal, misal saat keluar akun.
+  void reset() {
+    _rooms
+      ..clear()
+      ..addAll(ChatSamples.rooms(_clock()));
     notifyListeners();
   }
 

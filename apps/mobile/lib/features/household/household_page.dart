@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
@@ -13,19 +14,16 @@ import 'widgets/household_widgets.dart';
 
 /// Kategori Household: pilih kebutuhan (Pindahan, Rumah, Kamar, Pakaian).
 class HouseholdPage extends StatelessWidget {
-  const HouseholdPage({super.key, required this.category, this.store});
+  const HouseholdPage({super.key, required this.category});
 
   /// Kategori dari server, untuk `category_id` dan tarif dasar saat
   /// pesanan dikirim ke backend nanti.
   final ServiceCategory category;
 
-  /// Diisi saat pengujian. Default: [OrderStore.instance].
-  final OrderStore? store;
-
   void _open(BuildContext context, HouseholdService service) {
     // Hanya satu pesanan Household boleh berjalan. Diberi tahu sekarang,
     // bukan setelah form panjangnya selesai diisi.
-    final orders = store ?? OrderStore.instance;
+    final orders = context.read<OrderStore>();
     if (orders.active != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -35,9 +33,7 @@ class HouseholdPage extends StatelessWidget {
             action: SnackBarAction(
               label: 'Lihat',
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ActiveOrderPage(store: orders),
-                ),
+                MaterialPageRoute<void>(builder: (_) => ActiveOrderPage()),
               ),
             ),
           ),

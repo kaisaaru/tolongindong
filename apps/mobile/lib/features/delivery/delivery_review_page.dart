@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
@@ -34,14 +35,12 @@ class DeliveryReviewPage extends StatefulWidget {
     super.key,
     required DeliveryDraft this.draft,
     this.voucher,
-    this.store,
     this.clock,
   }) : order = null;
 
   const DeliveryReviewPage.placed({
     super.key,
     required DeliveryOrder this.order,
-    this.store,
   }) : draft = null,
        voucher = null,
        clock = null;
@@ -50,8 +49,7 @@ class DeliveryReviewPage extends StatefulWidget {
   final Voucher? voucher;
   final DeliveryOrder? order;
 
-  /// Diisi saat pengujian. Default: [OrderStore.instance] dan jam nyata.
-  final OrderStore? store;
+  /// Diisi saat pengujian. Default: jam nyata.
   final DateTime Function()? clock;
 
   @override
@@ -59,7 +57,7 @@ class DeliveryReviewPage extends StatefulWidget {
 }
 
 class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
-  late final _store = widget.store ?? OrderStore.instance;
+  late final _store = context.read<OrderStore>();
   late final _clock = widget.clock ?? DateTime.now;
 
   late DeliveryDraft _draft = widget.draft ?? widget.order!.draft;
@@ -168,8 +166,7 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
             payment: payment.name,
             total: order.total,
           ),
-          orderPage: (_) =>
-              DeliveryReviewPage.placed(order: order, store: _store),
+          orderPage: (_) => DeliveryReviewPage.placed(order: order),
         ),
       ),
       (route) => route.isFirst,

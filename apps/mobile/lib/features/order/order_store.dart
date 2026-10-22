@@ -141,8 +141,6 @@ class OrderStore extends ChangeNotifier {
   OrderStore({this.speed = 60, DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
 
-  static final instance = OrderStore();
-
   static const travelTime = Duration(minutes: 30);
   static const cancelWindow = Duration(minutes: 10);
 
@@ -345,8 +343,8 @@ class OrderStore extends ChangeNotifier {
     });
   }
 
-  /// Untuk pengujian.
-  @visibleForTesting
+  /// Mengosongkan semua pesanan, misal saat keluar akun supaya pengguna
+  /// berikutnya tidak melihat pesanan orang lain.
   void reset() {
     _ticker?.cancel();
     _ticker = null;

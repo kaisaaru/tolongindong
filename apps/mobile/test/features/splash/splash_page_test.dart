@@ -20,7 +20,7 @@ void main() {
   testWidgets('belum login dan belum lihat onboarding, splash ke onboarding', (
     tester,
   ) async {
-    await pumpPage(tester, SplashPage(authRepo: FakeAuthRepository()));
+    await pumpPage(tester, SplashPage(), authRepo: FakeAuthRepository());
 
     await tester.pump(SplashPage.duration - const Duration(milliseconds: 1));
     expect(find.byType(OnboardingPage), findsNothing);
@@ -44,10 +44,9 @@ void main() {
     );
     await pumpPage(
       tester,
-      SplashPage(
-        authRepo: FakeAuthRepository(sessionUser: user),
-        catalogRepo: FakeCatalogRepository(),
-      ),
+      SplashPage(),
+      authRepo: FakeAuthRepository(sessionUser: user),
+      catalogRepo: FakeCatalogRepository(),
     );
 
     await tester.pump(SplashPage.duration);
@@ -61,7 +60,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({'onboarding_seen': true});
-    await pumpPage(tester, SplashPage(authRepo: FakeAuthRepository()));
+    await pumpPage(tester, SplashPage(), authRepo: FakeAuthRepository());
 
     await tester.pump(SplashPage.duration);
     await tester.pumpAndSettle();

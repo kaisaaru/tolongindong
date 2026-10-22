@@ -28,7 +28,11 @@ void main() {
       _note(1, ago: const Duration(minutes: 5)),
       _note(2, read: true, ago: const Duration(days: 2)),
     ]);
-    await pumpPage(tester, NotificationPage(repo: repo, clock: () => _now));
+    await pumpPage(
+      tester,
+      NotificationPage(clock: () => _now),
+      notificationRepo: repo,
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('5 menit lalu'), findsOneWidget);
@@ -45,7 +49,11 @@ void main() {
 
   testWidgets('Tandai dibaca menandai semuanya', (tester) async {
     final repo = FakeNotificationRepository([_note(1), _note(2)]);
-    await pumpPage(tester, NotificationPage(repo: repo, clock: () => _now));
+    await pumpPage(
+      tester,
+      NotificationPage(clock: () => _now),
+      notificationRepo: repo,
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Tandai dibaca'));
@@ -58,7 +66,8 @@ void main() {
   testWidgets('kosong: penjelasan', (tester) async {
     await pumpPage(
       tester,
-      NotificationPage(repo: FakeNotificationRepository([])),
+      NotificationPage(),
+      notificationRepo: FakeNotificationRepository([]),
     );
     await tester.pumpAndSettle();
 

@@ -39,7 +39,7 @@ void main() {
   testWidgets('Lupa Password? membawa nomor HP dari kolom login', (
     tester,
   ) async {
-    await pumpPage(tester, LoginPage(authRepo: FakeAuthRepository()));
+    await pumpPage(tester, LoginPage(), authRepo: FakeAuthRepository());
 
     await tester.enterText(find.byType(TextField).first, '081234563914');
     await tester.tap(find.text('Lupa Password?'));
@@ -58,7 +58,8 @@ void main() {
     );
     await pumpPage(
       tester,
-      ForgotPasswordPage(authRepo: repo, initialPhone: '080000000001'),
+      ForgotPasswordPage(initialPhone: '080000000001'),
+      authRepo: repo,
     );
 
     await tester.tap(find.text('Kirim Kode'));
@@ -77,9 +78,8 @@ void main() {
     final repo = FakeAuthRepository();
     await pumpPage(
       tester,
-      _launcher(
-        ForgotPasswordPage(authRepo: repo, initialPhone: '081234563914'),
-      ),
+      _launcher(ForgotPasswordPage(initialPhone: '081234563914')),
+      authRepo: repo,
     );
     await tester.tap(find.text('Buka'));
     await tester.pumpAndSettle();
@@ -127,7 +127,8 @@ void main() {
     );
     await pumpPage(
       tester,
-      ResetPasswordPage(phoneNumber: '081234563914', authRepo: repo),
+      ResetPasswordPage(phoneNumber: '081234563914'),
+      authRepo: repo,
     );
 
     await tester.enterText(_otpField, '111111');

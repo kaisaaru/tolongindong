@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
@@ -20,14 +21,11 @@ import '../order/personal_order_page.dart';
 class ActivityView extends StatefulWidget {
   const ActivityView({
     super.key,
-    this.store,
     this.bottomPadding = 12,
     this.startOnHistory = false,
     this.showTitle = true,
     this.onExplore,
   });
-
-  final OrderStore? store;
   final double bottomPadding;
 
   /// True: tab Riwayat terbuka lebih dulu (tombol riwayat Delivery).
@@ -44,20 +42,20 @@ class ActivityView extends StatefulWidget {
 }
 
 class _ActivityViewState extends State<ActivityView> {
-  late final _store = widget.store ?? OrderStore.instance;
+  late final _store = context.read<OrderStore>();
   late bool _history = widget.startOnHistory;
 
-  void _openActive() => Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => ActiveOrderPage(store: _store)),
-  );
+  void _openActive() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => ActiveOrderPage()));
 
-  void _openPersonal() => Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => PersonalOrderPage(store: _store)),
-  );
+  void _openPersonal() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => PersonalOrderPage()));
 
   void _openDelivery(DeliveryOrder order) => Navigator.of(context).push(
     MaterialPageRoute<void>(
-      builder: (_) => DeliveryReviewPage.placed(order: order, store: _store),
+      builder: (_) => DeliveryReviewPage.placed(order: order),
     ),
   );
 

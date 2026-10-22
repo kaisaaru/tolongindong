@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../widgets/app_text_field.dart';
@@ -12,13 +13,10 @@ import 'widgets/auth_switch_prompt.dart';
 /// Lupa password, langkah 1: nomor HP akun. Kode OTP dikirim ke nomor itu,
 /// lalu dilanjutkan di [ResetPasswordPage] (FR-AUTH-006).
 class ForgotPasswordPage extends StatefulWidget {
-  const ForgotPasswordPage({super.key, this.initialPhone, this.authRepo});
+  const ForgotPasswordPage({super.key, this.initialPhone});
 
   /// Diisi dari kolom login kalau isinya nomor HP.
   final String? initialPhone;
-
-  /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
-  final AuthRepository? authRepo;
 
   @override
   State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
@@ -28,7 +26,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   late final _phoneController = TextEditingController(
     text: widget.initialPhone,
   );
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
 
   String? _errorText;
   bool _isLoading = false;
@@ -63,7 +61,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 : challenge.phoneNumber,
             debugOtp: challenge.debugOtp,
             expiresInSeconds: challenge.expiresInSeconds,
-            authRepo: widget.authRepo,
           ),
         ),
       );

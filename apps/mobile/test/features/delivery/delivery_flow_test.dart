@@ -12,17 +12,26 @@ import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/features/order/order_success_page.dart';
 import 'package:mobile/features/order/payment_method_page.dart';
-import 'package:mobile/theme/app_theme.dart';
+import 'package:mobile/models/auth_user.dart';
+
+import '../../helpers/pump_page.dart';
 
 /// Pukul 09.47 seperti status bar di desain.
 DateTime _now() => DateTime(2026, 10, 22, 9, 47);
 
-DeliveryPage _page(OrderStore store) => DeliveryPage(
-  senderName: 'Alexsander',
-  senderPhone: '08123543431',
-  store: store,
-  clock: _now,
+/// Pengirim = pengguna yang masuk.
+const _sender = AuthUser(
+  id: 'uuid-2',
+  fullName: 'Alexsander',
+  email: 'alex@example.com',
+  phoneNumber: '08123543431',
+  photoUrl: null,
+  verificationStatus: VerificationStatus.verified,
+  isAdmin: false,
+  wallet: Wallet.empty,
 );
+
+DeliveryPage _page() => DeliveryPage(clock: _now);
 
 final _draft = DeliveryDraft(
   senderName: 'Alexsander',
@@ -43,11 +52,15 @@ Future<void> _pump(
   WidgetTester tester,
   Widget page, {
   Size size = const Size(412, 1100),
+  OrderStore? orderStore,
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
+  await pumpPage(
+    tester,
+    page,
+    size: size,
+    orderStore: orderStore,
+    user: _sender,
+  );
   await tester.pump();
 }
 
@@ -88,7 +101,7 @@ void main() {
   });
 
   testWidgets('landing: pengantaran sebelumnya dan promo', (tester) async {
-    await _pump(tester, _page(OrderStore()));
+    await _pump(tester, _page(), orderStore: OrderStore());
 
     expect(find.text('Pengantaran sebelumnya'), findsOneWidget);
     expect(find.text('4 hari lalu'), findsOneWidget);
@@ -98,7 +111,7 @@ void main() {
   });
 
   testWidgets('promo dipakai, lalu ikut ke form', (tester) async {
-    await _pump(tester, _page(OrderStore()));
+    await _pump(tester, _page(), orderStore: OrderStore());
 
     await tester.tap(find.text('Diskon 20%').first);
     await tester.pump();
@@ -114,7 +127,7 @@ void main() {
     tester,
   ) async {
     final store = OrderStore();
-    await _pump(tester, _page(store));
+    await _pump(tester, _page(), orderStore: store);
 
     // Pilih tujuan dari pengantaran sebelumnya.
     await tester.tap(find.text('4 hari lalu'));
@@ -196,7 +209,7 @@ void main() {
   testWidgets('Lihat Pesanan belum lengkap: beri tahu dan buka yang kurang', (
     tester,
   ) async {
-    await _pump(tester, _page(OrderStore()));
+    await _pump(tester, _page(), orderStore: OrderStore());
     await tester.tap(find.text('4 hari lalu'));
     await tester.pumpAndSettle();
 
@@ -211,7 +224,7 @@ void main() {
 
   group('pilihan di lembar tidak hilang', () {
     Future<void> openForm(WidgetTester tester) async {
-      await _pump(tester, _page(OrderStore()));
+      await _pump(tester, _page(), orderStore: OrderStore());
       await tester.tap(find.text('4 hari lalu'));
       await tester.pumpAndSettle();
     }
@@ -285,7 +298,7 @@ void main() {
         draft: _draft,
         payment: HouseholdSamples.paymentMethods.first,
       );
-    await _pump(tester, Scaffold(body: ActivityView(store: store)));
+    await _pump(tester, Scaffold(body: ActivityView()), orderStore: store);
 
     expect(find.text('Delivery'), findsOneWidget);
     expect(find.text('Diantar sebelum jam 11.00'), findsOneWidget);
@@ -307,7 +320,8 @@ void main() {
       );
     await _pump(
       tester,
-      DeliveryReviewPage.placed(order: store.deliveries.single, store: store),
+      DeliveryReviewPage.placed(order: store.deliveries.single),
+      orderStore: store,
     );
 
     await tester.tap(find.text('Pesanan Diterima'));
@@ -334,12 +348,12 @@ void main() {
     const narrow = Size(360, 740);
 
     testWidgets('landing', (tester) async {
-      await _pump(tester, _page(OrderStore()), size: narrow);
+      await _pump(tester, _page(), orderStore: OrderStore(), size: narrow);
       expect(find.text('Delivery'), findsOneWidget);
     });
 
     testWidgets('form', (tester) async {
-      await _pump(tester, _page(OrderStore()), size: narrow);
+      await _pump(tester, _page(), orderStore: OrderStore(), size: narrow);
       await tester.tap(find.text('4 hari lalu'));
       await tester.pumpAndSettle();
       expect(find.text('Barang apa yang ingin dikirim?'), findsOneWidget);
@@ -360,10 +374,11 @@ void main() {
         DeliveryReviewPage(
           draft: _draft,
           voucher: OrderSamples.vouchers.first,
-          store: OrderStore(),
+
           clock: _now,
         ),
         size: narrow,
+        orderStore: OrderStore(),
       );
       await tester.tap(find.text('Total'));
       await tester.pump();

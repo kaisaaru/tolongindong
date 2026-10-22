@@ -14,7 +14,6 @@ import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/features/wallet/wallet_page.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/models/service_category.dart';
-import 'package:mobile/theme/app_theme.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_catalog_repository.dart';
@@ -47,7 +46,10 @@ ServiceCategory _category(int id, String code, String name) => ServiceCategory(
 Future<void> _pumpHome(WidgetTester tester, FakeCatalogRepository repo) async {
   await pumpPage(
     tester,
-    HomePage(user: _user, authRepo: FakeAuthRepository(), catalogRepo: repo),
+    HomePage(),
+    user: _user,
+    authRepo: FakeAuthRepository(),
+    catalogRepo: repo,
   );
   await tester.pumpAndSettle();
 }
@@ -95,23 +97,17 @@ void main() {
   testWidgets('baris kategori tidak meluap di layar 360 dp', (tester) async {
     // Overflow apa pun membuat test gagal. Baris kategori selebar desain
     // (412 dp) dulu meluap 13 dp di layar 360 dp.
-    tester.view.physicalSize = const Size(360, 740);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: HomePage(
-          user: _user,
-          authRepo: FakeAuthRepository(),
-          catalogRepo: FakeCatalogRepository(
-            result: [
-              _category(1, 'personal', 'Personal'),
-              _category(2, 'delivery', 'Delivery'),
-              _category(3, 'household', 'Household'),
-            ],
-          ),
-        ),
+    await pumpPage(
+      tester,
+      const HomePage(),
+      size: const Size(360, 740),
+      user: _user,
+      catalogRepo: FakeCatalogRepository(
+        result: [
+          _category(1, 'personal', 'Personal'),
+          _category(2, 'delivery', 'Delivery'),
+          _category(3, 'household', 'Household'),
+        ],
       ),
     );
     await tester.pumpAndSettle();
@@ -131,12 +127,11 @@ void main() {
   testWidgets('tab Obrolan berisi daftar obrolan', (tester) async {
     await pumpPage(
       tester,
-      HomePage(
-        user: _user,
-        authRepo: FakeAuthRepository(),
-        catalogRepo: FakeCatalogRepository(),
-        chatStore: ChatStore(),
-      ),
+      HomePage(),
+      user: _user,
+      authRepo: FakeAuthRepository(),
+      catalogRepo: FakeCatalogRepository(),
+      chatStore: ChatStore(),
     );
     await tester.pumpAndSettle();
 
@@ -155,12 +150,11 @@ void main() {
       );
     await pumpPage(
       tester,
-      HomePage(
-        user: _user,
-        authRepo: FakeAuthRepository(),
-        catalogRepo: FakeCatalogRepository(),
-        orderStore: store,
-      ),
+      HomePage(),
+      user: _user,
+      authRepo: FakeAuthRepository(),
+      catalogRepo: FakeCatalogRepository(),
+      orderStore: store,
     );
     await tester.pumpAndSettle();
 
@@ -265,12 +259,11 @@ void main() {
   ) async {
     await pumpPage(
       tester,
-      HomePage(
-        user: _user,
-        authRepo: FakeAuthRepository(),
-        catalogRepo: FakeCatalogRepository(),
-        orderStore: OrderStore(),
-      ),
+      HomePage(),
+      user: _user,
+      authRepo: FakeAuthRepository(),
+      catalogRepo: FakeCatalogRepository(),
+      orderStore: OrderStore(),
     );
     await tester.pumpAndSettle();
 
@@ -286,12 +279,11 @@ void main() {
   testWidgets('lonceng membuka halaman notifikasi', (tester) async {
     await pumpPage(
       tester,
-      HomePage(
-        user: _user,
-        authRepo: FakeAuthRepository(sessionUser: _user),
-        catalogRepo: FakeCatalogRepository(),
-        notificationRepo: FakeNotificationRepository([]),
-      ),
+      HomePage(),
+      user: _user,
+      authRepo: FakeAuthRepository(sessionUser: _user),
+      catalogRepo: FakeCatalogRepository(),
+      notificationRepo: FakeNotificationRepository([]),
     );
     await tester.pumpAndSettle();
 
@@ -307,12 +299,11 @@ void main() {
   ) async {
     await pumpPage(
       tester,
-      HomePage(
-        user: _user,
-        authRepo: FakeAuthRepository(sessionUser: _user),
-        catalogRepo: FakeCatalogRepository(),
-        walletRepo: FakeWalletRepository(balance: 75000),
-      ),
+      HomePage(),
+      user: _user,
+      authRepo: FakeAuthRepository(sessionUser: _user),
+      catalogRepo: FakeCatalogRepository(),
+      walletRepo: FakeWalletRepository(balance: 75000),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Akun'));

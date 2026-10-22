@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -45,19 +46,14 @@ String countdownLabel(Duration d) {
 /// menuju lokasi (bisa batal sebentar), bekerja (hitung mundur + tambah
 /// durasi), lalu selesai (beri rating).
 class ActiveOrderPage extends StatefulWidget {
-  const ActiveOrderPage({super.key, this.store, this.chatStore});
-
-  /// Diisi saat pengujian. Default: [OrderStore.instance] dan
-  /// [ChatStore.instance].
-  final OrderStore? store;
-  final ChatStore? chatStore;
+  const ActiveOrderPage({super.key});
 
   @override
   State<ActiveOrderPage> createState() => _ActiveOrderPageState();
 }
 
 class _ActiveOrderPageState extends State<ActiveOrderPage> {
-  late final _store = widget.store ?? OrderStore.instance;
+  late final _store = context.read<OrderStore>();
 
   /// Saat bekerja: false = hitung mundur, true = detail pesanan.
   bool _showDetail = false;
@@ -68,26 +64,24 @@ class _ActiveOrderPageState extends State<ActiveOrderPage> {
   /// Chat dengan helper, misal menjelaskan patokan rumah. Nanti: ruang
   /// chat milik pesanan (`POST /chats/orders/{id}`).
   void _chat(HourlyHelper helper) {
-    final chats = widget.chatStore ?? ChatStore.instance;
+    final chats = context.read<ChatStore>();
     final room = chats.openWithHelper(
       helperId: helper.id,
       name: helper.name,
       photoUrl: helper.photoUrl,
     );
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatRoomPage(room: room, store: chats),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
   }
 
   void _support() => ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(content: Text('Pusat bantuan belum tersedia.')),
   );
 
-  Future<void> _extend() => Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => ExtendDurationPage(store: _store)),
-  );
+  Future<void> _extend() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => ExtendDurationPage()));
 
   /// Waktu habis: tanya tambah waktu atau selesai. Hanya saat halaman ini
   /// yang tampil; kalau tertutup halaman lain (misal Tambah Durasi), dialog

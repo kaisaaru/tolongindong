@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -16,15 +17,7 @@ import 'chat_store.dart';
 /// judulnya "Obrolan" tanpa tombol kembali karena ini isi tab, sama seperti
 /// tab Aktifitas.
 class ChatListView extends StatefulWidget {
-  const ChatListView({
-    super.key,
-    this.store,
-    this.bottomPadding = 16,
-    this.onExplore,
-  });
-
-  /// Diisi saat pengujian. Default: [ChatStore.instance].
-  final ChatStore? store;
+  const ChatListView({super.key, this.bottomPadding = 16, this.onExplore});
   final double bottomPadding;
 
   /// Ajakan "Cari Helper" saat belum ada obrolan, misal pindah ke Beranda.
@@ -35,14 +28,12 @@ class ChatListView extends StatefulWidget {
 }
 
 class _ChatListViewState extends State<ChatListView> {
-  late final _store = widget.store ?? ChatStore.instance;
+  late final _store = context.read<ChatStore>();
   String _query = '';
 
-  void _open(ChatRoom room) => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => ChatRoomPage(room: room, store: _store),
-    ),
-  );
+  void _open(ChatRoom room) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
 
   @override
   Widget build(BuildContext context) {

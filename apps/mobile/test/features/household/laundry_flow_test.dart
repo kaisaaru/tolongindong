@@ -7,7 +7,8 @@ import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/household/order_review_page.dart';
 import 'package:mobile/models/service_category.dart';
 import 'package:mobile/theme/app_colors.dart';
-import 'package:mobile/theme/app_theme.dart';
+
+import '../../helpers/pump_page.dart';
 
 const _household = ServiceCategory(
   id: 3,
@@ -32,10 +33,7 @@ final _laundryDraft = HouseholdOrderDraft(
 
 /// Layar HP sempit: overflow apa pun membuat test gagal.
 Future<void> _pumpNarrow(WidgetTester tester, Widget page) async {
-  tester.view.physicalSize = const Size(360, 740);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: page));
+  await pumpPage(tester, page, size: const Size(360, 740));
   await tester.pump();
 }
 

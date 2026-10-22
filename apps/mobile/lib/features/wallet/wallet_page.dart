@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
@@ -11,6 +12,7 @@ import '../../theme/app_typography.dart';
 import '../../widgets/app_text_field.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/primary_button.dart';
+import '../auth/session_store.dart';
 import '../household/household_models.dart' show clockLabel, dateLabel;
 import '../order/widgets/order_widgets.dart';
 import 'wallet_repository.dart';
@@ -18,21 +20,18 @@ import 'wallet_repository.dart';
 /// TD-Wallet: saldo tersedia, saldo yang ditahan untuk pesanan, isi saldo,
 /// dan riwayat mutasi (FR-WLT-001, FR-WLT-004 s/d 006).
 class WalletPage extends StatefulWidget {
-  const WalletPage({super.key, this.repo, this.initial});
-
-  /// Diisi saat pengujian. Default: [WalletRepository] ke server.
-  final WalletRepository? repo;
-
-  /// Saldo dari `/me`, tampil selagi saldo terbaru dimuat.
-  final Wallet? initial;
+  const WalletPage({super.key});
 
   @override
   State<WalletPage> createState() => _WalletPageState();
 }
 
 class _WalletPageState extends State<WalletPage> {
-  late final _repo = widget.repo ?? WalletRepository();
-  late Wallet? _wallet = widget.initial;
+  late final _repo = context.read<WalletRepository>();
+  late final _session = context.read<SessionStore>();
+
+  /// Saldo dari sesi (`/me`) tampil selagi saldo terbaru dimuat.
+  late Wallet? _wallet = _session.user?.wallet;
 
   final _items = <WalletTransaction>[];
   int _page = 0;
@@ -55,6 +54,7 @@ class _WalletPageState extends State<WalletPage> {
       final wallet = await _repo.wallet();
       final first = await _repo.transactions();
       if (!mounted) return;
+      _session.updateWallet(wallet);
       setState(() {
         _wallet = wallet;
         _items
@@ -92,6 +92,7 @@ class _WalletPageState extends State<WalletPage> {
   Future<void> _topup() async {
     final result = await showTopupSheet(context, repo: _repo);
     if (result == null || !mounted) return;
+    _session.updateWallet(result.wallet);
     setState(() => _wallet = result.wallet);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Saldo bertambah ${rupiah(result.amount)}.')),

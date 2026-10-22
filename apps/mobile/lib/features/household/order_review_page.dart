@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
@@ -21,19 +22,16 @@ import 'widgets/household_widgets.dart';
 /// "Detail Pesanan": ringkasan sebelum memesan, pilih voucher dan metode
 /// pembayaran, lalu konfirmasi.
 class OrderReviewPage extends StatefulWidget {
-  const OrderReviewPage({super.key, required this.draft, this.store});
+  const OrderReviewPage({super.key, required this.draft});
 
   final HouseholdOrderDraft draft;
-
-  /// Diisi saat pengujian. Default: [OrderStore.instance].
-  final OrderStore? store;
 
   @override
   State<OrderReviewPage> createState() => _OrderReviewPageState();
 }
 
 class _OrderReviewPageState extends State<OrderReviewPage> {
-  late final _store = widget.store ?? OrderStore.instance;
+  late final _store = context.read<OrderStore>();
 
   late HouseholdOrderDraft _draft = widget.draft;
   Voucher? _voucher;
@@ -133,7 +131,7 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
             payment: payment.name,
             total: _price.total,
           ),
-          orderPage: (_) => ActiveOrderPage(store: _store),
+          orderPage: (_) => ActiveOrderPage(),
         ),
       ),
       (route) => route.isFirst,

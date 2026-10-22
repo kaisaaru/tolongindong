@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../theme/app_colors.dart';
@@ -21,7 +22,6 @@ class ResetPasswordPage extends StatefulWidget {
     required this.phoneNumber,
     this.debugOtp,
     this.expiresInSeconds = 300,
-    this.authRepo,
   });
 
   /// Nomor tujuan OTP. Yang ditampilkan cuma 4 digit terakhir.
@@ -32,9 +32,6 @@ class ResetPasswordPage extends StatefulWidget {
   final String? debugOtp;
 
   final int expiresInSeconds;
-
-  /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
-  final AuthRepository? authRepo;
 
   @override
   State<ResetPasswordPage> createState() => _ResetPasswordPageState();
@@ -48,7 +45,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
   final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
 
   late String? _debugOtp = widget.debugOtp;
   late int _expiresIn = widget.expiresInSeconds;

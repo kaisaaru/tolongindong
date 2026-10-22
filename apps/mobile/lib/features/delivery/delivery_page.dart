@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
+import '../../models/auth_user.dart';
 import '../activity/activity_view.dart';
+import '../auth/session_store.dart';
 import '../household/household_models.dart';
 import '../household/household_samples.dart';
 import '../household/route_picker_page.dart';
 import '../household/widgets/household_widgets.dart';
 import '../order/order_models.dart';
 import '../order/order_samples.dart';
-import '../order/order_store.dart';
 import '../order/order_style.dart';
 import '../order/voucher_page.dart';
 import '../order/widgets/order_widgets.dart';
@@ -32,20 +34,9 @@ const deliveryItemColor = Color(0xFFFF9F43);
 /// promo (frame 33). Sesudahnya: penerima, waktu, barang, voucher, dan total
 /// (frame 42, 67–70). "Lihat Pesanan" aktif setelah semuanya terisi.
 class DeliveryPage extends StatefulWidget {
-  const DeliveryPage({
-    super.key,
-    required this.senderName,
-    this.senderPhone,
-    this.store,
-    this.clock,
-  });
+  const DeliveryPage({super.key, this.clock});
 
-  /// Pengirim = pengguna yang masuk.
-  final String senderName;
-  final String? senderPhone;
-
-  /// Diisi saat pengujian. Default: [OrderStore.instance] dan jam nyata.
-  final OrderStore? store;
+  /// Diisi saat pengujian. Default: jam nyata.
   final DateTime Function()? clock;
 
   @override
@@ -53,7 +44,6 @@ class DeliveryPage extends StatefulWidget {
 }
 
 class _DeliveryPageState extends State<DeliveryPage> {
-  late final _store = widget.store ?? OrderStore.instance;
   late final _clock = widget.clock ?? DateTime.now;
 
   SavedAddress _origin = HouseholdSamples.currentLocation;
@@ -67,6 +57,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
   static const _fee = DeliverySamples.fee;
   int get _discount => _voucher?.discountFor(_fee) ?? 0;
 
+  AuthUser? get _sender => context.read<SessionStore>().user;
+
   DeliveryDraft? get _draft {
     final destination = _destination;
     final recipient = _recipient;
@@ -79,8 +71,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
       return null;
     }
     return DeliveryDraft(
-      senderName: widget.senderName,
-      senderPhone: widget.senderPhone,
+      // Pengirim = pengguna yang masuk.
+      senderName: _sender?.fullName ?? '',
+      senderPhone: _sender?.phoneNumber,
       origin: _origin,
       destination: destination,
       recipient: recipient,
@@ -175,11 +168,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
             children: [
               const ArrowTitleBar('Riwayat'),
               Expanded(
-                child: ActivityView(
-                  store: _store,
-                  startOnHistory: true,
-                  showTitle: false,
-                ),
+                child: ActivityView(startOnHistory: true, showTitle: false),
               ),
             ],
           ),
@@ -215,12 +204,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
     if (draft == null) return _completeMissing();
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => DeliveryReviewPage(
-          draft: draft,
-          voucher: _voucher,
-          store: _store,
-          clock: _clock,
-        ),
+        builder: (_) =>
+            DeliveryReviewPage(draft: draft, voucher: _voucher, clock: _clock),
       ),
     );
   }
