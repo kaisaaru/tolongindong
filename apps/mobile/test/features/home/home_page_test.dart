@@ -1,19 +1,25 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/account/change_password_page.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/chat/chat_list_view.dart';
 import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/household/household_page.dart';
+import 'package:mobile/features/notification/notification_page.dart';
 import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/order/order_samples.dart';
 import 'package:mobile/features/order/order_store.dart';
+import 'package:mobile/features/wallet/wallet_page.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/models/service_category.dart';
 import 'package:mobile/theme/app_theme.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_catalog_repository.dart';
+import '../../helpers/fake_notification_repository.dart';
+import '../../helpers/fake_wallet_repository.dart';
 import '../../helpers/pump_page.dart';
 
 const _user = AuthUser(
@@ -275,5 +281,52 @@ void main() {
     await tester.tap(find.text('Cari Layanan'));
     await tester.pumpAndSettle();
     expect(find.text('Jasa tersedia'), findsOneWidget);
+  });
+
+  testWidgets('lonceng membuka halaman notifikasi', (tester) async {
+    await pumpPage(
+      tester,
+      HomePage(
+        user: _user,
+        authRepo: FakeAuthRepository(sessionUser: _user),
+        catalogRepo: FakeCatalogRepository(),
+        notificationRepo: FakeNotificationRepository([]),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(CupertinoIcons.bell));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NotificationPage), findsOneWidget);
+    expect(find.text('Belum ada notifikasi'), findsOneWidget);
+  });
+
+  testWidgets('Akun: kartu saldo membuka TD-Wallet, menu ganti password', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      HomePage(
+        user: _user,
+        authRepo: FakeAuthRepository(sessionUser: _user),
+        catalogRepo: FakeCatalogRepository(),
+        walletRepo: FakeWalletRepository(balance: 75000),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Akun'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Isi saldo'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WalletPage), findsOneWidget);
+    expect(find.text('Rp 75.000'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Kembali'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ganti password'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChangePasswordPage), findsOneWidget);
   });
 }

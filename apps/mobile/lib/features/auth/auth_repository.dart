@@ -84,6 +84,48 @@ class AuthRepository {
     return _persist(data);
   }
 
+  /// Lupa password (FR-AUTH-006): kirim OTP ke nomor akun. Akun yang biasa
+  /// masuk lewat email pun dipulihkan lewat nomor HP.
+  Future<OtpChallenge> forgotPassword(String phoneNumber) async {
+    final data = await _api.post(
+      '/password/forgot',
+      body: {'phone_number': phoneNumber},
+    );
+    return OtpChallenge.fromJson(
+      data is Map
+          ? data.cast<String, dynamic>()
+          : {'phone_number': phoneNumber},
+    );
+  }
+
+  /// Simpan password baru memakai OTP dari [forgotPassword]. Tidak
+  /// menerbitkan token: pengguna masuk lagi dengan password barunya.
+  Future<void> resetPassword({
+    required String phoneNumber,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    await _api.post(
+      '/password/reset',
+      body: {
+        'phone_number': phoneNumber,
+        'otp_code': otpCode,
+        'new_password': newPassword,
+      },
+    );
+  }
+
+  /// Ganti password saat sudah masuk.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _api.post(
+      '/password/change',
+      body: {'current_password': currentPassword, 'new_password': newPassword},
+    );
+  }
+
   /// Profil pengguna yang tokennya tersimpan. Dipakai saat app dibuka
   /// untuk memastikan sesi lama masih berlaku.
   Future<AuthUser> me() async {

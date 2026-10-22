@@ -20,6 +20,8 @@ class AccountView extends StatelessWidget {
     required this.onLogout,
     this.onOpenOrders,
     this.onOpenChats,
+    this.onOpenWallet,
+    this.onChangePassword,
   });
 
   final AuthUser user;
@@ -30,6 +32,10 @@ class AccountView extends StatelessWidget {
   /// Pindah ke tab Aktifitas dan Obrolan. Null: barisnya tidak tampil.
   final VoidCallback? onOpenOrders;
   final VoidCallback? onOpenChats;
+
+  /// Buka halaman TD-Wallet (saldo, isi saldo, mutasi).
+  final VoidCallback? onOpenWallet;
+  final VoidCallback? onChangePassword;
 
   Future<void> _confirmLogout(BuildContext context) async {
     final sure = await showDialog<bool>(
@@ -106,48 +112,72 @@ class AccountView extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _Card(
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+            padding: EdgeInsets.zero,
+            child: InkWell(
+              onTap: onOpenWallet,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Saldo TD-Wallet',
+                            style: AppTypography.style(
+                              size: 12,
+                              weight: AppTypography.regular,
+                              color: AppColors.textDescription,
+                              height: 1.4,
+                            ),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              rupiah(wallet.availableBalance),
+                              style: AppTypography.style(
+                                size: 20,
+                                weight: AppTypography.bold,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                          // Saldo yang ditahan untuk pesanan berjalan (escrow).
+                          if (wallet.heldBalance > 0)
+                            _Detail('Ditahan ${rupiah(wallet.heldBalance)}'),
+                        ],
+                      ),
+                    ),
+                    if (onOpenWallet != null) ...[
+                      const SizedBox(width: 8),
                       Text(
-                        'Saldo TD-Wallet',
+                        'Isi saldo',
                         style: AppTypography.style(
                           size: 12,
-                          weight: AppTypography.regular,
-                          color: AppColors.textDescription,
-                          height: 1.4,
+                          weight: AppTypography.semiBold,
+                          color: AppColors.primary,
                         ),
                       ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          rupiah(wallet.availableBalance),
-                          style: AppTypography.style(
-                            size: 20,
-                            weight: AppTypography.bold,
-                            height: 1.4,
-                          ),
-                        ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.primary,
                       ),
-                      // Saldo yang ditahan untuk pesanan berjalan (escrow).
-                      if (wallet.heldBalance > 0)
-                        _Detail('Ditahan ${rupiah(wallet.heldBalance)}'),
                     ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-          if (onOpenOrders != null || onOpenChats != null) ...[
+          if (onOpenOrders != null ||
+              onOpenChats != null ||
+              onChangePassword != null) ...[
             const SizedBox(height: 14),
             _Card(
               padding: EdgeInsets.zero,
@@ -163,6 +193,12 @@ class AccountView extends StatelessWidget {
                     _MenuRow(
                       icon: Icons.chat_bubble_outline_rounded,
                       label: 'Obrolan',
+                      onTap: open,
+                    ),
+                  if (onChangePassword case final open?)
+                    _MenuRow(
+                      icon: Icons.lock_reset_rounded,
+                      label: 'Ganti password',
                       onTap: open,
                     ),
                 ],

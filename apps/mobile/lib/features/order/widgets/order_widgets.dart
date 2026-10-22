@@ -65,12 +65,15 @@ class SquareIconButton extends StatelessWidget {
 /// [OrderStyle.backCenter] di bawah status bar, sama seperti tombol kotak di
 /// halaman lain. Dipasang di dalam SafeArea.
 class ArrowTitleBar extends StatelessWidget {
-  const ArrowTitleBar(this.title, {super.key, this.leading});
+  const ArrowTitleBar(this.title, {super.key, this.leading, this.trailing});
 
   final String title;
 
   /// Pengganti judul teks, misal kolom pencarian alamat.
   final Widget? leading;
+
+  /// Aksi di ujung kanan, misal "Tandai dibaca".
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +101,7 @@ class ArrowTitleBar extends StatelessWidget {
                   ),
                 ),
           ),
+          ?trailing,
         ],
       ),
     );

@@ -8,6 +8,7 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/text_link.dart';
 import '../home/home_page.dart';
 import 'auth_repository.dart';
+import 'forgot_password_page.dart';
 import 'register_page.dart';
 import 'widgets/auth_layout.dart';
 import 'widgets/auth_switch_prompt.dart';
@@ -95,6 +96,20 @@ class _LoginPageState extends State<LoginPage> {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
 
+  void _openForgotPassword() {
+    // Nomor HP yang sudah diketik di kolom login ikut dibawa.
+    final typed = _identifierController.text.trim();
+    final isPhone = RegExp(r'^\d{9,}$').hasMatch(typed);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ForgotPasswordPage(
+          initialPhone: isPhone ? typed : null,
+          authRepo: widget.authRepo,
+        ),
+      ),
+    );
+  }
+
   void _openRegister() {
     final route = MaterialPageRoute<void>(builder: (_) => const RegisterPage());
     Navigator.of(context).push(route);
@@ -154,8 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                 alignment: AlignmentDirectional.centerEnd,
                 child: TextLink(
                   text: 'Lupa Password?',
-                  // TODO: navigasi ke halaman lupa password.
-                  onTap: () => _soon('Atur ulang password'),
+                  onTap: _openForgotPassword,
                 ),
               ),
             ],

@@ -7,6 +7,7 @@ import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../account/account_view.dart';
+import '../account/change_password_page.dart';
 import '../activity/activity_view.dart';
 import '../auth/auth_repository.dart';
 import '../auth/login_page.dart';
@@ -16,10 +17,14 @@ import '../delivery/delivery_page.dart';
 import '../delivery/delivery_review_page.dart';
 import '../household/active_order_page.dart';
 import '../household/household_page.dart';
+import '../notification/notification_page.dart';
+import '../notification/notification_repository.dart';
 import '../order/category_helpers_page.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
 import '../order/personal_order_page.dart';
+import '../wallet/wallet_page.dart';
+import '../wallet/wallet_repository.dart';
 import 'catalog_repository.dart';
 import 'home_assets.dart';
 import 'home_metrics.dart';
@@ -39,6 +44,8 @@ class HomePage extends StatefulWidget {
     this.catalogRepo,
     this.orderStore,
     this.chatStore,
+    this.walletRepo,
+    this.notificationRepo,
   });
 
   final AuthUser user;
@@ -48,6 +55,8 @@ class HomePage extends StatefulWidget {
   final CatalogRepository? catalogRepo;
   final OrderStore? orderStore;
   final ChatStore? chatStore;
+  final WalletRepository? walletRepo;
+  final NotificationRepository? notificationRepo;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -102,6 +111,15 @@ class _HomePageState extends State<HomePage> {
     final reloaded = _catalogRepo.categories();
     setState(() => _categories = reloaded);
 
+    await _reloadUser();
+    await Future.wait([
+      _loadHeader(),
+      reloaded.catchError((_) => <ServiceCategory>[]),
+    ]);
+  }
+
+  /// Profil terbaru dari `/me`, misal saldo setelah isi saldo.
+  Future<void> _reloadUser() async {
     try {
       final fresh = await _authRepo.me();
       if (mounted) setState(() => _user = fresh);
@@ -109,11 +127,33 @@ class _HomePageState extends State<HomePage> {
       // Profil gagal dimuat ulang bukan alasan mengosongkan beranda —
       // data lama tetap dipakai.
     }
-    await Future.wait([
-      _loadHeader(),
-      reloaded.catchError((_) => <ServiceCategory>[]),
-    ]);
   }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationPage(repo: widget.notificationRepo),
+      ),
+    );
+    // Titik merah di lonceng mengikuti yang baru dibaca.
+    if (mounted) await _loadHeader();
+  }
+
+  Future<void> _openWallet() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            WalletPage(repo: widget.walletRepo, initial: _user.wallet),
+      ),
+    );
+    if (mounted) await _reloadUser();
+  }
+
+  void _openChangePassword() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => ChangePasswordPage(authRepo: widget.authRepo),
+    ),
+  );
 
   Future<void> _logout() async {
     await _authRepo.logout();
@@ -235,6 +275,8 @@ class _HomePageState extends State<HomePage> {
             onLogout: _logout,
             onOpenOrders: () => _goTo(HomeTab.aktifitas),
             onOpenChats: () => _goTo(HomeTab.obrolan),
+            onOpenWallet: _openWallet,
+            onChangePassword: _openChangePassword,
           ),
           bottomNavigationBar: nav,
         ),
@@ -288,7 +330,7 @@ class _HomePageState extends State<HomePage> {
                 user: _user,
                 location: _address ?? 'Atur alamat',
                 hasUnreadNotification: _unreadCount > 0,
-                onNotificationTap: () => _soon('Notifikasi'),
+                onNotificationTap: _openNotifications,
               ),
             ),
             Positioned.fill(
