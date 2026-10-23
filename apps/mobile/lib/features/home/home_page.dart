@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app_scope.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/storage/app_preferences.dart';
 import '../../models/auth_user.dart';
 import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
@@ -16,12 +17,14 @@ import '../auth/session_store.dart';
 import '../chat/chat_list_view.dart';
 import '../chat/chat_store.dart';
 import '../delivery/delivery_page.dart';
+import '../helper/helper_shell.dart';
+import '../helper/helper_store.dart';
 import '../household/household_page.dart';
 import '../notification/notification_page.dart';
 import '../order/category_helpers_page.dart';
+import '../order/order_detail_page.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
-import '../order/order_detail_page.dart';
 import '../wallet/wallet_page.dart';
 import 'catalog_repository.dart';
 import 'home_assets.dart';
@@ -64,8 +67,12 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadHeader();
-    // Pesanan berjalan untuk banner di bawah beranda.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _orderStore.refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Pesanan berjalan untuk banner di bawah beranda.
+      _orderStore.refresh();
+      // Helper terverifikasi bisa beralih ke mode Helper dari tab Akun.
+      context.read<HelperStore>().loadStatus().catchError((Object _) {});
+    });
   }
 
   /// Alamat dan notifikasi dimuat terpisah: kalau salah satu gagal, yang
@@ -121,16 +128,29 @@ class _HomePageState extends State<HomePage> {
     context,
   ).push(MaterialPageRoute<void>(builder: (_) => const ChangePasswordPage()));
 
+  Future<void> _switchToHelper() async {
+    final navigator = Navigator.of(context);
+    await AppPreferences().setMode(AppMode.helper);
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const HelperShell()),
+      (_) => false,
+    );
+  }
+
   Future<void> _logout() async {
     // Diambil sebelum menunggu: context tidak dipakai lagi setelah await.
     final session = context.read<SessionStore>();
     final chats = context.read<ChatStore>();
+    final helper = context.read<HelperStore>();
     final navigator = Navigator.of(context);
 
     await session.signOut();
-    // Pesanan dan obrolan akun ini tidak boleh terlihat akun berikutnya.
+    // Pesanan, obrolan, dan mode Helper akun ini tidak boleh terlihat akun
+    // berikutnya.
     _orderStore.reset();
     chats.reset();
+    helper.reset();
+    await AppPreferences().setMode(AppMode.client);
     navigator.pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const LoginPage()),
       (_) => false,
@@ -249,6 +269,7 @@ class _HomePageState extends State<HomePage> {
             onOpenWallet: _openWallet,
             onChangePassword: _openChangePassword,
             onOpenNotifications: _openNotifications,
+            onSwitchToHelper: _switchToHelper,
           ),
           bottomNavigationBar: nav,
         ),

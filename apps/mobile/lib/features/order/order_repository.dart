@@ -88,6 +88,72 @@ class OrderHelper {
   final double rating;
 }
 
+/// Pelanggan pemesan, dilihat dari sisi helper (`client` di detail).
+class OrderClient {
+  const OrderClient({required this.id, required this.name, this.photoUrl});
+
+  factory OrderClient.fromJson(Map<String, dynamic> json) => OrderClient(
+    id: json['id'] as String? ?? '',
+    name: json['full_name'] as String? ?? 'Client',
+    photoUrl: json['photo_url'] as String?,
+  );
+
+  final String id;
+  final String name;
+  final String? photoUrl;
+}
+
+enum OfferStatus {
+  submitted('submitted'),
+  selected('selected'),
+  confirmed('confirmed'),
+  notSelected('not_selected'),
+  withdrawn('withdrawn'),
+  expired('expired'),
+  declined('declined');
+
+  const OfferStatus(this.code);
+  final String code;
+
+  static OfferStatus fromCode(String? code) =>
+      values.firstWhere((s) => s.code == code, orElse: () => expired);
+}
+
+/// Penawaran harga helper untuk pesanan direct (`offers` di detail).
+/// Pelanggan punya waktu sampai [validUntil] untuk menyetujuinya.
+class OrderOffer {
+  const OrderOffer({
+    required this.id,
+    required this.helperId,
+    required this.price,
+    required this.status,
+    this.message,
+    this.validUntil,
+  });
+
+  factory OrderOffer.fromJson(Map<String, dynamic> json) => OrderOffer(
+    id: (json['id'] as num).toInt(),
+    helperId: json['helper_id'] as String? ?? '',
+    price: (json['proposed_price'] as num?)?.toInt() ?? 0,
+    status: OfferStatus.fromCode(json['offer_status'] as String?),
+    message: json['message'] as String?,
+    validUntil: DateTime.tryParse('${json['valid_until']}')?.toLocal(),
+  );
+
+  final int id;
+
+  /// `helper_profiles.id` yang menawar.
+  final String helperId;
+  final int price;
+  final OfferStatus status;
+  final String? message;
+  final DateTime? validUntil;
+}
+
+/// Komisi platform 10% dari harga, dibulatkan ke bawah seperti
+/// `SettlementCalculator` di backend.
+int platformCommissionOf(int price) => price * 10 ~/ 100;
+
 /// Pesanan dari server (`GET /orders`, `GET /orders/{id}`).
 ///
 /// Backend belum punya kolom untuk detail form (ukuran, alat, jadwal,
@@ -109,9 +175,21 @@ class ServerOrder {
     this.pickup,
     this.destination,
     this.history = const [],
+    this.client,
+    this.offers = const [],
+    this.estimatedPrice = 0,
+    this.helperPayout = 0,
+    this.platformCommission = 0,
+    this.respondBy,
+    this.helperFinishedAt,
+    this.allowedNext = const [],
   });
 
-  factory ServerOrder.fromJson(Map<String, dynamic> json) {
+  /// [allowedNext]: `allowed_next_statuses` dari detail pesanan.
+  factory ServerOrder.fromJson(
+    Map<String, dynamic> json, {
+    List<dynamic>? allowedNext,
+  }) {
     Map<String, dynamic>? map(Object? o) =>
         (o as Map?)?.cast<String, dynamic>();
     final category = map(json['service_category']) ?? const {};
@@ -119,6 +197,7 @@ class ServerOrder {
     final pickup = map(json['pickup_address']);
     final destination = map(json['destination_address']);
     final helper = map(json['helper']);
+    final client = map(json['client']);
     return ServerOrder(
       id: (json['id'] as num).toInt(),
       number: json['order_number'] as String? ?? '',
@@ -143,6 +222,20 @@ class ServerOrder {
             status: OrderStatus.fromCode((e as Map)['to_status'] as String?),
             at: _date(e['created_at']) ?? DateTime.now(),
           ),
+      ],
+      client: client == null ? null : OrderClient.fromJson(client),
+      offers: [
+        for (final e in json['offers'] as List? ?? const [])
+          OrderOffer.fromJson((e as Map).cast<String, dynamic>()),
+      ],
+      estimatedPrice: (json['client_estimated_price'] as num?)?.toInt() ?? 0,
+      helperPayout: (json['helper_payout'] as num?)?.toInt() ?? 0,
+      platformCommission: (json['platform_commission'] as num?)?.toInt() ?? 0,
+      respondBy: _date(json['offer_window_expires_at']),
+      helperFinishedAt: _date(json['helper_finished_at']),
+      allowedNext: [
+        for (final code in allowedNext ?? const [])
+          OrderStatus.fromCode('$code'),
       ],
     );
   }
@@ -171,6 +264,46 @@ class ServerOrder {
 
   /// Riwayat status, lama ke baru. Hanya ada di detail pesanan.
   final List<({OrderStatus status, DateTime at})> history;
+
+  /// Pemesan; hanya ada di detail pesanan.
+  final OrderClient? client;
+
+  /// Penawaran harga helper; hanya ada di detail pesanan.
+  final List<OrderOffer> offers;
+
+  /// Perkiraan harga dari pelanggan, bukan harga yang disepakati.
+  final int estimatedPrice;
+
+  /// Pendapatan bersih helper dan komisi platform dari server. Pesanan
+  /// lewat penawaran baru terisi saat selesai; pakai [commission] dan
+  /// [netPayout] untuk tampilan.
+  final int helperPayout;
+  final int platformCommission;
+
+  /// Komisi 10%: dari server kalau sudah ada, kalau belum dihitung.
+  int get commission =>
+      platformCommission > 0 ? platformCommission : platformCommissionOf(price);
+
+  /// Pendapatan bersih helper.
+  int get netPayout => helperPayout > 0 ? helperPayout : price - commission;
+
+  /// Batas helper merespons permintaan direct (5 menit sejak dibuat).
+  /// Ditampilkan saja: backend belum menutup permintaan yang lewat batas.
+  final DateTime? respondBy;
+
+  /// Kapan helper menandai pekerjaan selesai.
+  final DateTime? helperFinishedAt;
+
+  /// Status berikutnya yang boleh dituju; hanya ada di detail pesanan.
+  final List<OrderStatus> allowedNext;
+
+  /// Penawaran yang masih menunggu keputusan pelanggan.
+  OrderOffer? get pendingOffer {
+    for (final o in offers) {
+      if (o.status == OfferStatus.submitted) return o;
+    }
+    return null;
+  }
 
   OrderDescription get parsed => OrderDescription.parse(description);
 
@@ -287,7 +420,14 @@ class OrderRepository {
     final data = await _api.get('/orders/$id');
     return ServerOrder.fromJson(
       ((data as Map)['order'] as Map).cast<String, dynamic>(),
+      allowedNext: data['allowed_next_statuses'] as List?,
     );
+  }
+
+  /// Setujui penawaran harga helper (`POST /orders/{id}/offers/{offer}/
+  /// select`). Saldo TD-Wallet sebesar penawaran langsung ditahan.
+  Future<void> selectOffer(int orderId, int offerId) async {
+    await _api.post('/orders/$orderId/offers/$offerId/select');
   }
 
   /// Biaya pembatalan dihitung server (gratis sebelum helper menerima).

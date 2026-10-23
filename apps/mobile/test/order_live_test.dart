@@ -19,6 +19,8 @@ import 'package:mobile/features/address/address_repository.dart';
 import 'package:mobile/features/auth/auth_repository.dart';
 import 'package:mobile/features/chat/chat_repository.dart';
 import 'package:mobile/features/chat/chat_store.dart';
+import 'package:mobile/features/helper/helper_store.dart';
+import 'package:mobile/features/helper/helper_work_repository.dart';
 import 'package:mobile/features/home/catalog_repository.dart';
 import 'package:mobile/features/household/household_models.dart';
 import 'package:mobile/features/household/order_review_page.dart';
@@ -211,6 +213,90 @@ void main() {
         // datanya belum siap, backend menolak dengan kode ini.
         expect(e.code, 'ADVANCE_LIMIT_REQUIRED');
       }
+    });
+
+    test('Mode Helper: penawaran, disetujui Client, kerja, cair', () async {
+      final helper = await helperNamed('household', 'Agus Nomercy');
+      final work = HelperStore(
+        HelperWorkRepository(api: agus.api),
+        pollEvery: const Duration(hours: 1),
+      );
+      addTearDown(work.dispose);
+
+      // Status kerja bisa dimatikan lalu dinyalakan lagi.
+      await work.loadStatus();
+      expect(work.status.isVerifiedHelper, isTrue);
+      expect(work.status.profileId, helper.id);
+      await work.setAvailable(false);
+      expect(work.status.available, isFalse);
+      await work.setAvailable(true);
+      expect(work.status.available, isTrue);
+
+      final placed = await store.place(
+        categoryId: categoryIds['household']!,
+        helperId: helper.id,
+        description: 'Household - Kamar\nDurasi: 1 Jam',
+        price: 35000,
+        destinationAddressId: addresses.first.id,
+      );
+
+      // Permintaan masuk ke helper, lengkap dengan pemesan.
+      await work.refresh();
+      final request = work.toReview.firstWhere((o) => o.id == placed.id);
+      expect(request.client?.name, client.user.fullName);
+      expect(request.estimatedPrice, 35000);
+      expect(request.respondBy, isNotNull);
+
+      final offered = await work.submitOffer(placed.id, 60000);
+      expect(work.myOffer(offered)?.status, OfferStatus.submitted);
+      expect(work.waitingDecision.map((o) => o.id), contains(placed.id));
+
+      // Client melihat dan menyetujui penawaran.
+      final seen = await store.load(placed.id);
+      final offer = seen.pendingOffer!;
+      expect(offer.price, 60000);
+      final accepted = await store.selectOffer(placed.id, offer.id);
+      expect(accepted.status, OrderStatus.accepted);
+      expect(accepted.price, 60000);
+
+      var job = await work.load(placed.id);
+      expect(job.status, OrderStatus.accepted);
+      // Lewat penawaran, backend baru mengisi komisi saat selesai; app
+      // menghitung 10% sendiri sementara itu.
+      expect(job.commission, 6000);
+      expect(job.netPayout, 54000);
+
+      await work.advance(placed.id, OrderStatus.onTheWay);
+      job = await work.startWork(placed.id);
+      expect(job.status, OrderStatus.inProgress);
+      job = await work.advance(placed.id, OrderStatus.awaitingConfirmation);
+      expect(job.status, OrderStatus.awaitingConfirmation);
+      expect(job.helperFinishedAt, isNotNull);
+
+      await store.confirm(placed.id);
+      await work.refresh();
+      final paid = work.paidOut.firstWhere((o) => o.id == placed.id);
+      expect(paid.helperPayout, 54000);
+    });
+
+    test('Mode Helper: tolak permintaan', () async {
+      final helper = await helperNamed('household', 'Agus Nomercy');
+      final work = HelperStore(
+        HelperWorkRepository(api: agus.api),
+        pollEvery: const Duration(hours: 1),
+      );
+      addTearDown(work.dispose);
+      final placed = await store.place(
+        categoryId: categoryIds['household']!,
+        helperId: helper.id,
+        description: 'Household - Pakaian',
+        price: 35000,
+        destinationAddressId: addresses.first.id,
+      );
+
+      final rejected = await work.reject(placed.id);
+      expect(rejected.status, OrderStatus.cancelledByHelper);
+      expect((await store.load(placed.id)).status.isCancelled, isTrue);
     });
 
     test('Chat: pelanggan menyapa, helper membalas', () async {

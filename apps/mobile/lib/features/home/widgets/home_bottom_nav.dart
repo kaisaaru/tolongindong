@@ -119,18 +119,19 @@ class _NavItem extends StatelessWidget {
 
   /// Tinggi mengikuti ukuran viewBox ekspor Figma.
   Widget _icon(Color color) => switch (tab) {
-    HomeTab.beranda => _SvgIcon(HomeAssets.navHome, 25, color),
-    HomeTab.aktifitas => _SvgIcon(HomeAssets.navActivity, 26, color),
-    HomeTab.obrolan => _SvgIcon(HomeAssets.navChat, 29, color),
-    HomeTab.akun => _SvgIcon(HomeAssets.navProfile, 30, color),
+    HomeTab.beranda => NavSvgIcon(HomeAssets.navHome, 25, color),
+    HomeTab.aktifitas => NavSvgIcon(HomeAssets.navActivity, 26, color),
+    HomeTab.obrolan => NavSvgIcon(HomeAssets.navChat, 29, color),
+    HomeTab.akun => NavSvgIcon(HomeAssets.navProfile, 30, color),
   };
 }
 
-/// Ikon SVG yang garisnya diwarnai ulang. Tidak memakai `colorFilter`
+/// Ikon SVG yang garisnya diwarnai ulang, juga dipakai bilah bawah mode
+/// Helper. Tidak memakai `colorFilter`
 /// karena itu juga mewarnai isi putih ikon (badan rumah, pena) sehingga
 /// ikonnya jadi pejal.
-class _SvgIcon extends StatelessWidget {
-  const _SvgIcon(this.asset, this.height, this.color);
+class NavSvgIcon extends StatelessWidget {
+  const NavSvgIcon(this.asset, this.height, this.color, {super.key});
 
   final String asset;
   final double height;

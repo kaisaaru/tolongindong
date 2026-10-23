@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api/api_client.dart';
+import 'core/media/photo_picker.dart';
 import 'core/storage/token_storage.dart';
 import 'features/address/address_repository.dart';
 import 'features/address/location_service.dart';
@@ -9,6 +10,8 @@ import 'features/auth/auth_repository.dart';
 import 'features/auth/session_store.dart';
 import 'features/chat/chat_repository.dart';
 import 'features/chat/chat_store.dart';
+import 'features/helper/helper_store.dart';
+import 'features/helper/helper_work_repository.dart';
 import 'features/home/catalog_repository.dart';
 import 'features/notification/notification_repository.dart';
 import 'features/order/helper_repository.dart';
@@ -19,7 +22,7 @@ import 'models/auth_user.dart';
 
 /// Objek yang dipakai bersama seluruh halaman, dipasang sekali di atas
 /// `MaterialApp`: satu [ApiClient] beserta repository di atasnya, sesi
-/// login, dan store pesanan/obrolan.
+/// login, dan store pesanan, obrolan, dan mode Helper.
 ///
 /// Halaman mengambilnya lewat `context.read<T>()` untuk sekali pakai (misal
 /// memanggil repository), atau `context.watch<T>()` supaya ikut dibangun
@@ -41,8 +44,11 @@ class AppScope extends StatelessWidget {
     this.orderRepo,
     this.chatRepo,
     this.locationService,
+    this.helperWorkRepo,
+    this.photoPicker,
     this.orderStore,
     this.chatStore,
+    this.helperStore,
     this.user,
   });
 
@@ -56,8 +62,11 @@ class AppScope extends StatelessWidget {
   final OrderRepository? orderRepo;
   final ChatRepository? chatRepo;
   final LocationService? locationService;
+  final HelperWorkRepository? helperWorkRepo;
+  final PhotoPicker? photoPicker;
   final OrderStore? orderStore;
   final ChatStore? chatStore;
+  final HelperStore? helperStore;
 
   /// Pengguna yang sudah masuk sejak awal, tanpa lewat login.
   final AuthUser? user;
@@ -66,6 +75,7 @@ class AppScope extends StatelessWidget {
   Widget build(BuildContext context) {
     final orders = orderStore;
     final chats = chatStore;
+    final helper = helperStore;
 
     return MultiProvider(
       providers: [
@@ -104,6 +114,10 @@ class AppScope extends StatelessWidget {
         Provider<LocationService>(
           create: (_) => locationService ?? LocationService(),
         ),
+        Provider<HelperWorkRepository>(
+          create: (c) => helperWorkRepo ?? HelperWorkRepository(api: c.read()),
+        ),
+        Provider<PhotoPicker>(create: (_) => photoPicker ?? PhotoPicker()),
         ChangeNotifierProvider(
           create: (c) => SessionStore(c.read<AuthRepository>(), user: user),
         ),
@@ -123,6 +137,12 @@ class AppScope extends StatelessWidget {
           )
         else
           ChangeNotifierProvider.value(value: chats),
+        if (helper == null)
+          ChangeNotifierProvider(
+            create: (c) => HelperStore(c.read<HelperWorkRepository>()),
+          )
+        else
+          ChangeNotifierProvider.value(value: helper),
       ],
       child: child,
     );

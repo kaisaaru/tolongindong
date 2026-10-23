@@ -7,12 +7,14 @@ import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/countdown_text.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/primary_button.dart';
 import '../chat/chat_room_page.dart';
 import '../chat/chat_store.dart';
 import '../household/household_models.dart';
 import '../household/widgets/household_widgets.dart';
+import '../wallet/wallet_check.dart';
 import 'order_repository.dart';
 import 'order_store.dart';
 import 'order_style.dart';
@@ -305,9 +307,21 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                 children: [
                   OrderStatusBanner(
                     icon: _statusIcon(order.status),
-                    title: order.status.label,
+                    title: order.pendingOffer == null
+                        ? order.status.label
+                        : 'Penawaran masuk',
                     subtitle: _statusHint(order),
                   ),
+                  if (order.pendingOffer case final offer?
+                      when order.status.isWaiting) ...[
+                    const SizedBox(height: 14),
+                    _OfferCard(
+                      offer: offer,
+                      helperName: order.helper?.name ?? 'Helper',
+                      estimate: order.estimatedPrice,
+                      clock: _clock,
+                    ),
+                  ],
                   if (remaining != null) ...[
                     const SizedBox(height: 14),
                     _CountdownCard(remaining: remaining),
@@ -398,10 +412,40 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     return ColoredHeader(title: order.categoryName, color: AppColors.primary);
   }
 
+  /// Saldo dicek dulu: penawaran bisa lebih mahal dari estimasi awal.
+  Future<void> _approve(ServerOrder order, OrderOffer offer) async {
+    if (!await ensureWalletBalance(context, offer.price) || !mounted) return;
+    await _run(() => _store.selectOffer(order.id, offer.id));
+  }
+
   Widget? _actions(ServerOrder order) {
     final status = order.status;
+    final offer = order.pendingOffer;
     final Widget button;
-    if (status.canConfirm) {
+    if (offer != null && status.isWaiting) {
+      button = Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _busy ? null : () => _cancel(order),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+              ),
+              child: const Text('Batalkan'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: PrimaryButton(
+              label: 'Setujui',
+              isLoading: _busy,
+              onPressed: () => _approve(order, offer),
+            ),
+          ),
+        ],
+      );
+    } else if (status.canConfirm) {
       button = PrimaryButton(
         label: 'Pesanan Selesai',
         isLoading: _busy,
@@ -460,6 +504,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   String _statusHint(ServerOrder order) {
     final helper = order.helper?.name ?? 'Helper';
     return switch (order.status) {
+      _ when order.status.isWaiting && order.pendingOffer != null =>
+        '$helper mengajukan harga. Setujui supaya pesanan berjalan; saldo '
+            'ditahan sebesar penawaran.',
       _ when order.status.isWaiting =>
         '$helper akan menerima atau menolak pesananmu. Saldo baru ditahan '
             'setelah diterima.',
@@ -547,6 +594,77 @@ class _HelperCard extends StatelessWidget {
             ),
           ),
           ChatHelperButton(onTap: onChat),
+        ],
+      ),
+    );
+  }
+}
+
+/// Penawaran harga helper untuk pesanan direct, berlaku 5 menit.
+class _OfferCard extends StatelessWidget {
+  const _OfferCard({
+    required this.offer,
+    required this.helperName,
+    required this.estimate,
+    required this.clock,
+  });
+
+  final OrderOffer offer;
+  final String helperName;
+  final int estimate;
+  final DateTime Function() clock;
+
+  @override
+  Widget build(BuildContext context) {
+    final validUntil = offer.validUntil;
+    final message = offer.message;
+    final muted = AppTypography.style(
+      size: 11,
+      weight: AppTypography.regular,
+      color: AppColors.textDescription,
+      height: 1.5,
+    );
+
+    return OutlinedBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Penawaran $helperName',
+                  style: AppTypography.style(
+                    size: 12,
+                    weight: AppTypography.semiBold,
+                  ),
+                ),
+              ),
+              if (validUntil != null)
+                CountdownText(until: validUntil, clock: clock),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            rupiah(offer.price, spaced: false),
+            style: AppTypography.style(
+              size: 22,
+              weight: AppTypography.bold,
+              color: AppColors.primary,
+            ),
+          ),
+          if (estimate > 0 && estimate != offer.price)
+            Text('Estimasimu ${rupiah(estimate, spaced: false)}', style: muted),
+          if (message != null && message.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text('"$message"', style: muted),
+          ],
+          const SizedBox(height: 6),
+          Text(
+            'Setujui sebelum waktunya habis. Kalau tidak cocok, batalkan '
+            'pesanan tanpa biaya.',
+            style: muted,
+          ),
         ],
       ),
     );

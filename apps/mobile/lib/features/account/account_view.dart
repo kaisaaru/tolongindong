@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../core/format/rupiah.dart';
 import '../../models/auth_user.dart';
 import '../../theme/app_typography.dart';
+import '../helper/helper_store.dart';
 import '../order/widgets/order_widgets.dart';
 import 'help_page.dart';
 import 'saved_addresses_page.dart';
@@ -22,6 +25,7 @@ class AccountView extends StatelessWidget {
     required this.onOpenWallet,
     required this.onChangePassword,
     required this.onOpenNotifications,
+    required this.onSwitchToHelper,
   });
 
   final AuthUser user;
@@ -33,6 +37,9 @@ class AccountView extends StatelessWidget {
   final VoidCallback onOpenWallet;
   final VoidCallback onChangePassword;
   final VoidCallback onOpenNotifications;
+
+  /// Masuk mode Helper; menu ini muncul untuk helper terverifikasi.
+  final VoidCallback onSwitchToHelper;
 
   Future<void> _confirmLogout(BuildContext context) async {
     final sure = await showDialog<bool>(
@@ -66,6 +73,7 @@ class AccountView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isHelper = context.watch<HelperStore>().status.isVerifiedHelper;
     return SafeArea(
       bottom: false,
       child: Column(
@@ -118,14 +126,22 @@ class AccountView extends StatelessWidget {
                       trailing: rupiah(user.wallet.availableBalance),
                       onTap: onOpenWallet,
                     ),
-                    AccountMenuRow(
-                      asset: AccountStyle.iconBriefcase,
-                      tint: const Color(0xFFFFF7ED),
-                      label: 'Daftar Jadi Helper',
-                      badge: 'Baru',
-                      // Pendaftaran helper butuh unggah KTP dan selfie.
-                      onTap: () => _soon(context, 'Daftar jadi helper'),
-                    ),
+                    if (isHelper)
+                      AccountMenuRow(
+                        asset: AccountStyle.iconBriefcase,
+                        tint: const Color(0xFFFFF7ED),
+                        label: 'Beralih ke Mode Helper',
+                        onTap: onSwitchToHelper,
+                      )
+                    else
+                      AccountMenuRow(
+                        asset: AccountStyle.iconBriefcase,
+                        tint: const Color(0xFFFFF7ED),
+                        label: 'Daftar Jadi Helper',
+                        badge: 'Baru',
+                        // Pendaftaran helper butuh unggah KTP dan selfie.
+                        onTap: () => _soon(context, 'Daftar jadi helper'),
+                      ),
                     AccountMenuRow(
                       asset: AccountStyle.iconTicket,
                       tint: const Color(0xFFFAF5FF),

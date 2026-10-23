@@ -17,8 +17,17 @@ import 'chat_store.dart';
 /// judulnya "Obrolan" tanpa tombol kembali karena ini isi tab, sama seperti
 /// tab Aktifitas.
 class ChatListView extends StatefulWidget {
-  const ChatListView({super.key, this.bottomPadding = 16, this.onExplore});
+  const ChatListView({
+    super.key,
+    this.bottomPadding = 16,
+    this.onExplore,
+    this.forHelper = false,
+  });
   final double bottomPadding;
+
+  /// Mode Helper: lawan bicaranya Client, dan judul ada di header merah
+  /// di atasnya.
+  final bool forHelper;
 
   /// Ajakan "Cari Helper" saat belum ada obrolan, misal pindah ke Beranda.
   final VoidCallback? onExplore;
@@ -48,22 +57,34 @@ class _ChatListViewState extends State<ChatListView> {
 
   @override
   Widget build(BuildContext context) {
+    final helper = widget.forHelper;
     return SafeArea(
+      top: !helper,
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(22, 24, 22, widget.bottomPadding),
+        padding: EdgeInsets.fromLTRB(
+          helper ? 16 : 22,
+          helper ? 14 : 24,
+          helper ? 16 : 22,
+          widget.bottomPadding,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Obrolan',
-              style: AppTypography.style(
-                size: 22,
-                weight: AppTypography.semiBold,
+            if (!helper) ...[
+              Text(
+                'Obrolan',
+                style: AppTypography.style(
+                  size: 22,
+                  weight: AppTypography.semiBold,
+                ),
               ),
+              const SizedBox(height: 18),
+            ],
+            _SearchField(
+              hint: helper ? 'Cari nama Client' : 'Cari nama helper',
+              onChanged: (v) => setState(() => _query = v),
             ),
-            const SizedBox(height: 18),
-            _SearchField(onChanged: (v) => setState(() => _query = v)),
             const SizedBox(height: 16),
             Expanded(
               child: RefreshIndicator(
@@ -107,15 +128,23 @@ class _ChatListViewState extends State<ChatListView> {
     }
     if (all.isEmpty) {
       return _scrollable(
-        EmptyState(
-          icon: Icons.chat_bubble_outline_rounded,
-          title: 'Belum ada obrolan',
-          message:
-              'Chat helper dari profilnya, sebelum atau sesudah memesan. '
-              'Obrolannya tersimpan di sini.',
-          actionLabel: 'Cari Helper',
-          onAction: widget.onExplore,
-        ),
+        widget.forHelper
+            ? const EmptyState(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: 'Belum ada obrolan',
+                message:
+                    'Client bisa mengirim pesan dari profilmu. Obrolannya '
+                    'tersimpan di sini.',
+              )
+            : EmptyState(
+                icon: Icons.chat_bubble_outline_rounded,
+                title: 'Belum ada obrolan',
+                message:
+                    'Chat helper dari profilnya, sebelum atau sesudah '
+                    'memesan. Obrolannya tersimpan di sini.',
+                actionLabel: 'Cari Helper',
+                onAction: widget.onExplore,
+              ),
       );
     }
 
@@ -125,9 +154,11 @@ class _ChatListViewState extends State<ChatListView> {
         if (q.isEmpty || room.peerName.toLowerCase().contains(q)) room,
     ];
     if (rooms.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.search_off_rounded,
-        title: 'Helper tidak ditemukan',
+        title: widget.forHelper
+            ? 'Client tidak ditemukan'
+            : 'Helper tidak ditemukan',
         message: 'Coba cari dengan nama lain.',
       );
     }
@@ -147,8 +178,9 @@ class _ChatListViewState extends State<ChatListView> {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.onChanged});
+  const _SearchField({required this.hint, required this.onChanged});
 
+  final String hint;
   final ValueChanged<String> onChanged;
 
   @override
@@ -162,7 +194,7 @@ class _SearchField extends StatelessWidget {
       onChanged: onChanged,
       style: AppTypography.style(size: 12, weight: AppTypography.regular),
       decoration: InputDecoration(
-        hintText: 'Cari nama helper',
+        hintText: hint,
         isDense: true,
         filled: true,
         fillColor: AppColors.light,
