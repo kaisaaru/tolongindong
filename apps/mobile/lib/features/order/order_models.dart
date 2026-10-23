@@ -1,9 +1,8 @@
-/// Model alur pesanan: daftar helper per kategori, detail helper, voucher.
+/// Model alur pesanan Personal: daftar helper per kategori dan detailnya.
 ///
-/// Semua masih diisi data contoh dari `order_samples.dart`. Backend belum
-/// punya detail helper (bio, review), sub-kategori, maupun harga tetap per
-/// jasa — `GET /helpers` hanya memberi nama, foto, rating, jumlah tugas
-/// selesai, dan tarif per jam.
+/// Backend belum punya detail helper (bio, review), sub-kategori, maupun
+/// harga tetap per jasa — `GET /helpers` hanya memberi nama, foto, rating,
+/// jumlah tugas selesai, dan tarif per jam.
 class HelperListing {
   const HelperListing({
     required this.id,
@@ -20,6 +19,28 @@ class HelperListing {
     this.reviews = const [],
   });
 
+  /// Satu helper dari `GET /helpers`. Backend belum punya bio, keahlian,
+  /// sub-kategori, review, maupun harga per jasa: harga memakai tarif per
+  /// jam, keahlian memakai kategori layanan helper.
+  factory HelperListing.fromJson(Map<String, dynamic> json) => HelperListing(
+    id: json['id'] as String,
+    name: json['full_name'] as String? ?? 'Helper',
+    photoUrl: json['photo_url'] as String?,
+    rating: double.tryParse('${json['rating_average']}') ?? 0,
+    reviewCount: (json['rating_count'] as num?)?.toInt() ?? 0,
+    completedCount: (json['completed_order_count'] as num?)?.toInt() ?? 0,
+    price: (json['hourly_rate'] as num?)?.toInt() ?? 0,
+    unit: 'jam',
+    subcategory: '',
+    tags: [
+      for (final c in json['categories'] as List? ?? const [])
+        (c as Map)['name'] as String? ?? '',
+    ],
+    about: '',
+  );
+
+  /// `helper_profiles.id`, dipakai sebagai `helper_id` pesanan dan untuk
+  /// membuka chat.
   final String id;
   final String name;
   final String? photoUrl;
@@ -61,34 +82,4 @@ class HelperReview {
   final String timeAgo;
   final int rating;
   final String text;
-}
-
-/// Voucher persentase dengan batas potongan, sama seperti kolom
-/// `discount_value` + `max_discount_amount` di tabel voucher backend.
-class Voucher {
-  const Voucher({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.validUntil,
-    required this.percent,
-    required this.maxDiscount,
-  });
-
-  final String id;
-  final String title;
-  final String description;
-
-  /// Sudah diformat untuk tampilan, misal "07-11-2026".
-  final String validUntil;
-
-  final int percent;
-  final int maxDiscount;
-
-  /// Potongan untuk [price], tidak melebihi [maxDiscount] maupun harganya.
-  int discountFor(int price) {
-    final raw = price * percent ~/ 100;
-    final capped = raw > maxDiscount ? maxDiscount : raw;
-    return capped > price ? price : capped;
-  }
 }

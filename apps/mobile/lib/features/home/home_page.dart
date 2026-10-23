@@ -16,14 +16,12 @@ import '../auth/session_store.dart';
 import '../chat/chat_list_view.dart';
 import '../chat/chat_store.dart';
 import '../delivery/delivery_page.dart';
-import '../delivery/delivery_review_page.dart';
-import '../household/active_order_page.dart';
 import '../household/household_page.dart';
 import '../notification/notification_page.dart';
 import '../order/category_helpers_page.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
-import '../order/personal_order_page.dart';
+import '../order/order_detail_page.dart';
 import '../wallet/wallet_page.dart';
 import 'catalog_repository.dart';
 import 'home_assets.dart';
@@ -66,6 +64,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadHeader();
+    // Pesanan berjalan untuk banner di bawah beranda.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _orderStore.refresh());
   }
 
   /// Alamat dan notifikasi dimuat terpisah: kalau salah satu gagal, yang
@@ -90,10 +90,14 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _refresh() async {
     final reloaded = _catalogRepo.categories();
-    setState(() => _categories = reloaded);
+    // Blok, bukan `=>`: closure setState tidak boleh mengembalikan Future.
+    setState(() {
+      _categories = reloaded;
+    });
 
     await Future.wait([
       context.read<SessionStore>().refresh(),
+      _orderStore.refresh(),
       _loadHeader(),
       reloaded.catchError((_) => <ServiceCategory>[]),
     ]);
@@ -144,7 +148,7 @@ class _HomePageState extends State<HomePage> {
     // helper.
     final Widget page = switch (category.code) {
       'household' => HouseholdPage(category: category),
-      'delivery' => const DeliveryPage(),
+      'delivery' => DeliveryPage(category: category),
       _ => CategoryHelpersPage(category: category),
     };
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
@@ -312,52 +316,26 @@ class _HomePageState extends State<HomePage> {
             ListenableBuilder(
               listenable: _orderStore,
               builder: (context, _) {
-                // Satu banner saja: Household (berwaktu) didahulukan,
-                // lalu Personal, lalu pengantaran terbaru.
-                final personal = _orderStore.personal;
-                final deliveries = _orderStore.deliveries;
-                final ActiveOrderTile tile;
-                if (_orderStore.active != null) {
-                  tile = ActiveOrderTile(
-                    title: 'Household',
-                    status: activeStatusLabel(_orderStore),
+                // Satu banner saja: pesanan berjalan terbaru.
+                final active = _orderStore.active;
+                if (active.isEmpty) return const SizedBox.shrink();
+                final order = active.first;
+                return Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 10,
+                  child: ActiveOrderTile(
+                    title: order.title,
+                    status: order.status.label,
+                    categoryCode: order.categoryCode,
                     elevated: true,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => const ActiveOrderPage(),
+                        builder: (_) => OrderDetailPage(orderId: order.id),
                       ),
                     ),
-                  );
-                } else if (personal != null) {
-                  tile = ActiveOrderTile(
-                    title: 'Personal',
-                    status: personalStatusLabel(personal),
-                    categoryCode: 'personal',
-                    elevated: true,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const PersonalOrderPage(),
-                      ),
-                    ),
-                  );
-                } else if (deliveries.isNotEmpty) {
-                  final delivery = deliveries.first;
-                  tile = ActiveOrderTile(
-                    title: 'Delivery',
-                    status: deliveryStatusLabel(delivery),
-                    categoryCode: 'delivery',
-                    elevated: true,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            DeliveryReviewPage.placed(order: delivery),
-                      ),
-                    ),
-                  );
-                } else {
-                  return const SizedBox.shrink();
-                }
-                return Positioned(left: 24, right: 24, bottom: 10, child: tile);
+                  ),
+                );
               },
             ),
           ],
@@ -387,8 +365,9 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.only(left: HomeMetrics.bodyPadding),
             child: _CategorySection(
               categories: _categories,
-              onRetry: () =>
-                  setState(() => _categories = _catalogRepo.categories()),
+              onRetry: () => setState(() {
+                _categories = _catalogRepo.categories();
+              }),
               // Pesanan dimulai dari kategori (tidak ada tombol di nav).
               onCategoryTap: _openCategory,
               onHelperTap: () => _soon('Cari helper'),

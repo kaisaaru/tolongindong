@@ -94,7 +94,10 @@ class _MoveOrderFormPageState extends State<MoveOrderFormPage> {
   Future<void> _pickHelper() async {
     final picked = await Navigator.of(context).push<HourlyHelper>(
       MaterialPageRoute(
-        builder: (_) => HourlyHelperListPage(selected: _helper),
+        builder: (_) => HourlyHelperListPage(
+          categoryId: widget.category.id,
+          selected: _helper,
+        ),
       ),
     );
     if (picked != null && mounted) setState(() => _helper = picked);
@@ -112,7 +115,10 @@ class _MoveOrderFormPageState extends State<MoveOrderFormPage> {
       hours: _hours,
     );
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => OrderReviewPage(draft: draft)),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            OrderReviewPage(draft: draft, category: widget.category),
+      ),
     );
   }
 

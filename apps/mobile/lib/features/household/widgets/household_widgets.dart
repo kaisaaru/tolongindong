@@ -114,7 +114,9 @@ class ChatHelperButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // container: tetap tombol tersendiri, tidak melebur ke kartu helper.
     return Semantics(
+      container: true,
       button: true,
       label: 'Chat helper',
       excludeSemantics: true,
@@ -133,33 +135,6 @@ class ChatHelperButton extends StatelessWidget {
                 color: AppColors.primary,
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Tombol bantuan bulat putih di header pesanan aktif.
-class SupportButton extends StatelessWidget {
-  const SupportButton({super.key, required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.light,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: const SizedBox.square(
-          dimension: 30,
-          child: Icon(
-            Icons.headset_mic_outlined,
-            size: 18,
-            color: AppColors.textPrimary,
           ),
         ),
       ),
@@ -815,7 +790,7 @@ List<Widget> orderAddressBoxes(
 }
 
 /// Baris "Detail Pengerjaan" untuk satu pesanan.
-List<Widget> workDetailRows(HouseholdOrderDraft draft, {int? totalHours}) => [
+List<Widget> workDetailRows(HouseholdOrderDraft draft) => [
   // Desain Pindahan dan Pakaian menulis "Ukuran rumah: ..." (salin dari
   // frame Rumah); yang sebenarnya diisi di form adalah estimasi muatan.
   if (draft.load case final load?) InfoRow('Muatan:', load.label),
@@ -834,131 +809,10 @@ List<Widget> workDetailRows(HouseholdOrderDraft draft, {int? totalHours}) => [
   ],
   InfoRow('Waktu pengerjaan:', draft.timeLabel),
   InfoRow('Helper :', draft.helper.name),
-  // Desain Pindahan tidak punya baris durasi; tambahan durasi tetap
-  // terlihat di Rincian harga.
-  if (!draft.isMove) InfoRow('Durasi :', '${totalHours ?? draft.hours} Jam'),
+  // Desain Pindahan tidak punya baris durasi.
+  if (!draft.isMove) InfoRow('Durasi :', '${draft.hours} Jam'),
   InfoRow('Catatan tambahan :', draft.note ?? '-'),
 ];
-
-/// Baris "Rincian harga": biaya helper, biaya tambahan, satu baris per blok
-/// durasi tambahan, potongan, total.
-List<Widget> priceRows(PriceBreakdown price) => [
-  InfoRow(
-    'Biaya helper x ${price.baseHours} jam',
-    rupiah(price.baseCost),
-    muted: true,
-  ),
-  for (final fee in price.fees)
-    InfoRow(fee.label, rupiah(fee.amount), muted: true),
-  for (final hours in price.extraHours)
-    InfoRow(
-      'Biaya helper x $hours jam',
-      rupiah(hours * price.hourlyRate),
-      muted: true,
-    ),
-  if (price.discount > 0)
-    InfoRow('Potongan vocher', rupiah(-price.discount), muted: true),
-  InfoRow('Total', rupiah(price.total, spaced: false), bold: true),
-];
-
-/// Bilah bawah pesanan aktif: helper dan jam penting (tiba/selesai).
-class HelperFooter extends StatelessWidget {
-  const HelperFooter({
-    super.key,
-    required this.helper,
-    required this.caption,
-    required this.time,
-    this.onTap,
-    this.onChat,
-  });
-
-  final HourlyHelper helper;
-  final String caption;
-  final String time;
-  final VoidCallback? onTap;
-
-  /// Tombol chat di samping nama helper. Null: tidak tampil.
-  final VoidCallback? onChat;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.light,
-      child: InkWell(
-        onTap: onTap,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 16, 26, 16),
-            child: Row(
-              children: [
-                HelperAvatar(
-                  name: helper.name,
-                  photoUrl: helper.photoUrl,
-                  size: 46,
-                ),
-                const SizedBox(width: 14),
-                // mainAxisSize.min: bilah ini dipasang sebagai
-                // bottomNavigationBar, tanpa itu tingginya memenuhi layar.
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        helper.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.style(
-                          size: 13,
-                          weight: AppTypography.medium,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      // Mengecil kalau jam di kanan memakan tempat (font HP
-                      // diperbesar di layar sempit).
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: StarRow(rating: helper.rating, size: 12, gap: 1),
-                      ),
-                    ],
-                  ),
-                ),
-                if (onChat case final chat?) ...[
-                  ChatHelperButton(onTap: chat),
-                  const SizedBox(width: 14),
-                ],
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      caption,
-                      style: AppTypography.style(
-                        size: 11,
-                        weight: AppTypography.regular,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      time,
-                      style: AppTypography.style(
-                        size: 18,
-                        weight: AppTypography.semiBold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Tombol di dialog pesanan. [outlined]: latar putih, garis dan teks
 /// [color] ("Tambah" di dialog waktu habis); selain itu latar [color], teks

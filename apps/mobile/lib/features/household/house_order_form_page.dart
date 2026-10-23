@@ -9,7 +9,6 @@ import '../../widgets/primary_button.dart';
 import '../order/widgets/order_widgets.dart';
 import 'address_picker_page.dart';
 import 'household_models.dart';
-import 'household_samples.dart';
 import 'hourly_helper_list_page.dart';
 import 'order_review_page.dart';
 import 'schedule_sheet.dart';
@@ -47,7 +46,7 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   TimeSlot? _slot;
   bool _timeChosen = false;
   HourlyHelper? _helper;
-  int _hours = HouseholdSamples.durationOptions.first;
+  int _hours = householdDurationOptions.first;
 
   /// Diisi untuk Pakaian: bagian ukuran diganti estimasi muatan.
   List<LoadOption>? get _loadOptions => widget.service.loadOptions;
@@ -107,7 +106,10 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
   Future<void> _pickHelper() async {
     final picked = await Navigator.of(context).push<HourlyHelper>(
       MaterialPageRoute(
-        builder: (_) => HourlyHelperListPage(selected: _helper),
+        builder: (_) => HourlyHelperListPage(
+          categoryId: widget.category.id,
+          selected: _helper,
+        ),
       ),
     );
     if (picked != null && mounted) setState(() => _helper = picked);
@@ -127,7 +129,10 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
       hours: _hours,
     );
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => OrderReviewPage(draft: draft)),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            OrderReviewPage(draft: draft, category: widget.category),
+      ),
     );
   }
 
@@ -208,7 +213,7 @@ class _HouseOrderFormPageState extends State<HouseOrderFormPage> {
                 const SectionLabel('Tentukan Durasi'),
                 const SizedBox(height: 17),
                 DurationChips(
-                  options: HouseholdSamples.durationOptions,
+                  options: householdDurationOptions,
                   selected: _hours,
                   onSelected: (h) => setState(() => _hours = h),
                 ),

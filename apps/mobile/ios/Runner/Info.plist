@@ -6,6 +6,8 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Lokasi dipakai untuk menyimpan alamat baru, supaya helper terdekat dan ongkos kirim bisa dihitung.</string>
 	<key>CFBundleDisplayName</key>
 	<string>TolonginDong</string>
 	<key>CFBundleExecutable</key>

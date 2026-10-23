@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../order/order_style.dart';
@@ -22,34 +25,69 @@ class ChatRoomPage extends StatefulWidget {
 }
 
 class _ChatRoomPageState extends State<ChatRoomPage> {
+  /// Belum ada push notification: selama ruang terbuka, balasan helper
+  /// diperiksa berkala.
+  static const _pollEvery = Duration(seconds: 5);
+
   late final _store = context.read<ChatStore>();
   final _text = TextEditingController();
   final _focus = FocusNode();
+  Timer? _poll;
 
-  /// Pesan helper yang belum dibaca. Pesannya baru dibaca nanti oleh
-  /// helper, jadi pelanggan langsung menandai semuanya terbaca saat membuka.
-  /// Ditunda satu frame: store memberi tahu daftar obrolan yang sedang
-  /// dibangun.
+  /// Pemuatan pertama; selama itu (dan belum ada pesan) tampil indikator.
+  bool _loading = true;
+  ApiException? _error;
+  bool _sending = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _store.markRead(widget.room);
-    });
+    // Ditunda satu frame: store memberi tahu daftar obrolan yang sedang
+    // dibangun.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _poll = Timer.periodic(_pollEvery, (_) => _load(quiet: true));
   }
 
   @override
   void dispose() {
+    _poll?.cancel();
     _text.dispose();
     _focus.dispose();
     super.dispose();
   }
 
-  void _send(String text) {
-    _store.send(widget.room, text);
-    _text.clear();
+  /// Memuat isi ruang; server sekaligus menandai pesan helper terbaca.
+  /// [quiet]: pemeriksaan berkala, gagalnya tidak ditampilkan.
+  Future<void> _load({bool quiet = false}) async {
+    if (!mounted) return;
+    try {
+      await _store.loadMessages(widget.room);
+      if (mounted && !quiet) setState(() => _error = null);
+    } on ApiException catch (e) {
+      if (mounted && !quiet) setState(() => _error = e);
+    } finally {
+      if (mounted && _loading) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _send(String text) async {
+    if (text.trim().isEmpty || _sending) return;
+    setState(() => _sending = true);
+    try {
+      await _store.send(widget.room, text);
+      _text.clear();
+    } on ApiException catch (e) {
+      // Teksnya tetap di kolom supaya bisa dikirim ulang.
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
     // Keyboard tetap terbuka untuk pesan berikutnya.
-    _focus.requestFocus();
+    if (mounted) _focus.requestFocus();
   }
 
   // Backend hanya menerima `attachment_url`, belum ada endpoint unggah
@@ -72,6 +110,12 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
               listenable: _store,
               builder: (context, _) {
                 final messages = room.messages;
+                if (messages.isEmpty) {
+                  if (_loading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  return _EmptyRoom(error: _error, onRetry: _load);
+                }
                 // Terbalik: pesan terbaru menempel di bawah, dan daftar
                 // otomatis tetap di bawah saat pesan baru masuk.
                 return ListView.builder(
@@ -88,12 +132,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
               },
             ),
           ),
-          _InputBar(
-            controller: _text,
-            focusNode: _focus,
-            onSubmitted: _send,
-            onAttach: _attach,
-          ),
+          // Ruang pesanan yang sudah selesai hanya bisa dibaca.
+          if (room.isReadOnly)
+            const _ReadOnlyNote()
+          else
+            _InputBar(
+              controller: _text,
+              focusNode: _focus,
+              enabled: !_sending,
+              onSubmitted: _send,
+              onAttach: _attach,
+            ),
         ],
       ),
     );
@@ -233,7 +282,9 @@ class _AttachmentContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${attachment.kind} · ${attachment.sizeLabel}',
+                  attachment.sizeLabel.isEmpty
+                      ? attachment.kind
+                      : '${attachment.kind} · ${attachment.sizeLabel}',
                   style: AppTypography.style(
                     size: 9,
                     weight: AppTypography.regular,
@@ -255,12 +306,16 @@ class _InputBar extends StatelessWidget {
     required this.focusNode,
     required this.onSubmitted,
     required this.onAttach,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onAttach;
+
+  /// False selama pesan dikirim; keyboard tetap terbuka.
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +332,7 @@ class _InputBar extends StatelessWidget {
           controller: controller,
           focusNode: focusNode,
           textInputAction: TextInputAction.send,
+          readOnly: !enabled,
           onSubmitted: onSubmitted,
           minLines: 1,
           maxLines: 4,
@@ -297,6 +353,68 @@ class _InputBar extends StatelessWidget {
                 color: AppColors.textSecondary,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ruang yang belum berisi pesan, atau gagal dimuat.
+class _EmptyRoom extends StatelessWidget {
+  const _EmptyRoom({required this.error, required this.onRetry});
+
+  final ApiException? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final error = this.error;
+    final style = AppTypography.style(
+      size: AppTypography.small,
+      weight: AppTypography.regular,
+      color: AppColors.textDescription,
+      height: 1.5,
+    );
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              error?.message ??
+                  'Belum ada pesan. Sapa helper dan ceritakan kebutuhanmu.',
+              textAlign: TextAlign.center,
+              style: style,
+            ),
+            if (error != null)
+              TextButton(onPressed: onRetry, child: const Text('Coba lagi')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pengganti kolom pesan di ruang pesanan yang sudah selesai.
+class _ReadOnlyNote extends StatelessWidget {
+  const _ReadOnlyNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+        child: Text(
+          'Pesanan sudah selesai. Obrolan ini hanya bisa dibaca.',
+          textAlign: TextAlign.center,
+          style: AppTypography.style(
+            size: AppTypography.small,
+            weight: AppTypography.regular,
+            color: AppColors.textDescription,
           ),
         ),
       ),

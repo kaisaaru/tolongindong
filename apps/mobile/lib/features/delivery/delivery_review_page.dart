@@ -4,50 +4,59 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
+import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
-import '../household/household_models.dart';
 import '../household/order_review_page.dart';
 import '../household/route_picker_page.dart';
 import '../household/widgets/household_widgets.dart';
-import '../order/order_models.dart';
+import '../order/helper_repository.dart';
+import '../order/order_detail_page.dart';
+import '../order/order_repository.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
 import '../order/order_success_page.dart';
-import '../order/payment_method_page.dart';
-import '../order/voucher_page.dart';
 import '../order/widgets/order_widgets.dart';
+import '../wallet/wallet_check.dart';
 import 'delivery_models.dart';
 import 'delivery_page.dart' show deliveryItemColor, deliveryTimeColor;
 import 'delivery_sheets.dart';
 import 'recipient_form_page.dart';
 
-/// "Detail Pesanan" Delivery: pengirim, penerima, waktu, barang, voucher,
-/// metode pembayaran, lalu "Pesan" (konfirmasi → pembayaran → berhasil).
+/// Isi form Delivery untuk `task_description`: backend belum punya kolom
+/// untuk penerima, barang, maupun jadwal antar. Dibaca kembali di
+/// [OrderDetailPage].
+String deliveryOrderDescription(DeliveryDraft draft, DateTime orderedAt) {
+  final recipient = draft.recipient;
+  return OrderDescription.compose('Delivery - ${draft.item.type.label}', [
+    ('Penerima', recipient.name),
+    ('Kontak penerima', recipient.phone),
+    ('Lantai/no. rumah', recipient.floor),
+    ('Barang', draft.item.type.label),
+    ('Ukuran', draft.item.summary),
+    ('Waktu antar', scheduleLabels(draft.schedule, orderedAt).subtitle),
+    ('Catatan pengemudi', recipient.note),
+  ]);
+}
+
+/// "Detail Pesanan" Delivery: pengirim, penerima, waktu, barang, lalu
+/// "Pesan" (konfirmasi → cek saldo TD-Wallet → berhasil).
 ///
-/// [DeliveryReviewPage.placed]: pesanan yang sudah dibuat, hanya dibaca
-/// (dibuka dari Aktifitas). Desain pelacakan kurir belum ada, jadi
-/// pelanggan sendiri yang menandai "Pesanan Diterima".
+/// Pesanan langsung ditujukan ke kurir terdekat (`booking_type` direct);
+/// setelah dibuat, statusnya diikuti di [OrderDetailPage].
 class DeliveryReviewPage extends StatefulWidget {
   const DeliveryReviewPage({
     super.key,
-    required DeliveryDraft this.draft,
-    this.voucher,
+    required this.draft,
+    required this.category,
     this.clock,
-  }) : order = null;
+  });
 
-  const DeliveryReviewPage.placed({
-    super.key,
-    required DeliveryOrder this.order,
-  }) : draft = null,
-       voucher = null,
-       clock = null;
-
-  final DeliveryDraft? draft;
-  final Voucher? voucher;
-  final DeliveryOrder? order;
+  final DeliveryDraft draft;
+  final ServiceCategory category;
 
   /// Diisi saat pengujian. Default: jam nyata.
   final DateTime Function()? clock;
@@ -60,15 +69,19 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
   late final _store = context.read<OrderStore>();
   late final _clock = widget.clock ?? DateTime.now;
 
-  late DeliveryDraft _draft = widget.draft ?? widget.order!.draft;
-  late Voucher? _voucher = widget.voucher ?? widget.order?.voucher;
-  late PaymentMethod? _payment = widget.order?.payment;
+  late DeliveryDraft _draft = widget.draft;
   bool _expanded = false;
+  bool _estimating = false;
+  bool _placing = false;
 
-  bool get _readOnly => widget.order != null;
-
-  /// Jam untuk "Diantar sebelum jam ...": saat dipesan, atau sekarang.
-  DateTime get _orderedAt => widget.order?.placedAt ?? _clock();
+  @override
+  void initState() {
+    super.initState();
+    // Saldo di baris metode pembayaran.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => refreshWalletBalance(context),
+    );
+  }
 
   Future<void> _pickOrigin() async {
     final picked = await Navigator.of(context).push<MoveRoute>(
@@ -80,13 +93,33 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
         ),
       ),
     );
-    if (picked != null && mounted) {
+    final origin = picked?.origin;
+    final destination = picked?.destination;
+    if (origin == null || destination == null || !mounted) return;
+
+    // Ongkos kirim bergantung rute, jadi dihitung ulang.
+    setState(() => _estimating = true);
+    try {
+      final fee = await context.read<OrderRepository>().estimate(
+        categoryId: widget.category.id,
+        pickupAddressId: origin.id,
+        destinationAddressId: destination.id,
+      );
+      if (!mounted) return;
       setState(
         () => _draft = _draft.copyWith(
-          origin: picked.origin,
-          destination: picked.destination,
+          origin: origin,
+          destination: destination,
+          fee: fee,
         ),
       );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _estimating = false);
     }
   }
 
@@ -122,95 +155,69 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
     }
   }
 
-  Future<void> _pickVoucher() async {
-    final picked = await Navigator.of(context).push<Voucher>(
-      MaterialPageRoute(builder: (_) => VoucherPage(selected: _voucher)),
-    );
-    if (picked != null && mounted) setState(() => _voucher = picked);
-  }
+  void _show(String message) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(message)));
 
-  Future<void> _pickPayment() async {
-    final picked = await Navigator.of(context).push<PaymentMethod>(
-      MaterialPageRoute(
-        builder: (_) =>
-            PaymentMethodPage(selected: _payment, allowCashOnDelivery: true),
-      ),
-    );
-    if (picked != null && mounted) setState(() => _payment = picked);
-  }
-
-  /// Sama seperti Household: konfirmasi dulu, lalu metode pembayaran kalau
-  /// belum dipilih.
   Future<void> _submit() async {
+    final draft = _draft;
+    final pickupId = draft.origin.id;
+    final destinationId = draft.destination.id;
+    if (pickupId == null || destinationId == null) {
+      return _show('Pilih alamat tersimpan dulu.');
+    }
+
     final sure = await showConfirmOrderDialog(context);
     if (sure != true || !mounted) return;
+    if (!await ensureWalletBalance(context, draft.fee) || !mounted) return;
 
-    if (_payment == null) await _pickPayment();
-    final payment = _payment;
-    if (payment == null || !mounted) return;
-
-    final draft = _draft;
-    final order = _store.placeDelivery(
-      draft: draft,
-      payment: payment,
-      voucher: _voucher,
-    );
-    // Jam yang sama dengan "Diantar sebelum jam ..." yang baru dilihat.
-    final when = scheduleLabels(draft.schedule, _orderedAt).subtitle;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => OrderSuccessPage(
-          info: OrderSuccessInfo(
-            service: 'Delivery - ${draft.item.type.label}',
-            message: 'Paket untuk ${draft.recipient.name}. $when.',
-            payment: payment.name,
-            total: order.total,
+    setState(() => _placing = true);
+    try {
+      final couriers = await context.read<HelperRepository>().hourly(
+        widget.category.id,
+      );
+      if (!mounted) return;
+      if (couriers.isEmpty) {
+        return _show('Belum ada kurir di sekitarmu. Coba lagi nanti.');
+      }
+      final courier = couriers.first;
+      final orderedAt = _clock();
+      final order = await _store.place(
+        categoryId: widget.category.id,
+        helperId: courier.id,
+        description: deliveryOrderDescription(draft, orderedAt),
+        price: draft.fee,
+        pickupAddressId: pickupId,
+        destinationAddressId: destinationId,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => OrderSuccessPage(
+            info: OrderSuccessInfo(
+              service: 'Delivery - ${draft.item.type.label}',
+              message:
+                  'Menunggu ${courier.name} menerima paket untuk '
+                  '${draft.recipient.name}.',
+              payment: 'TD-Wallet',
+              total: draft.fee,
+            ),
+            orderPage: (_) => OrderDetailPage(orderId: order.id),
           ),
-          orderPage: (_) => DeliveryReviewPage.placed(order: order),
         ),
-      ),
-      (route) => route.isFirst,
-    );
-  }
-
-  /// Pesanan yang sudah dibuat: paket sudah sampai, pindahkan ke riwayat.
-  Future<void> _markReceived() async {
-    final order = widget.order;
-    if (order == null) return;
-    final sure = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Paket sudah diterima?'),
-        content: const Text(
-          'Pesanan akan dipindah ke Riwayat dan tidak bisa diubah lagi.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Belum'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sudah diterima'),
-          ),
-        ],
-      ),
-    );
-    if (sure != true || !mounted) return;
-    _store.completeDelivery(order);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pengantaran selesai. Terima kasih!')),
-    );
-    Navigator.of(context).maybePop();
+        (route) => route.isFirst,
+      );
+    } on ApiException catch (e) {
+      if (mounted) _show(e.message);
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final draft = _draft;
-    final discount = draft.discountWith(_voucher);
-    final total = draft.fee - discount;
-    final labels = scheduleLabels(draft.schedule, _orderedAt);
-    final edit = !_readOnly;
+    final labels = scheduleLabels(draft.schedule, _clock());
     final cardSide = OrderStyle.inset(context, 40);
     final totalSide = OrderStyle.inset(context, 37);
 
@@ -237,14 +244,6 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                           child: ListView(
                             padding: const EdgeInsets.fromLTRB(22, 25, 22, 25),
                             children: [
-                              if (!edit) ...[
-                                OrderStatusBanner(
-                                  icon: Icons.moped_outlined,
-                                  title: 'Dalam pengantaran',
-                                  subtitle: labels.subtitle,
-                                ),
-                                const SizedBox(height: 21),
-                              ],
                               // Desain menulis "Pengataran" (salah ketik).
                               const SectionLabel('Detail Pengantaran'),
                               const SizedBox(height: 14),
@@ -257,7 +256,7 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                                       title: 'Pengiriman',
                                       contact: draft.senderContact,
                                       address: draft.origin.fullAddress,
-                                      onTap: edit ? _pickOrigin : null,
+                                      onTap: _pickOrigin,
                                     ),
                                     _PartyRow(
                                       color: AppColors.primary,
@@ -269,7 +268,7 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                                         ?draft.recipient.floor,
                                         draft.destination.fullAddress,
                                       ].join(', '),
-                                      onTap: edit ? _editRecipient : null,
+                                      onTap: _editRecipient,
                                     ),
                                   ],
                                 ),
@@ -285,7 +284,7 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                                 ),
                                 label: labels.title,
                                 subtitle: labels.subtitle,
-                                onTap: edit ? _pickSchedule : null,
+                                onTap: _pickSchedule,
                               ),
                               const SizedBox(height: 11),
                               OrderOptionBox(
@@ -296,24 +295,27 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                                 ),
                                 label: draft.item.type.label,
                                 subtitle: draft.item.summary,
-                                onTap: edit ? _pickItem : null,
+                                onTap: _pickItem,
                               ),
                               const SizedBox(height: 21),
                               const SectionLabel('Detail Pembayaran'),
                               const SizedBox(height: 14),
-                              OrderOptionBox.icon(
-                                OrderStyle.iconVoucher,
-                                label:
-                                    _voucher?.title ??
-                                    (edit ? 'Gunakan Vocher' : 'Tanpa vocher'),
-                                onTap: edit ? _pickVoucher : null,
+                              // Voucher belum diterima `POST /orders`.
+                              const OrderOptionBox(
+                                leading: OrderIcon(
+                                  OrderStyle.iconVoucher,
+                                  size: 14,
+                                  color: AppColors.textSecondary,
+                                ),
+                                label: 'Voucher belum bisa dipakai',
+                                subtitle: 'Segera hadir',
                               ),
                               const SizedBox(height: 11),
                               OrderOptionBox.icon(
                                 OrderStyle.iconPaymentCard,
-                                label:
-                                    _payment?.name ?? 'Pilih metode pembayaran',
-                                onTap: edit ? _pickPayment : null,
+                                label: walletPaymentLabel(context),
+                                subtitle: 'Saldo ditahan saat kurir menerima',
+                                onTap: () => openWallet(context),
                               ),
                             ],
                           ),
@@ -329,7 +331,7 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                           child: Column(
                             children: [
                               TotalToggleRow(
-                                total: total,
+                                total: draft.fee,
                                 expanded: _expanded,
                                 onTap: () =>
                                     setState(() => _expanded = !_expanded),
@@ -341,25 +343,17 @@ class _DeliveryReviewPageState extends State<DeliveryReviewPage> {
                                   rupiah(draft.fee),
                                   muted: true,
                                 ),
-                                if (discount > 0)
-                                  InfoRow(
-                                    'Potongan vocher',
-                                    rupiah(-discount),
-                                    muted: true,
-                                  ),
                               ],
                               const SizedBox(height: 12),
                               SizedBox(
                                 height: 42,
-                                child: edit
-                                    ? PrimaryButton(
-                                        label: 'Pesan',
-                                        onPressed: _submit,
-                                      )
-                                    : PrimaryButton(
-                                        label: 'Pesanan Diterima',
-                                        onPressed: _markReceived,
-                                      ),
+                                child: PrimaryButton(
+                                  label: _estimating
+                                      ? 'Menghitung ongkos...'
+                                      : 'Pesan',
+                                  isLoading: _placing,
+                                  onPressed: _estimating ? null : _submit,
+                                ),
                               ),
                             ],
                           ),

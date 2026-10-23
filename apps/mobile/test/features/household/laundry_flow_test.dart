@@ -3,31 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/household/house_order_form_page.dart';
 import 'package:mobile/features/household/household_models.dart';
 import 'package:mobile/features/household/household_page.dart';
-import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/household/order_review_page.dart';
-import 'package:mobile/models/service_category.dart';
 import 'package:mobile/theme/app_colors.dart';
 
 import '../../helpers/pump_page.dart';
+import '../../helpers/test_data.dart';
 
-const _household = ServiceCategory(
-  id: 3,
-  code: 'household',
-  name: 'Household',
-  baseFee: 5000,
-  requiresAdvance: false,
-  requiresProofPhoto: false,
-  requiresPickupAddress: false,
-  requiresDestinationAddress: false,
-);
+const _household = testHousehold;
 
 /// Pesanan Pakaian: muatan Sedang (>3–6 kg), helper Rp40.000/jam, 1 jam.
 final _laundryDraft = HouseholdOrderDraft(
   service: HouseholdService.pakaian,
-  address: HouseholdSamples.savedAddresses.first,
+  address: testHome,
   load: LoadOption.laundry[1],
   tools: ToolOption.provided,
-  helper: HouseholdSamples.helpers.first,
+  helper: testHelpers.first,
   hours: 1,
 );
 
@@ -75,7 +65,10 @@ void main() {
   });
 
   testWidgets('detail pesanan Pakaian dengan rincian terbuka', (tester) async {
-    await _pumpNarrow(tester, OrderReviewPage(draft: _laundryDraft));
+    await _pumpNarrow(
+      tester,
+      OrderReviewPage(draft: _laundryDraft, category: _household),
+    );
     expect(find.text('Muatan:'), findsOneWidget);
     expect(find.text('Ukuran rumah:'), findsNothing);
 

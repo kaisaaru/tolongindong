@@ -1,18 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app_scope.dart';
+import 'package:mobile/features/address/address_repository.dart';
+import 'package:mobile/features/address/location_service.dart';
 import 'package:mobile/features/auth/auth_repository.dart';
+import 'package:mobile/features/chat/chat_repository.dart';
 import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/home/catalog_repository.dart';
 import 'package:mobile/features/notification/notification_repository.dart';
+import 'package:mobile/features/order/helper_repository.dart';
+import 'package:mobile/features/order/order_repository.dart';
 import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/features/wallet/wallet_repository.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/theme/app_theme.dart';
 
+import 'fake_address_repository.dart';
 import 'fake_auth_repository.dart';
 import 'fake_catalog_repository.dart';
+import 'fake_chat_repository.dart';
+import 'fake_helper_repository.dart';
+import 'fake_location_service.dart';
 import 'fake_notification_repository.dart';
+import 'fake_order_repository.dart';
 import 'fake_wallet_repository.dart';
 
 /// Pengguna yang sudah masuk di setiap test, kecuali diganti lewat `user`.
@@ -29,15 +39,21 @@ const testUser = AuthUser(
 
 /// [page] di dalam [AppScope] dan `MaterialApp` bertema, seperti app.
 ///
-/// Repository diganti versi palsu tanpa jaringan. Store yang diberikan
-/// dipakai apa adanya, jadi test masih bisa memeriksa isinya setelah halaman
-/// ditutup. `user: null` berarti belum masuk (splash, login).
+/// Repository diganti versi palsu tanpa jaringan; berikan sendiri untuk
+/// mengatur isi atau memeriksa permintaan. Store yang diberikan dipakai apa
+/// adanya dan tidak dibuang otomatis. `user: null` berarti belum masuk
+/// (splash, login).
 Widget testApp(
   Widget page, {
   AuthRepository? authRepo,
   CatalogRepository? catalogRepo,
   WalletRepository? walletRepo,
   NotificationRepository? notificationRepo,
+  HelperRepository? helperRepo,
+  AddressRepository? addressRepo,
+  OrderRepository? orderRepo,
+  ChatRepository? chatRepo,
+  LocationService? locationService,
   OrderStore? orderStore,
   ChatStore? chatStore,
   AuthUser? user = testUser,
@@ -46,6 +62,11 @@ Widget testApp(
   catalogRepo: catalogRepo ?? FakeCatalogRepository(),
   walletRepo: walletRepo ?? FakeWalletRepository(),
   notificationRepo: notificationRepo ?? FakeNotificationRepository([]),
+  helperRepo: helperRepo ?? FakeHelperRepository(),
+  addressRepo: addressRepo ?? FakeAddressRepository(),
+  orderRepo: orderRepo ?? FakeOrderRepository(),
+  chatRepo: chatRepo ?? FakeChatRepository(),
+  locationService: locationService ?? FakeLocationService(),
   orderStore: orderStore,
   chatStore: chatStore,
   user: user,
@@ -62,6 +83,11 @@ Future<void> pumpPage(
   CatalogRepository? catalogRepo,
   WalletRepository? walletRepo,
   NotificationRepository? notificationRepo,
+  HelperRepository? helperRepo,
+  AddressRepository? addressRepo,
+  OrderRepository? orderRepo,
+  ChatRepository? chatRepo,
+  LocationService? locationService,
   OrderStore? orderStore,
   ChatStore? chatStore,
   AuthUser? user = testUser,
@@ -77,6 +103,11 @@ Future<void> pumpPage(
       catalogRepo: catalogRepo,
       walletRepo: walletRepo,
       notificationRepo: notificationRepo,
+      helperRepo: helperRepo,
+      addressRepo: addressRepo,
+      orderRepo: orderRepo,
+      chatRepo: chatRepo,
+      locationService: locationService,
       orderStore: orderStore,
       chatStore: chatStore,
       user: user,

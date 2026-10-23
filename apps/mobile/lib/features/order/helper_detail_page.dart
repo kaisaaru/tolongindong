@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
+import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
@@ -10,57 +12,48 @@ import '../chat/chat_room_page.dart';
 import '../chat/chat_store.dart';
 import 'checkout_page.dart';
 import 'order_models.dart';
-import 'order_store.dart';
 import 'order_style.dart';
-import 'personal_order_page.dart';
 import 'widgets/order_widgets.dart';
 
 /// Profil helper: tentang, keahlian, review, dan tombol pesan.
 class HelperDetailPage extends StatelessWidget {
-  const HelperDetailPage({super.key, required this.helper});
+  const HelperDetailPage({
+    super.key,
+    required this.helper,
+    required this.category,
+  });
 
   final HelperListing helper;
 
-  /// Hanya satu pesanan Personal boleh berjalan. Diberi tahu sebelum
-  /// checkout, bukan setelah voucher dan pembayaran dipilih.
-  void _order(BuildContext context) {
-    final orders = context.read<OrderStore>();
-    if (orders.personal != null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: const Text('Masih ada pesanan Personal yang berjalan.'),
-            action: SnackBarAction(
-              label: 'Lihat',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => PersonalOrderPage()),
-              ),
-            ),
-          ),
-        );
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => CheckoutPage(helper: helper)),
-    );
-  }
+  /// Kategori pesanan (`category_id`), diteruskan ke checkout.
+  final ServiceCategory category;
+
+  void _order(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => CheckoutPage(helper: helper, category: category),
+    ),
+  );
 
   void _soon(BuildContext context, String feature) => ScaffoldMessenger.of(
     context,
   ).showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
 
-  /// Chat sebelum memesan. Nanti: `POST /chats/helpers/{id}`.
-  void _chat(BuildContext context) {
-    final store = context.read<ChatStore>();
-    final room = store.openWithHelper(
-      helperId: helper.id,
-      name: helper.name,
-      photoUrl: helper.photoUrl,
-    );
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
+  /// Chat sebelum memesan (`POST /chats/helpers/{id}`).
+  Future<void> _chat(BuildContext context) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final room = await context.read<ChatStore>().openWithHelper(
+        helperId: helper.id,
+        name: helper.name,
+        photoUrl: helper.photoUrl,
+      );
+      await navigator.push(
+        MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)),
+      );
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   @override
@@ -86,24 +79,33 @@ class HelperDetailPage extends StatelessWidget {
                 children: [
                   const _SectionTitle('Tentang'),
                   const SizedBox(height: 15),
+                  // Backend belum punya bio helper.
                   Text(
-                    helper.about,
+                    helper.about.isEmpty
+                        ? 'Helper belum menulis deskripsi. Tanyakan langsung '
+                              'lewat chat sebelum memesan.'
+                        : helper.about,
                     style: AppTypography.style(
                       size: 14,
                       weight: AppTypography.regular,
+                      color: helper.about.isEmpty
+                          ? AppColors.textDescription
+                          : AppColors.textPrimary,
                       height: 24 / 14,
                     ),
                   ),
-                  const SizedBox(height: 19),
-                  const _SectionTitle('Jasa'),
-                  const SizedBox(height: 13),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final tag in helper.tags) TagChip.skill(tag),
-                    ],
-                  ),
+                  if (helper.tags.isNotEmpty) ...[
+                    const SizedBox(height: 19),
+                    const _SectionTitle('Jasa'),
+                    const SizedBox(height: 13),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final tag in helper.tags) TagChip.skill(tag),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   const _SectionTitle('Review'),
                   const SizedBox(height: 20),
@@ -127,7 +129,9 @@ class HelperDetailPage extends StatelessWidget {
         ),
         bottomNavigationBar: OrderBottomBar(
           caption: 'Mulai dari',
-          amount: rupiah(helper.price),
+          amount: helper.unit == null
+              ? rupiah(helper.price)
+              : '${rupiah(helper.price)}/${helper.unit}',
           button: PrimaryButton(
             label: 'Pesan Sekarang',
             onPressed: () => _order(context),

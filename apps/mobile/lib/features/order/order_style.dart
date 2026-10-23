@@ -47,9 +47,6 @@ class OrderStyle {
   /// Label di bagian "Jasa" halaman detail: latar salem, teks putih.
   static const skillBackground = Color(0xFFFF7B7B);
 
-  /// Kotak ikon voucher.
-  static const voucherTile = Color(0xFFFF9999);
-
   static const shadow = Color(0x1A000000); // hitam 10%
 
   static const iconStar = 'assets/icons/ui/star.svg';
@@ -57,7 +54,6 @@ class OrderStyle {
   static const iconChat = 'assets/icons/ui/chat_text.svg';
   static const iconClipboard = 'assets/icons/ui/clipboard.svg';
   static const iconVoucher = 'assets/icons/ui/voucher.svg';
-  static const iconVoucherWhite = 'assets/icons/ui/voucher_white.svg';
   static const iconPaymentCard = 'assets/icons/ui/payment_card.svg';
 
   // Ikon alamat membawa warnanya sendiri (merah, merah tua, biru).

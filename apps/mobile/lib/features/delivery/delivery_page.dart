@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
+import '../../models/auth_user.dart';
+import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
-import '../../models/auth_user.dart';
 import '../activity/activity_view.dart';
+import '../address/address_repository.dart';
 import '../auth/session_store.dart';
 import '../household/household_models.dart';
-import '../household/household_samples.dart';
 import '../household/route_picker_page.dart';
 import '../household/widgets/household_widgets.dart';
-import '../order/order_models.dart';
-import '../order/order_samples.dart';
+import '../order/order_repository.dart';
+import '../order/order_store.dart';
 import '../order/order_style.dart';
-import '../order/voucher_page.dart';
 import '../order/widgets/order_widgets.dart';
 import 'delivery_models.dart';
 import 'delivery_review_page.dart';
-import 'delivery_samples.dart';
 import 'delivery_sheets.dart';
 import 'recipient_form_page.dart';
 
@@ -30,11 +30,18 @@ const deliveryRecipientColor = Color(0xFF3FA2F6);
 const deliveryTimeColor = Color(0xFF1E9E4A);
 const deliveryItemColor = Color(0xFFFF9F43);
 
-/// Kategori Delivery. Sebelum tujuan dipilih: pengantaran sebelumnya dan
-/// promo (frame 33). Sesudahnya: penerima, waktu, barang, voucher, dan total
+/// Kategori Delivery. Sebelum tujuan dipilih: tujuan pengantaran
+/// sebelumnya (frame 33). Sesudahnya: penerima, waktu, barang, dan total
 /// (frame 42, 67–70). "Lihat Pesanan" aktif setelah semuanya terisi.
+///
+/// Asal dan tujuan adalah alamat tersimpan (pesanan memakai id alamat).
+/// Ongkos dari `POST /orders/estimate`: tarif dasar + Rp2.500/km. Promo dan
+/// voucher belum didukung `POST /orders`, jadi bagiannya disembunyikan.
 class DeliveryPage extends StatefulWidget {
-  const DeliveryPage({super.key, this.clock});
+  const DeliveryPage({super.key, required this.category, this.clock});
+
+  /// Kategori Delivery di server (`category_id`).
+  final ServiceCategory category;
 
   /// Diisi saat pengujian. Default: jam nyata.
   final DateTime Function()? clock;
@@ -46,40 +53,94 @@ class DeliveryPage extends StatefulWidget {
 class _DeliveryPageState extends State<DeliveryPage> {
   late final _clock = widget.clock ?? DateTime.now;
 
-  SavedAddress _origin = HouseholdSamples.currentLocation;
+  /// Awalnya alamat utama pengguna.
+  SavedAddress? _origin;
   SavedAddress? _destination;
   Recipient? _recipient;
   DeliverySchedule? _schedule;
   DeliveryItem? _item;
-  Voucher? _voucher;
   bool _expanded = false;
 
-  static const _fee = DeliverySamples.fee;
-  int get _discount => _voucher?.discountFor(_fee) ?? 0;
+  /// Null selama belum dihitung (asal/tujuan belum lengkap, atau gagal).
+  int? _fee;
+  bool _estimating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadOrigin();
+      // Tujuan pengantaran sebelumnya diambil dari daftar pesanan.
+      context.read<OrderStore>().refresh(quiet: true);
+    });
+  }
+
+  Future<void> _loadOrigin() async {
+    try {
+      final addresses = await context.read<AddressRepository>().list();
+      if (!mounted || _origin != null) return;
+      setState(() => _origin = addresses.firstOrNull);
+      // Tujuan bisa sudah dipilih sebelum alamat asal selesai dimuat.
+      if (_destination != null) await _estimateFee();
+    } on ApiException {
+      // Asal tetap bisa dipilih manual.
+    }
+  }
+
+  /// Ongkos acuan untuk asal-tujuan ini.
+  Future<void> _estimateFee() async {
+    final pickup = _origin?.id;
+    final destination = _destination?.id;
+    if (pickup == null || destination == null) return;
+    setState(() {
+      _estimating = true;
+      _fee = null;
+    });
+    try {
+      final fee = await context.read<OrderRepository>().estimate(
+        categoryId: widget.category.id,
+        pickupAddressId: pickup,
+        destinationAddressId: destination,
+      );
+      if (mounted) setState(() => _fee = fee);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _estimating = false);
+    }
+  }
 
   AuthUser? get _sender => context.read<SessionStore>().user;
 
   DeliveryDraft? get _draft {
+    final origin = _origin;
     final destination = _destination;
     final recipient = _recipient;
     final schedule = _schedule;
     final item = _item;
-    if (destination == null ||
+    final fee = _fee;
+    if (origin == null ||
+        destination == null ||
         recipient == null ||
         schedule == null ||
-        item == null) {
+        item == null ||
+        fee == null) {
       return null;
     }
     return DeliveryDraft(
       // Pengirim = pengguna yang masuk.
       senderName: _sender?.fullName ?? '',
       senderPhone: _sender?.phoneNumber,
-      origin: _origin,
+      origin: origin,
       destination: destination,
       recipient: recipient,
       schedule: schedule,
       item: item,
-      fee: _fee,
+      fee: fee,
     );
   }
 
@@ -98,6 +159,7 @@ class _DeliveryPageState extends State<DeliveryPage> {
         _origin = picked.origin;
         _destination = picked.destination;
       });
+      await _estimateFee();
     }
   }
 
@@ -109,6 +171,19 @@ class _DeliveryPageState extends State<DeliveryPage> {
       _origin = destination;
     });
   }
+
+  Future<void> _pickPast(SavedAddress destination) async {
+    setState(() => _destination = destination);
+    await _estimateFee();
+  }
+
+  void _voucherSoon() => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      const SnackBar(
+        content: Text('Voucher belum bisa dipakai untuk pesanan.'),
+      ),
+    );
 
   Future<void> _editRecipient() async {
     final destination = _destination;
@@ -136,29 +211,6 @@ class _DeliveryPageState extends State<DeliveryPage> {
     if (picked != null && mounted) setState(() => _item = picked);
   }
 
-  Future<void> _pickVoucher() async {
-    final picked = await Navigator.of(context).push<Voucher>(
-      MaterialPageRoute(builder: (_) => VoucherPage(selected: _voucher)),
-    );
-    if (picked != null && mounted) setState(() => _voucher = picked);
-  }
-
-  void _togglePromo(Voucher voucher) {
-    final using = _voucher?.id == voucher.id;
-    setState(() => _voucher = using ? null : voucher);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            using
-                ? '${voucher.title} batal dipakai.'
-                : '${voucher.title} dipakai untuk pengiriman ini.',
-          ),
-        ),
-      );
-  }
-
   void _openHistory() => Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => Scaffold(
@@ -177,10 +229,42 @@ class _DeliveryPageState extends State<DeliveryPage> {
     ),
   );
 
+  /// Tujuan pengantaran sebelumnya, terbaru di atas, tanpa duplikat.
+  static List<({SavedAddress destination, DateTime at})> _pastDestinations(
+    OrderStore store,
+  ) {
+    final seen = <int>{};
+    return [
+      for (final order in [...store.active, ...store.history])
+        if (order.categoryCode == 'delivery')
+          if (order.destination case final d? when seen.add(d.id ?? -1))
+            (destination: d, at: order.createdAt),
+    ].take(3).toList();
+  }
+
   /// "Lihat Pesanan" saat form belum lengkap: beri tahu yang kurang dan
   /// langsung buka langkahnya. Tombolnya tetap abu-abu seperti desain,
   /// tapi tidak diam saja saat diketuk.
   void _completeMissing() {
+    if (_origin == null) {
+      _pickRoute(editOrigin: true);
+      return;
+    }
+    if (_fee == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              _estimating
+                  ? 'Ongkos kirim sedang dihitung.'
+                  : 'Ongkos kirim belum terhitung. Pilih ulang tujuannya.',
+            ),
+          ),
+        );
+      if (!_estimating) _estimateFee();
+      return;
+    }
     final String message;
     final Future<void> Function() open;
     if (_recipient == null) {
@@ -204,8 +288,11 @@ class _DeliveryPageState extends State<DeliveryPage> {
     if (draft == null) return _completeMissing();
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            DeliveryReviewPage(draft: draft, voucher: _voucher, clock: _clock),
+        builder: (_) => DeliveryReviewPage(
+          draft: draft,
+          category: widget.category,
+          clock: _clock,
+        ),
       ),
     );
   }
@@ -258,23 +345,23 @@ class _DeliveryPageState extends State<DeliveryPage> {
             if (hasDestination)
               Padding(
                 padding: EdgeInsets.fromLTRB(cardSide, 19, cardSide, 0),
-                child: _VoucherCard(voucher: _voucher, onTap: _pickVoucher),
+                child: _VoucherCard(onTap: _voucherSoon),
               )
-            else ...[
-              _Landing(
-                now: _clock(),
-                selectedVoucher: _voucher,
-                onPastDelivery: (destination) =>
-                    setState(() => _destination = destination),
-                onPromo: _togglePromo,
+            else
+              ListenableBuilder(
+                listenable: context.read<OrderStore>(),
+                builder: (context, _) => _Landing(
+                  now: _clock(),
+                  past: _pastDestinations(context.read<OrderStore>()),
+                  onPastDelivery: _pickPast,
+                ),
               ),
-            ],
           ],
         ),
         bottomNavigationBar: hasDestination
             ? _TotalCard(
                 fee: _fee,
-                discount: _discount,
+                estimating: _estimating,
                 expanded: _expanded,
                 enabled: _draft != null,
                 onToggle: () => setState(() => _expanded = !_expanded),
@@ -302,7 +389,7 @@ class _Metrics {
   static double cardSide(BuildContext context) =>
       MediaQuery.sizeOf(context).width * 54 / _designWidth;
 
-  /// Pengantaran sebelumnya dan promo: 35 dp dari tepi di desain.
+  /// Pengantaran sebelumnya: 35 dp dari tepi di desain.
   static double sectionSide(BuildContext context) =>
       MediaQuery.sizeOf(context).width * 35 / _designWidth;
 }
@@ -425,7 +512,7 @@ class _RouteCard extends StatelessWidget {
     required this.onItem,
   });
 
-  final SavedAddress origin;
+  final SavedAddress? origin;
   final SavedAddress? destination;
   final Recipient? recipient;
   final DeliverySchedule? schedule;
@@ -465,12 +552,17 @@ class _RouteCard extends StatelessWidget {
                       const SizedBox(width: 9),
                       Expanded(
                         child: Text(
-                          origin.fullAddress,
+                          origin?.fullAddress ?? 'Dijemput dari mana',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.style(
                             size: 11,
-                            weight: AppTypography.medium,
+                            weight: origin == null
+                                ? AppTypography.regular
+                                : AppTypography.medium,
+                            color: origin == null
+                                ? AppColors.textSecondary
+                                : AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -621,28 +713,19 @@ class _RouteConnector extends StatelessWidget {
   }
 }
 
-/// Garis putus-putus, mendatar atau tegak.
+/// Garis putus-putus mendatar.
 class _DashedLine extends StatelessWidget {
-  const _DashedLine({this.axis = Axis.horizontal});
-
-  final Axis axis;
+  const _DashedLine();
 
   @override
-  Widget build(BuildContext context) {
-    final horizontal = axis == Axis.horizontal;
-    return CustomPaint(
-      size: horizontal
-          ? const Size(double.infinity, 1)
-          : const Size(1, double.infinity),
-      painter: _DashPainter(horizontal: horizontal),
-    );
-  }
+  Widget build(BuildContext context) => const CustomPaint(
+    size: Size(double.infinity, 1),
+    painter: _DashPainter(),
+  );
 }
 
 class _DashPainter extends CustomPainter {
-  const _DashPainter({required this.horizontal});
-
-  final bool horizontal;
+  const _DashPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -651,19 +734,14 @@ class _DashPainter extends CustomPainter {
       ..strokeWidth = 1;
     const dash = 4.0;
     const gap = 3.0;
-    final length = horizontal ? size.width : size.height;
-    for (var p = 0.0; p < length; p += dash + gap) {
-      final end = (p + dash).clamp(0.0, length);
-      canvas.drawLine(
-        horizontal ? Offset(p, 0) : Offset(0, p),
-        horizontal ? Offset(end, 0) : Offset(0, end),
-        paint,
-      );
+    for (var p = 0.0; p < size.width; p += dash + gap) {
+      final end = (p + dash).clamp(0.0, size.width);
+      canvas.drawLine(Offset(p, 0), Offset(end, 0), paint);
     }
   }
 
   @override
-  bool shouldRepaint(_DashPainter old) => old.horizontal != horizontal;
+  bool shouldRepaint(_DashPainter old) => false;
 }
 
 class _ChoiceRow extends StatelessWidget {
@@ -730,9 +808,9 @@ class _ChoiceRow extends StatelessWidget {
 }
 
 class _VoucherCard extends StatelessWidget {
-  const _VoucherCard({required this.voucher, required this.onTap});
+  const _VoucherCard({required this.onTap});
 
-  final Voucher? voucher;
+  /// Voucher belum diterima `POST /orders`: ketukannya memberi tahu.
   final VoidCallback onTap;
 
   @override
@@ -761,16 +839,13 @@ class _VoucherCard extends StatelessWidget {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        voucher?.title ?? 'Gunakan Vocher',
+                        'Voucher belum bisa dipakai',
                         style: AppTypography.style(
                           size: 11,
                           weight: AppTypography.medium,
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.textSecondary,
                     ),
                   ],
                 ),
@@ -784,25 +859,43 @@ class _VoucherCard extends StatelessWidget {
 }
 
 /// Isi sebelum tujuan dipilih: pengantaran sebelumnya dan promo.
+/// Isi sebelum tujuan dipilih: tujuan pengantaran sebelumnya.
 class _Landing extends StatelessWidget {
   const _Landing({
     required this.now,
-    required this.selectedVoucher,
+    required this.past,
     required this.onPastDelivery,
-    required this.onPromo,
   });
 
   final DateTime now;
-  final Voucher? selectedVoucher;
+
+  /// Tujuan pengantaran sebelumnya dari pesanan Delivery pengguna.
+  final List<({SavedAddress destination, DateTime at})> past;
   final ValueChanged<SavedAddress> onPastDelivery;
-  final ValueChanged<Voucher> onPromo;
 
   @override
   Widget build(BuildContext context) {
-    const past = DeliverySamples.pastDeliveries;
+    if (past.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+          _Metrics.sectionSide(context),
+          33,
+          _Metrics.sectionSide(context),
+          0,
+        ),
+        child: Text(
+          'Pilih alamat tujuan untuk mulai mengirim barang.',
+          textAlign: TextAlign.center,
+          style: AppTypography.style(
+            size: AppTypography.small,
+            weight: AppTypography.regular,
+            color: AppColors.textDescription,
+          ),
+        ),
+      );
+    }
 
-    // Desain: judul 33 dp di bawah kartu rute, baris riwayat ±62 dp, kartu
-    // promo ±87 dp berjarak 15 dp.
+    // Desain: judul 33 dp di bawah kartu rute, baris riwayat ±62 dp.
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: _Metrics.sectionSide(context)),
       child: Column(
@@ -851,12 +944,7 @@ class _Landing extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  timeAgoLabel(
-                                    now.subtract(
-                                      Duration(days: past[i].daysAgo),
-                                    ),
-                                    now,
-                                  ),
+                                  timeAgoLabel(past[i].at, now),
                                   style: AppTypography.style(
                                     size: 9,
                                     weight: AppTypography.regular,
@@ -874,132 +962,25 @@ class _Landing extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 30),
-          const SectionLabel('Promo pengiriman'),
-          const SizedBox(height: 14),
-          for (final voucher in OrderSamples.vouchers)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: _PromoCard(
-                voucher: voucher,
-                selected: voucher.id == selectedVoucher?.id,
-                onTap: () => onPromo(voucher),
-              ),
-            ),
         ],
       ),
     );
   }
 }
 
-class _PromoCard extends StatelessWidget {
-  const _PromoCard({
-    required this.voucher,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final Voucher voucher;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: Material(
-        color: selected ? selectedFill : AppColors.light,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: selected ? AppColors.primary : cardBorder),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          // Seperti tiket: garis putus-putus tegak ±31 dp dari tepi kanan.
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(13, 13, 8, 13),
-                    child: Row(
-                      children: [
-                        // Gambar promo di desain masih kotak abu-abu.
-                        Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD9D9D9),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                voucher.title,
-                                style: AppTypography.style(
-                                  size: 13,
-                                  weight: AppTypography.semiBold,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                selected ? 'Dipakai' : voucher.description,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.style(
-                                  size: 9,
-                                  weight: selected
-                                      ? AppTypography.semiBold
-                                      : AppTypography.regular,
-                                  color: selected
-                                      ? AppColors.primary
-                                      : AppColors.textSecondary,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: _DashedLine(axis: Axis.vertical),
-                ),
-                const SizedBox(width: 30),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Kotak bergaris di bawah: total (bisa dibuka rinciannya) dan tombol
-/// "Lihat Pesanan". Pudar selama form belum lengkap.
 class _TotalCard extends StatelessWidget {
   const _TotalCard({
     required this.fee,
-    required this.discount,
+    required this.estimating,
     required this.expanded,
     required this.enabled,
     required this.onToggle,
     required this.onReview,
   });
 
-  final int fee;
-  final int discount;
+  /// Null selama belum terhitung.
+  final int? fee;
+  final bool estimating;
   final bool expanded;
   final bool enabled;
   final VoidCallback onToggle;
@@ -1051,7 +1032,9 @@ class _TotalCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerRight,
                         child: Text(
-                          rupiah(fee - discount),
+                          fee == null
+                              ? (estimating ? 'Menghitung...' : 'Rp -')
+                              : rupiah(fee!),
                           style: AppTypography.style(
                             size: 20,
                             weight: AppTypography.semiBold,
@@ -1073,9 +1056,11 @@ class _TotalCard extends StatelessWidget {
             ),
             if (expanded) ...[
               const SizedBox(height: 8),
-              InfoRow('Biaya Pengiriman', rupiah(fee), muted: true),
-              if (discount > 0)
-                InfoRow('Potongan vocher', rupiah(-discount), muted: true),
+              InfoRow(
+                'Biaya Pengiriman',
+                fee == null ? '-' : rupiah(fee!),
+                muted: true,
+              ),
             ],
             const SizedBox(height: 18),
             // Saat belum lengkap tombol tampil mati (desain), tapi ketukannya

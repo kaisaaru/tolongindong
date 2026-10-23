@@ -5,19 +5,15 @@ import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/empty_state.dart';
-import '../delivery/delivery_models.dart';
-import '../delivery/delivery_review_page.dart';
 import '../home/home_assets.dart';
-import '../household/active_order_page.dart';
-import '../household/household_models.dart';
+import '../household/household_models.dart' show dateLabel;
+import '../order/order_detail_page.dart';
+import '../order/order_repository.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
-import '../order/personal_order_page.dart';
 
-/// Isi tab "Aktifitas": pesanan yang sedang berjalan dan riwayatnya.
-///
-/// Sumbernya [OrderStore] (simulasi). Nanti dari `GET /orders`, dipisah
-/// berdasarkan status aktif vs selesai/dibatalkan.
+/// Isi tab "Aktifitas": pesanan yang sedang berjalan dan riwayatnya, dari
+/// `GET /orders` lewat [OrderStore].
 class ActivityView extends StatefulWidget {
   const ActivityView({
     super.key,
@@ -45,18 +41,16 @@ class _ActivityViewState extends State<ActivityView> {
   late final _store = context.read<OrderStore>();
   late bool _history = widget.startOnHistory;
 
-  void _openActive() => Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => ActiveOrderPage()));
+  @override
+  void initState() {
+    super.initState();
+    // Selalu terbaru saat tab dibuka: helper bisa memajukan status kapan
+    // saja dari aplikasinya.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _store.refresh());
+  }
 
-  void _openPersonal() => Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => PersonalOrderPage()));
-
-  void _openDelivery(DeliveryOrder order) => Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => DeliveryReviewPage.placed(order: order),
-    ),
+  void _open(ServerOrder order) => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => OrderDetailPage(orderId: order.id)),
   );
 
   @override
@@ -109,10 +103,13 @@ class _ActivityViewState extends State<ActivityView> {
                       ],
                     ),
                     Expanded(
-                      child: ListenableBuilder(
-                        listenable: _store,
-                        builder: (context, _) =>
-                            _history ? _buildHistory() : _buildActive(),
+                      child: RefreshIndicator(
+                        onRefresh: _store.refresh,
+                        child: ListenableBuilder(
+                          listenable: _store,
+                          builder: (context, _) =>
+                              _history ? _buildHistory() : _buildActive(),
+                        ),
                       ),
                     ),
                   ],
@@ -129,69 +126,80 @@ class _ActivityViewState extends State<ActivityView> {
   // dari tepi atas kartu; sisa jaraknya ada di padding tiap baris.
   static const _listPadding = EdgeInsets.fromLTRB(4, 27, 4, 14);
 
+  /// Kosong, memuat, atau gagal. Tetap bisa ditarik untuk memuat ulang.
+  Widget? _state({required bool empty, required Widget whenEmpty}) {
+    if (!empty) return null;
+    if (_store.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final error = _store.error;
+    final child = error == null
+        ? whenEmpty
+        : EmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: 'Pesanan gagal dimuat',
+            message: error.message,
+            actionLabel: 'Coba lagi',
+            onAction: _store.refresh,
+          );
+    return LayoutBuilder(
+      builder: (context, box) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(height: box.maxHeight, child: child),
+      ),
+    );
+  }
+
   Widget _buildActive() {
-    if (!_store.hasActive) {
-      return EmptyState(
+    final orders = _store.active;
+    final state = _state(
+      empty: orders.isEmpty,
+      whenEmpty: EmptyState(
         icon: Icons.receipt_long_outlined,
         title: 'Belum ada pesanan berjalan',
         message: 'Pesanan yang sedang dikerjakan helper akan tampil di sini.',
         actionLabel: 'Cari Layanan',
         onAction: widget.onExplore,
-      );
-    }
+      ),
+    );
+    if (state != null) return state;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: _listPadding,
       children: [
-        if (_store.active != null)
+        for (final order in orders)
           _ActiveRow(
-            title: 'Household',
-            status: activeStatusLabel(_store),
-            onTap: _openActive,
-          ),
-        if (_store.personal case final order?)
-          _ActiveRow(
-            title: 'Personal',
-            status: personalStatusLabel(order),
-            categoryCode: 'personal',
-            onTap: _openPersonal,
-          ),
-        for (final order in _store.deliveries)
-          _ActiveRow(
-            title: 'Delivery',
-            status: deliveryStatusLabel(order),
-            categoryCode: 'delivery',
-            onTap: () => _openDelivery(order),
+            title: order.title,
+            status: order.status.label,
+            categoryCode: order.categoryCode,
+            onTap: () => _open(order),
           ),
       ],
     );
   }
 
   Widget _buildHistory() {
-    final records = _store.history;
-    if (records.isEmpty) {
-      return const EmptyState(
+    final orders = _store.history;
+    final state = _state(
+      empty: orders.isEmpty,
+      whenEmpty: const EmptyState(
         icon: Icons.history_rounded,
         title: 'Belum ada riwayat pesanan',
         message: 'Pesanan yang selesai atau dibatalkan tersimpan di sini.',
-      );
-    }
+      ),
+    );
+    if (state != null) return state;
 
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: _listPadding,
-      itemCount: records.length,
-      itemBuilder: (context, index) => _HistoryRow(record: records[index]),
+      itemCount: orders.length,
+      itemBuilder: (context, index) =>
+          _HistoryRow(order: orders[index], onTap: () => _open(orders[index])),
     );
   }
 }
-
-/// Status pesanan Personal: belum ada jam, jadi cukup siapa yang mengerjakan.
-String personalStatusLabel(PersonalOrder order) =>
-    'Dikerjakan ${order.helper.name}';
-
-/// Status pengantaran: "Diantar sebelum jam 11.00" atau jadwalnya.
-String deliveryStatusLabel(DeliveryOrder order) =>
-    scheduleLabels(order.draft.schedule, order.placedAt).subtitle;
 
 /// Banner pesanan aktif yang melayang di beranda. Di kartu Aktifitas
 /// barisnya [_ActiveRow], yang lebih besar sesuai desain.
@@ -332,73 +340,78 @@ class _ActiveRow extends StatelessWidget {
 }
 
 class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.record});
+  const _HistoryRow({required this.order, required this.onTap});
 
-  final OrderRecord record;
+  final ServerOrder order;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cancelled = record.outcome == HistoryOutcome.cancelled;
+    final cancelled = order.status.isCancelled;
 
-    return Padding(
-      // Kanan 24: harga 29 dp dari tepi kanan kartu, sesuai desain.
-      padding: const EdgeInsets.fromLTRB(10, 10, 24, 10),
-      // Teks rata atas dengan ilustrasi, tidak di tengah: di desain blok
-      // judul+tanggal sedikit di atas pusat ilustrasi.
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipOval(child: _CategoryIcon(record.categoryCode, size: 40)),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Harga sebaris dengan judul, bukan di tengah baris.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        record.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.style(
-                          size: 14,
-                          weight: AppTypography.semiBold,
-                          height: 1.4,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        // Kanan 24: harga 29 dp dari tepi kanan kartu, sesuai desain.
+        padding: const EdgeInsets.fromLTRB(10, 10, 24, 10),
+        // Teks rata atas dengan ilustrasi, tidak di tengah: di desain blok
+        // judul+tanggal sedikit di atas pusat ilustrasi.
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipOval(child: _CategoryIcon(order.categoryCode, size: 40)),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Harga sebaris dengan judul, bukan di tengah baris.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          order.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.style(
+                            size: 14,
+                            weight: AppTypography.semiBold,
+                            height: 1.4,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      cancelled
-                          ? 'Dibatalkan'
-                          : rupiah(record.total, spaced: false),
-                      style: AppTypography.style(
-                        size: 12,
-                        weight: AppTypography.medium,
-                        color: cancelled
-                            ? AppColors.primary
-                            : AppColors.textPrimary,
+                      const SizedBox(width: 8),
+                      Text(
+                        cancelled
+                            ? order.status.label
+                            : rupiah(order.price, spaced: false),
+                        style: AppTypography.style(
+                          size: 12,
+                          weight: AppTypography.medium,
+                          color: cancelled
+                              ? AppColors.primary
+                              : AppColors.textPrimary,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Text(
-                  dateLabel(record.date),
-                  style: AppTypography.style(
-                    size: 12,
-                    weight: AppTypography.regular,
-                    color: AppColors.textSecondary,
-                    height: 1.4,
+                    ],
                   ),
-                ),
-              ],
+                  Text(
+                    dateLabel(order.createdAt),
+                    style: AppTypography.style(
+                      size: 12,
+                      weight: AppTypography.regular,
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

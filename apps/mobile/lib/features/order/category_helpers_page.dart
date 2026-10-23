@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
 import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/empty_state.dart';
 import 'helper_detail_page.dart';
+import 'helper_repository.dart';
 import 'order_models.dart';
-import 'order_samples.dart';
 import 'order_style.dart';
 import 'widgets/order_widgets.dart';
 
 /// Daftar helper dalam satu kategori, dibuka dari ubin kategori di beranda.
 /// Bisa dicari lewat nama/keahlian dan disaring per sub-kategori.
 ///
-/// Isinya masih contoh: `GET /helpers?category_id=` sudah ada, tapi belum
-/// memberi sub-kategori, label keahlian, maupun harga tetap per jasa.
+/// Dari `GET /helpers?category_id=`: helper terverifikasi yang tersedia di
+/// sekitar alamat utama. Backend belum memberi sub-kategori, jadi chip
+/// filter baru tampil kalau datanya ada.
 class CategoryHelpersPage extends StatefulWidget {
-  const CategoryHelpersPage({super.key, required this.category, this.listings});
+  const CategoryHelpersPage({super.key, required this.category});
 
   final ServiceCategory category;
-
-  /// Diisi saat pengujian. Default: data contoh untuk kategori ini.
-  final List<HelperListing>? listings;
 
   @override
   State<CategoryHelpersPage> createState() => _CategoryHelpersPageState();
@@ -31,20 +32,30 @@ class CategoryHelpersPage extends StatefulWidget {
 class _CategoryHelpersPageState extends State<CategoryHelpersPage> {
   static const _all = 'Semua';
 
-  late final _listings =
-      widget.listings ?? OrderSamples.listingsFor(widget.category.code);
-  late final _filters = [
-    _all,
-    ...?OrderSamples.subcategories[widget.category.code],
-  ];
+  late Future<List<HelperListing>> _listings = _fetch();
 
   String _selected = _all;
   String _query = '';
 
-  List<HelperListing> get _visible {
+  Future<List<HelperListing>> _fetch() =>
+      context.read<HelperRepository>().listings(widget.category.id);
+
+  void _reload() => setState(() {
+    _listings = _fetch();
+  });
+
+  static List<String> _filtersOf(List<HelperListing> all) => [
+    _all,
+    ...{
+      for (final h in all)
+        if (h.subcategory.isNotEmpty) h.subcategory,
+    },
+  ];
+
+  List<HelperListing> _visible(List<HelperListing> all) {
     final q = _query.trim().toLowerCase();
     return [
-      for (final item in _listings)
+      for (final item in all)
         if ((_selected == _all || item.subcategory == _selected) &&
             (q.isEmpty ||
                 item.name.toLowerCase().contains(q) ||
@@ -55,8 +66,6 @@ class _CategoryHelpersPageState extends State<CategoryHelpersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visible;
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -77,38 +86,74 @@ class _CategoryHelpersPageState extends State<CategoryHelpersPage> {
                 ),
               ),
               const SizedBox(height: 15),
-              if (_filters.length > 1)
-                _FilterChips(
-                  filters: _filters,
-                  selected: _selected,
-                  onSelected: (value) => setState(() => _selected = value),
-                ),
               Expanded(
-                child: visible.isEmpty
-                    ? _EmptyState(
-                        hasFilter: _query.isNotEmpty || _selected != _all,
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.fromLTRB(
-                          22,
-                          21,
-                          22,
-                          24 + MediaQuery.paddingOf(context).bottom,
+                child: FutureBuilder<List<HelperListing>>(
+                  future: _listings,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final error = snapshot.error;
+                    if (error != null) {
+                      return EmptyState(
+                        icon: Icons.cloud_off_rounded,
+                        title: 'Helper gagal dimuat',
+                        message: error is ApiException
+                            ? error.message
+                            : 'Coba lagi sebentar lagi.',
+                        actionLabel: 'Coba lagi',
+                        onAction: _reload,
+                      );
+                    }
+                    final all = snapshot.data ?? const <HelperListing>[];
+                    final filters = _filtersOf(all);
+                    final visible = _visible(all);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (filters.length > 1)
+                          _FilterChips(
+                            filters: filters,
+                            selected: _selected,
+                            onSelected: (value) =>
+                                setState(() => _selected = value),
+                          ),
+                        Expanded(
+                          child: visible.isEmpty
+                              ? _EmptyState(
+                                  hasFilter:
+                                      _query.isNotEmpty || _selected != _all,
+                                )
+                              : ListView.separated(
+                                  padding: EdgeInsets.fromLTRB(
+                                    22,
+                                    21,
+                                    22,
+                                    24 + MediaQuery.paddingOf(context).bottom,
+                                  ),
+                                  itemCount: visible.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 14),
+                                  itemBuilder: (context, index) {
+                                    final item = visible[index];
+                                    return _HelperCard(
+                                      item: item,
+                                      onTap: () => Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => HelperDetailPage(
+                                            helper: item,
+                                            category: widget.category,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                         ),
-                        itemCount: visible.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 14),
-                        itemBuilder: (context, index) {
-                          final item = visible[index];
-                          return _HelperCard(
-                            item: item,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => HelperDetailPage(helper: item),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),

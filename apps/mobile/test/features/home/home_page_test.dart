@@ -4,20 +4,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/account/change_password_page.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/chat/chat_list_view.dart';
-import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/household/household_page.dart';
 import 'package:mobile/features/notification/notification_page.dart';
-import 'package:mobile/features/household/household_samples.dart';
-import 'package:mobile/features/order/order_samples.dart';
-import 'package:mobile/features/order/order_store.dart';
+import 'package:mobile/features/order/order_detail_page.dart';
+import 'package:mobile/features/order/order_repository.dart';
 import 'package:mobile/features/wallet/wallet_page.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/models/service_category.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_catalog_repository.dart';
+import '../../helpers/fake_chat_repository.dart';
 import '../../helpers/fake_notification_repository.dart';
+import '../../helpers/fake_order_repository.dart';
 import '../../helpers/fake_wallet_repository.dart';
 import '../../helpers/pump_page.dart';
 
@@ -131,7 +131,9 @@ void main() {
       user: _user,
       authRepo: FakeAuthRepository(),
       catalogRepo: FakeCatalogRepository(),
-      chatStore: ChatStore(),
+      chatRepo: FakeChatRepository(
+        rooms: [FakeRoom(id: 1, peerName: 'Agus Nomercy', helperId: 'h-1')],
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -142,24 +144,31 @@ void main() {
     expect(find.text('Agus Nomercy'), findsOneWidget);
   });
 
-  testWidgets('banner beranda menampilkan pesanan Personal', (tester) async {
-    final store = OrderStore()
-      ..placePersonal(
-        helper: OrderSamples.listingsFor('personal').first,
-        payment: HouseholdSamples.paymentMethods.first,
-      );
+  testWidgets('banner beranda: pesanan berjalan dari server', (tester) async {
     await pumpPage(
       tester,
       HomePage(),
       user: _user,
       authRepo: FakeAuthRepository(),
       catalogRepo: FakeCatalogRepository(),
-      orderStore: store,
+      orderRepo: FakeOrderRepository(
+        orders: [
+          FakeOrderRepository.sample(
+            status: OrderStatus.onTheWay,
+            categoryCode: 'personal',
+            description: 'Personal - Agus Nomercy',
+          ),
+        ],
+      ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Personal'), findsWidgets); // ubin kategori + banner
-    expect(find.text('Dikerjakan Agus Nomercy'), findsOneWidget);
+    expect(find.text('Personal - Agus Nomercy'), findsOneWidget);
+    expect(find.text('Helper menuju lokasi'), findsOneWidget);
+
+    await tester.tap(find.text('Personal - Agus Nomercy'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OrderDetailPage), findsOneWidget);
   });
 
   testWidgets('tombol kembali di tab lain membawa ke Beranda', (tester) async {
@@ -263,7 +272,6 @@ void main() {
       user: _user,
       authRepo: FakeAuthRepository(),
       catalogRepo: FakeCatalogRepository(),
-      orderStore: OrderStore(),
     );
     await tester.pumpAndSettle();
 

@@ -4,17 +4,20 @@ import 'package:mobile/app_scope.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/chat/chat_store.dart';
 import 'package:mobile/features/home/home_page.dart';
-import 'package:mobile/features/household/household_samples.dart';
-import 'package:mobile/features/order/order_samples.dart';
+import 'package:mobile/features/order/order_repository.dart';
 import 'package:mobile/features/order/order_store.dart';
 import 'package:mobile/features/splash/splash_page.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/fake_address_repository.dart';
 import '../helpers/fake_auth_repository.dart';
 import '../helpers/fake_catalog_repository.dart';
+import '../helpers/fake_chat_repository.dart';
+import '../helpers/fake_helper_repository.dart';
 import '../helpers/fake_notification_repository.dart';
+import '../helpers/fake_order_repository.dart';
 import '../helpers/fake_wallet_repository.dart';
 import '../helpers/pump_page.dart';
 
@@ -46,6 +49,10 @@ void main() {
         catalogRepo: FakeCatalogRepository(),
         walletRepo: FakeWalletRepository(),
         notificationRepo: FakeNotificationRepository([]),
+        helperRepo: FakeHelperRepository(),
+        addressRepo: FakeAddressRepository(),
+        orderRepo: FakeOrderRepository(),
+        chatRepo: FakeChatRepository(),
         child: const MyApp(),
       ),
     );
@@ -107,14 +114,16 @@ void main() {
   });
 
   testWidgets('keluar akun mengosongkan pesanan dan obrolan', (tester) async {
-    final orders = OrderStore()
-      ..placePersonal(
-        helper: OrderSamples.listingsFor('personal').first,
-        payment: HouseholdSamples.paymentMethods.first,
-      );
-    final chats = ChatStore(rooms: []);
-    chats.openWithHelper(helperId: 'h-1', name: 'Agus');
-    expect(chats.rooms, hasLength(1));
+    final orderRepo = FakeOrderRepository(
+      orders: [FakeOrderRepository.sample(status: OrderStatus.onTheWay)],
+    );
+    final chatRepo = FakeChatRepository(
+      rooms: [FakeRoom(id: 1, peerName: 'Agus', helperId: 'h-1')],
+    );
+    final orders = OrderStore(orderRepo);
+    final chats = ChatStore(chatRepo);
+    addTearDown(orders.dispose);
+    addTearDown(chats.dispose);
 
     await pumpPage(
       tester,
@@ -123,6 +132,10 @@ void main() {
       chatStore: chats,
     );
     await tester.pumpAndSettle();
+    await chats.refresh();
+    expect(orders.hasActive, isTrue);
+    expect(chats.rooms, hasLength(1));
+
     await tester.tap(find.text('Akun'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Keluar'));

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../order/order_models.dart';
-
 /// Layanan di dalam kategori Household.
 enum HouseholdService {
   pindahan(
@@ -151,11 +149,44 @@ class SavedAddress {
     required this.label,
     required this.fullAddress,
     required this.kind,
+    this.id,
+    this.latitude,
+    this.longitude,
+    this.landmarkNote,
+    this.isPrimary = false,
   });
 
+  /// Satu baris `GET /addresses`. Ikon dipilih dari labelnya.
+  factory SavedAddress.fromJson(Map<String, dynamic> json) {
+    final label = json['label'] as String? ?? 'Alamat';
+    final lower = label.toLowerCase();
+    return SavedAddress(
+      id: (json['id'] as num?)?.toInt(),
+      label: label,
+      fullAddress: json['full_address'] as String? ?? '',
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      landmarkNote: json['landmark_note'] as String?,
+      isPrimary: json['is_primary'] as bool? ?? false,
+      kind: lower.contains('kantor')
+          ? AddressKind.office
+          : lower.contains('rumah') || lower.contains('kos')
+          ? AddressKind.home
+          : AddressKind.recent,
+    );
+  }
+
+  /// Id alamat di server, wajib untuk membuat pesanan.
+  final int? id;
   final String label;
   final String fullAddress;
   final AddressKind kind;
+  final double? latitude;
+  final double? longitude;
+
+  /// Patokan, misal "Pagar hitam, sebelah warung".
+  final String? landmarkNote;
+  final bool isPrimary;
 }
 
 /// Helper yang dibayar per jam, mengikuti `GET /helpers` (`hourly_rate`,
@@ -172,6 +203,19 @@ class HourlyHelper {
     this.photoUrl,
   });
 
+  /// Satu helper dari `GET /helpers`.
+  factory HourlyHelper.fromJson(Map<String, dynamic> json) => HourlyHelper(
+    id: json['id'] as String,
+    name: json['full_name'] as String? ?? 'Helper',
+    photoUrl: json['photo_url'] as String?,
+    rating: double.tryParse('${json['rating_average']}') ?? 0,
+    reviewCount: (json['rating_count'] as num?)?.toInt() ?? 0,
+    completedCount: (json['completed_order_count'] as num?)?.toInt() ?? 0,
+    hourlyRate: (json['hourly_rate'] as num?)?.toInt() ?? 0,
+    distanceKm: (json['distance_km'] as num?)?.toDouble(),
+  );
+
+  /// `helper_profiles.id`, dipakai sebagai `helper_id` pesanan.
   final String id;
   final String name;
   final String? photoUrl;
@@ -179,7 +223,9 @@ class HourlyHelper {
   final int reviewCount;
   final int completedCount;
   final int hourlyRate;
-  final double distanceKm;
+
+  /// Null kalau jarak tidak bisa dihitung (pengguna belum punya alamat).
+  final double? distanceKm;
 }
 
 /// Satu slot jadwal satu jam, misal 21 Okt 2026 08.00–09.00.
@@ -200,38 +246,12 @@ class TimeSlot {
   int get hashCode => start.hashCode;
 }
 
-enum PaymentGroup {
-  /// Hanya ditawarkan untuk Delivery (lihat `PaymentMethodPage`).
-  cashOnDelivery('Bayar di Tempat', 'Bayar saat pesanan tiba'),
-  eWallet('E-Wallet', 'Pembayaran e-wallet'),
-  bank('Bank', 'Transfer bank & virtual account');
+/// Pilihan durasi (jam) di form Rumah/Kamar/Pakaian.
+const householdDurationOptions = [1, 2, 3, 4, 5];
 
-  const PaymentGroup(this.label, this.description);
-  final String label;
-  final String description;
-}
-
-class PaymentMethod {
-  const PaymentMethod({
-    required this.id,
-    required this.name,
-    required this.group,
-    this.logo,
-  });
-
-  final String id;
-  final String name;
-  final PaymentGroup group;
-
-  /// Aset SVG logo merchant. Null untuk Bayar di Tempat (pakai ikon toko).
-  final String? logo;
-
-  @override
-  bool operator ==(Object other) => other is PaymentMethod && other.id == id;
-
-  @override
-  int get hashCode => id.hashCode;
-}
+/// Slot jadwal: tiap jam dari 08.00 sampai 20.00.
+const firstSlotHour = 8;
+const lastSlotHour = 20;
 
 /// Isi form pesanan Household yang sudah lengkap, siap dikonfirmasi.
 ///
@@ -271,8 +291,6 @@ class HouseholdOrderDraft {
 
   bool get isMove => service == HouseholdService.pindahan;
 
-  int get helperCost => helper.hourlyRate * hours;
-
   /// Biaya di luar biaya helper (muatan, kendaraan).
   List<PriceLine> get fees => extraFees(load, fleet);
 
@@ -299,30 +317,21 @@ class HouseholdOrderDraft {
       slot == null ? 'Sekarang' : '${dateLabel(slot!.day)} ${slot!.hourLabel}';
 }
 
-/// Rincian harga pesanan. Potongan voucher hanya berlaku untuk biaya awal
-/// (helper + [fees]), tidak untuk durasi tambahan.
+/// Rincian harga pesanan: biaya helper per jam ditambah [fees].
 class PriceBreakdown {
   const PriceBreakdown({
     required this.hourlyRate,
     required this.baseHours,
-    required this.extraHours,
     this.fees = const [],
-    this.voucher,
   });
 
   final int hourlyRate;
   final int baseHours;
-
-  /// Tiap tambahan durasi jadi satu baris tersendiri.
-  final List<int> extraHours;
   final List<PriceLine> fees;
-  final Voucher? voucher;
 
   int get baseCost => hourlyRate * baseHours;
   int get feeCost => fees.fold(0, (sum, f) => sum + f.amount);
-  int get discount => voucher?.discountFor(baseCost + feeCost) ?? 0;
-  int get extraCost => extraHours.fold(0, (sum, h) => sum + h * hourlyRate);
-  int get total => baseCost + feeCost - discount + extraCost;
+  int get total => baseCost + feeCost;
 }
 
 const _months = [

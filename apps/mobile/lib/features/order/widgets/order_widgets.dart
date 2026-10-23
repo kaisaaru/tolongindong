@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../theme/app_colors.dart';
@@ -561,50 +560,8 @@ class OrderBottomBar extends StatelessWidget {
   }
 }
 
-/// Halaman pesanan yang pesanannya sudah ditutup dari tempat lain
-/// (dibatalkan, dinilai, selesai). Tetap ada jalan kembali, bukan layar
-/// kosong tanpa tombol.
-class OrderEndedView extends StatelessWidget {
-  const OrderEndedView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        backgroundColor: AppColors.light,
-        body: SafeArea(
-          child: Column(
-            children: [
-              const ArrowTitleBar(''),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Text(
-                      'Pesanan ini sudah selesai.\nLihat riwayatnya di Aktifitas.',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.style(
-                        size: AppTypography.small,
-                        weight: AppTypography.regular,
-                        color: AppColors.textDescription,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Status pesanan yang sedang berjalan: ikon merah, status tebal, dan
-/// keterangan (misal jam pesan). Dipakai halaman pesanan Personal dan
-/// Delivery, yang tidak punya hitung mundur seperti Household.
+/// keterangan, di atas halaman Detail Pesanan.
 class OrderStatusBanner extends StatelessWidget {
   const OrderStatusBanner({
     super.key,

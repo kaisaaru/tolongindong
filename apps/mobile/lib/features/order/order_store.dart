@@ -2,364 +2,182 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../delivery/delivery_models.dart';
-import '../household/household_models.dart';
-import 'order_models.dart';
+import '../../core/api/api_exception.dart';
+import 'order_repository.dart';
 
-enum ActiveStatus {
-  /// Helper menuju lokasi. Selama [OrderStore.cancelWindow] pertama,
-  /// pesanan masih bisa dibatalkan.
-  onTheWay,
-
-  /// Helper sedang bekerja; durasi berjalan mundur.
-  working,
-
-  /// Durasi habis; pelanggan memilih tambah waktu atau selesai.
-  timeUp,
-
-  /// Pelanggan menyatakan selesai, tinggal memberi rating.
-  finished,
-}
-
-/// Pesanan yang sedang berjalan.
-class ActiveOrder {
-  ActiveOrder({
-    required this.draft,
-    required this.payment,
-    required this.placedAt,
-    this.voucher,
-  });
-
-  final HouseholdOrderDraft draft;
-  final PaymentMethod payment;
-  final Voucher? voucher;
-
-  /// Waktu "dunia pesanan" saat dibuat. Lihat [OrderStore.now].
-  final DateTime placedAt;
-
-  final List<int> extraHours = [];
-
-  /// Lama menunggu antara waktu habis dan durasi ditambah. Tambahan durasi
-  /// dihitung mulai saat ditambah, bukan dari jam waktu habis.
-  Duration waited = Duration.zero;
-
-  /// True setelah pelanggan memilih "Selesai" saat waktu habis.
-  bool ended = false;
-
-  PriceBreakdown get price => PriceBreakdown(
-    hourlyRate: draft.helper.hourlyRate,
-    baseHours: draft.hours,
-    extraHours: List.unmodifiable(extraHours),
-    fees: draft.fees,
-    voucher: voucher,
-  );
-
-  int get totalHours => extraHours.fold(draft.hours, (sum, h) => sum + h);
-
-  /// Pesanan "Sekarang" dianggap tiba 30 menit setelah dibuat; pesanan
-  /// terjadwal tiba di awal slotnya.
-  DateTime get arriveAt =>
-      draft.slot?.start ?? placedAt.add(OrderStore.travelTime);
-
-  DateTime get finishAt =>
-      arriveAt.add(Duration(hours: totalHours)).add(waited);
-
-  DateTime get cancelDeadline => placedAt.add(OrderStore.cancelWindow);
-}
-
-/// Pesanan Personal yang sedang dikerjakan helper. Tanpa jam: selesai saat
-/// pelanggan menekan "Selesai" lalu memberi rating.
-class PersonalOrder {
-  const PersonalOrder({
-    required this.helper,
-    required this.payment,
-    required this.placedAt,
-    this.voucher,
-  });
-
-  final HelperListing helper;
-  final PaymentMethod payment;
-  final Voucher? voucher;
-  final DateTime placedAt;
-
-  int get price => helper.price;
-  int get discount => voucher?.discountFor(price) ?? 0;
-  int get total => price - discount;
-}
-
-/// Pengantaran yang sudah dipesan. Desain pelacakan kurir belum ada, jadi
-/// pesanan ini hanya tampil di Aktifitas sampai desainnya ada.
-class DeliveryOrder {
-  const DeliveryOrder({
-    required this.draft,
-    required this.payment,
-    required this.placedAt,
-    this.voucher,
-  });
-
-  final DeliveryDraft draft;
-  final PaymentMethod payment;
-  final Voucher? voucher;
-  final DateTime placedAt;
-
-  int get discount => draft.discountWith(voucher);
-  int get total => draft.fee - discount;
-}
-
-enum HistoryOutcome { completed, cancelled }
-
-class OrderRecord {
-  const OrderRecord({
-    required this.title,
-    required this.categoryCode,
-    required this.date,
-    required this.total,
-    required this.outcome,
-    this.rating,
-  });
-
-  /// Misal "Household - Rumah" atau "Personal - Tugas Kuliah".
-  final String title;
-
-  /// Kode kategori backend, untuk ikon di riwayat.
-  final String categoryCode;
-  final DateTime date;
-  final int total;
-  final HistoryOutcome outcome;
-  final int? rating;
-}
-
-/// Satu-satunya sumber pesanan aktif dan riwayat, dipakai bersama beranda,
-/// tab Aktifitas, dan halaman pesanan. Satu pesanan Household ([active]) dan
-/// satu pesanan Personal ([personal]) boleh berjalan bersamaan.
+/// Pesanan pengguna dari server, dipakai bersama beranda (banner), tab
+/// Aktifitas, dan halaman detail pesanan.
 ///
-/// SIMULASI: backend belum dipakai. Status Household dihitung dari jam, dan jam
-/// "dunia pesanan" berjalan [speed] kali lebih cepat supaya alurnya bisa
-/// dicoba tanpa menunggu berjam-jam (1 detik = 1 menit). Saat disambung ke
-/// backend, ganti dengan polling `GET /orders/{id}` dan baca `order.status`.
+/// Belum ada push notification: selama masih ada pesanan berjalan, daftar
+/// diperiksa ulang tiap [pollEvery] supaya perubahan dari helper (menerima,
+/// berangkat, selesai) ikut terlihat.
 class OrderStore extends ChangeNotifier {
-  OrderStore({this.speed = 60, DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now;
+  OrderStore(
+    this._repo, {
+    DateTime Function()? clock,
+    this.pollEvery = const Duration(seconds: 15),
+  }) : _clock = clock ?? DateTime.now;
 
-  static const travelTime = Duration(minutes: 30);
-  static const cancelWindow = Duration(minutes: 10);
-
-  final int speed;
+  final OrderRepository _repo;
   final DateTime Function() _clock;
+  final Duration pollEvery;
 
-  /// Pasangan titik acuan jam nyata dan jam dunia pesanan.
-  DateTime? _realAnchor;
-  DateTime? _worldAnchor;
-  Timer? _ticker;
+  final List<ServerOrder> _orders = [];
 
-  ActiveOrder? _active;
-  PersonalOrder? _personal;
-  final List<DeliveryOrder> _deliveries = [];
-  final List<OrderRecord> _history = [];
+  /// Pesanan yang sudah dinilai di sesi ini. Backend tidak mengirim rating
+  /// di JSON pesanan, jadi ajakan memberi rating tidak diulang dari sini.
+  final Set<int> _rated = {};
+  Timer? _poll;
+  bool _loading = false;
+  ApiException? _error;
 
-  ActiveOrder? get active => _active;
-  PersonalOrder? get personal => _personal;
+  DateTime get now => _clock();
+  bool get loading => _loading;
+  ApiException? get error => _error;
 
-  /// Terbaru di atas. Boleh lebih dari satu.
-  List<DeliveryOrder> get deliveries => List.unmodifiable(_deliveries.reversed);
-  List<OrderRecord> get history => List.unmodifiable(_history.reversed);
+  /// Terbaru di atas.
+  List<ServerOrder> get active => [
+    for (final o in _orders)
+      if (!o.status.isTerminal) o,
+  ];
 
-  bool get hasActive =>
-      _active != null || _personal != null || _deliveries.isNotEmpty;
+  List<ServerOrder> get history => [
+    for (final o in _orders)
+      if (o.status.isTerminal) o,
+  ];
 
-  /// Jam dunia pesanan. Tanpa pesanan aktif, sama dengan jam nyata.
-  DateTime get now {
-    final real = _clock();
-    final realAnchor = _realAnchor;
-    final worldAnchor = _worldAnchor;
-    if (realAnchor == null || worldAnchor == null) return real;
-    return worldAnchor.add(real.difference(realAnchor) * speed);
-  }
+  bool get hasActive => _orders.any((o) => !o.status.isTerminal);
 
-  ActiveStatus? get status {
-    final order = _active;
-    if (order == null) return null;
-    final t = now;
-    if (t.isBefore(order.arriveAt)) return ActiveStatus.onTheWay;
-    if (t.isBefore(order.finishAt)) return ActiveStatus.working;
-    return order.ended ? ActiveStatus.finished : ActiveStatus.timeUp;
-  }
-
-  bool get canCancel {
-    final order = _active;
-    return order != null && now.isBefore(order.cancelDeadline);
-  }
-
-  /// Sisa durasi kerja; nol kalau belum mulai atau sudah selesai.
-  Duration get remaining {
-    final order = _active;
-    if (order == null || status != ActiveStatus.working) return Duration.zero;
-    return order.finishAt.difference(now);
-  }
-
-  /// Hanya satu pesanan aktif dalam satu waktu.
-  void place({
-    required HouseholdOrderDraft draft,
-    required PaymentMethod payment,
-    Voucher? voucher,
-  }) {
-    assert(_active == null, 'Masih ada pesanan aktif.');
-    final real = _clock();
-    _realAnchor = real;
-    _worldAnchor = real;
-    _active = ActiveOrder(
-      draft: draft,
-      payment: payment,
-      voucher: voucher,
-      placedAt: real,
-    );
-    _startTicker();
-    notifyListeners();
-  }
-
-  void cancel() {
-    final order = _active;
-    if (order == null) return;
-    _archive(order, HistoryOutcome.cancelled);
-  }
-
-  void addHours(int hours) {
-    final order = _active;
-    if (order == null) return;
-    final late = now.difference(order.finishAt);
-    if (status == ActiveStatus.timeUp && late > Duration.zero) {
-      order.waited += late;
+  ServerOrder? byId(int id) {
+    for (final o in _orders) {
+      if (o.id == id) return o;
     }
-    order.extraHours.add(hours);
-    notifyListeners();
+    return null;
   }
 
-  /// Pelanggan memilih "Selesai" saat waktu habis: lanjut ke rating.
-  void endWork() {
-    final order = _active;
-    if (order == null || status != ActiveStatus.timeUp) return;
-    order.ended = true;
-    notifyListeners();
+  bool isRated(int id) => _rated.contains(id);
+
+  /// [quiet]: pemeriksaan berkala; tidak menampilkan indikator memuat.
+  Future<void> refresh({bool quiet = false}) async {
+    if (!quiet) {
+      _loading = true;
+      _error = null;
+      notifyListeners();
+    }
+    try {
+      final fresh = await _repo.list();
+      // Detail (riwayat status) yang sudah dimuat dipertahankan.
+      final detailed = {
+        for (final o in _orders)
+          if (o.history.isNotEmpty) o.id: o,
+      };
+      _orders
+        ..clear()
+        ..addAll([
+          for (final o in fresh)
+            if (detailed[o.id] case final d? when d.status == o.status)
+              d
+            else
+              o,
+        ]);
+      _error = null;
+    } on ApiException catch (e) {
+      if (!quiet) _error = e;
+    } finally {
+      _loading = false;
+      _syncPolling();
+      notifyListeners();
+    }
   }
 
-  /// Menutup pesanan yang sudah selesai, dengan atau tanpa rating.
-  void complete({int? rating}) {
-    final order = _active;
-    if (order == null) return;
-    _archive(order, HistoryOutcome.completed, rating: rating);
-  }
-
-  /// Pesanan Personal dari checkout. Nanti: `POST /orders`.
-  void placePersonal({
-    required HelperListing helper,
-    required PaymentMethod payment,
-    Voucher? voucher,
-  }) {
-    assert(_personal == null, 'Masih ada pesanan Personal aktif.');
-    _personal = PersonalOrder(
-      helper: helper,
-      payment: payment,
-      voucher: voucher,
-      placedAt: _clock(),
-    );
-    notifyListeners();
-  }
-
-  /// Pesanan Delivery dari Detail Pesanan. Nanti: `POST /orders`.
-  DeliveryOrder placeDelivery({
-    required DeliveryDraft draft,
-    required PaymentMethod payment,
-    Voucher? voucher,
-  }) {
-    final order = DeliveryOrder(
-      draft: draft,
-      payment: payment,
-      voucher: voucher,
-      placedAt: _clock(),
-    );
-    _deliveries.add(order);
-    notifyListeners();
+  /// Detail satu pesanan, termasuk riwayat status dan helper.
+  Future<ServerOrder> load(int id) async {
+    final order = await _repo.detail(id);
+    _upsert(order);
     return order;
   }
 
-  /// Pelanggan menandai paket sudah diterima: pindah ke riwayat. Tanpa ini
-  /// pengantaran tampil sebagai pesanan berjalan selamanya. Nanti: status
-  /// `completed` dari `GET /orders/{id}`.
-  void completeDelivery(DeliveryOrder order) {
-    if (!_deliveries.remove(order)) return;
-    _history.add(
-      OrderRecord(
-        title: 'Delivery - ${order.draft.item.type.label}',
-        categoryCode: 'delivery',
-        date: order.placedAt,
-        total: order.total,
-        outcome: HistoryOutcome.completed,
-      ),
+  /// Buat pesanan ke helper pilihan pelanggan. Gagal: [ApiException]
+  /// dilempar (misal saldo kurang, helper sedang tidak tersedia).
+  Future<ServerOrder> place({
+    required int categoryId,
+    required String helperId,
+    required String description,
+    required int price,
+    int? pickupAddressId,
+    int? destinationAddressId,
+  }) async {
+    final id = await _repo.create(
+      categoryId: categoryId,
+      helperId: helperId,
+      description: description,
+      price: price,
+      pickupAddressId: pickupAddressId,
+      destinationAddressId: destinationAddressId,
     );
+    return load(id);
+  }
+
+  Future<ServerOrder> cancel(int id, {String? reason}) async {
+    await _repo.cancel(id, reason: reason);
+    return load(id);
+  }
+
+  Future<ServerOrder> confirm(int id) async {
+    await _repo.confirm(id);
+    return load(id);
+  }
+
+  /// Sudah pernah dinilai (`ALREADY_RATED`) dianggap berhasil.
+  Future<void> rate(int id, int score) async {
+    try {
+      await _repo.rate(id, score);
+    } on ApiException catch (e) {
+      if (e.code != 'ALREADY_RATED') rethrow;
+    }
+    _rated.add(id);
     notifyListeners();
   }
 
-  /// Pelanggan menekan "Selesai" dan memberi rating.
-  void completePersonal({int? rating}) {
-    final order = _personal;
-    if (order == null) return;
-    _history.add(
-      OrderRecord(
-        title: 'Personal - ${order.helper.subcategory}',
-        categoryCode: 'personal',
-        date: order.placedAt,
-        total: order.total,
-        outcome: HistoryOutcome.completed,
-        rating: rating,
-      ),
-    );
-    _personal = null;
+  /// Rating dilewati: jangan ditawarkan lagi di sesi ini.
+  void skipRating(int id) {
+    _rated.add(id);
     notifyListeners();
   }
 
-  void _archive(ActiveOrder order, HistoryOutcome outcome, {int? rating}) {
-    _history.add(
-      OrderRecord(
-        title: 'Household - ${order.draft.service.label}',
-        categoryCode: 'household',
-        date: order.placedAt,
-        total: order.price.total,
-        outcome: outcome,
-        rating: rating,
-      ),
-    );
-    _active = null;
-    _realAnchor = null;
-    _worldAnchor = null;
-    _ticker?.cancel();
-    _ticker = null;
+  void _upsert(ServerOrder order) {
+    final i = _orders.indexWhere((o) => o.id == order.id);
+    if (i < 0) {
+      _orders.insert(0, order);
+    } else {
+      _orders[i] = order;
+    }
+    _syncPolling();
     notifyListeners();
   }
 
-  void _startTicker() {
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      notifyListeners();
-    });
+  void _syncPolling() {
+    if (hasActive) {
+      _poll ??= Timer.periodic(pollEvery, (_) => refresh(quiet: true));
+    } else {
+      _poll?.cancel();
+      _poll = null;
+    }
   }
 
-  /// Mengosongkan semua pesanan, misal saat keluar akun supaya pengguna
-  /// berikutnya tidak melihat pesanan orang lain.
+  /// Kosongkan, misal saat keluar akun.
   void reset() {
-    _ticker?.cancel();
-    _ticker = null;
-    _active = null;
-    _personal = null;
-    _deliveries.clear();
-    _realAnchor = null;
-    _worldAnchor = null;
-    _history.clear();
+    _poll?.cancel();
+    _poll = null;
+    _orders.clear();
+    _rated.clear();
+    _error = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _poll?.cancel();
     super.dispose();
   }
 }

@@ -7,14 +7,13 @@ import '../order/order_style.dart';
 import '../order/widgets/order_widgets.dart';
 import 'address_picker_page.dart';
 import 'household_models.dart';
-import 'household_samples.dart';
 import 'widgets/household_widgets.dart';
 
 /// Lokasi awal dan tujuan pesanan Pindahan.
 typedef MoveRoute = ({SavedAddress origin, SavedAddress destination});
 
-/// Pilih rute Pindahan: kolom lokasi awal (belah ketupat biru) dan tujuan
-/// (pin merah), di atas daftar alamat Terakhir/Tersimpan.
+/// Pilih rute Pindahan dan Delivery: kolom lokasi awal (belah ketupat biru)
+/// dan tujuan (pin merah), di atas daftar alamat tersimpan.
 ///
 /// Alamat yang diketuk mengisi kolom yang sedang aktif (garis merah). Kalau
 /// kolom lainnya masih kosong, kolom itu jadi aktif; kalau keduanya sudah
@@ -25,28 +24,22 @@ class RoutePickerPage extends StatefulWidget {
     this.origin,
     this.destination,
     this.editOrigin = false,
-    this.recent,
-    this.saved,
   });
 
-  /// Null: diisi "Lokasi saat ini", seperti desain.
+  /// Null: belum dipilih. Pesanan memakai id alamat tersimpan, jadi "Lokasi
+  /// saat ini" di desain diganti alamat tersimpan atau alamat baru.
   final SavedAddress? origin;
   final SavedAddress? destination;
 
   /// True: kolom lokasi awal yang aktif saat dibuka.
   final bool editOrigin;
 
-  /// Diisi saat pengujian. Default: data contoh.
-  final List<SavedAddress>? recent;
-  final List<SavedAddress>? saved;
-
   @override
   State<RoutePickerPage> createState() => _RoutePickerPageState();
 }
 
 class _RoutePickerPageState extends State<RoutePickerPage> {
-  late SavedAddress? _origin =
-      widget.origin ?? HouseholdSamples.currentLocation;
+  late SavedAddress? _origin = widget.origin;
   late SavedAddress? _destination = widget.destination;
 
   late final _originText = TextEditingController(text: _origin?.fullAddress);
@@ -99,7 +92,12 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
 
   void _pick(SavedAddress address) {
     final other = _editingOrigin ? _destination : _origin;
-    if (other?.fullAddress == address.fullAddress) {
+    final same =
+        other != null &&
+        (other.id != null
+            ? other.id == address.id
+            : other.fullAddress == address.fullAddress);
+    if (same) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lokasi awal dan tujuan tidak boleh sama.'),
@@ -190,15 +188,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               ),
               const SizedBox(height: 18),
               Expanded(
-                child: AddressListCard(
-                  recent: [
-                    HouseholdSamples.currentLocation,
-                    ...(widget.recent ?? HouseholdSamples.recentAddresses),
-                  ],
-                  saved: widget.saved ?? HouseholdSamples.savedAddresses,
-                  query: _query,
-                  onPicked: _pick,
-                ),
+                child: AddressListCard(query: _query, onPicked: _pick),
               ),
             ],
           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../household/household_models.dart';
-import '../order/order_models.dart';
 
 /// Ukuran paket. Desain hanya menulis dimensi ukuran S ("T = 20 cm
 /// L = 40cm"); dimensi M dan L di sini perkiraan dan perlu dikonfirmasi.
@@ -109,7 +108,7 @@ class DeliveryDraft {
   final DeliverySchedule schedule;
   final DeliveryItem item;
 
-  /// Biaya pengiriman sebelum voucher.
+  /// Ongkos kirim dari `POST /orders/estimate`.
   final int fee;
 
   String get senderContact =>
@@ -121,6 +120,7 @@ class DeliveryDraft {
     Recipient? recipient,
     DeliverySchedule? schedule,
     DeliveryItem? item,
+    int? fee,
   }) => DeliveryDraft(
     senderName: senderName,
     senderPhone: senderPhone,
@@ -129,10 +129,8 @@ class DeliveryDraft {
     recipient: recipient ?? this.recipient,
     schedule: schedule ?? this.schedule,
     item: item ?? this.item,
-    fee: fee,
+    fee: fee ?? this.fee,
   );
-
-  int discountWith(Voucher? voucher) => voucher?.discountFor(fee) ?? 0;
 }
 
 /// Judul dan keterangan waktu antar, dipakai di form dan Detail Pesanan.

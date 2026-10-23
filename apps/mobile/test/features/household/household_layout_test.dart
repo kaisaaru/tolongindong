@@ -1,41 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/features/household/active_order_page.dart';
 import 'package:mobile/features/household/address_picker_page.dart';
-import 'package:mobile/features/household/extend_duration_page.dart';
 import 'package:mobile/features/household/hourly_helper_list_page.dart';
 import 'package:mobile/features/household/house_order_form_page.dart';
 import 'package:mobile/features/household/household_models.dart';
 import 'package:mobile/features/household/household_page.dart';
-import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/household/order_review_page.dart';
 import 'package:mobile/features/household/widgets/household_widgets.dart';
-import 'package:mobile/features/order/order_samples.dart';
-import 'package:mobile/features/order/order_store.dart';
-import 'package:mobile/features/order/payment_method_page.dart';
-import 'package:mobile/models/service_category.dart';
+import 'package:mobile/features/order/order_detail_page.dart';
+import 'package:mobile/features/order/order_repository.dart';
 import 'package:mobile/theme/app_theme.dart';
 
+import '../../helpers/fake_order_repository.dart';
 import '../../helpers/pump_page.dart';
+import '../../helpers/test_data.dart';
 
-const _household = ServiceCategory(
-  id: 3,
-  code: 'household',
-  name: 'Household',
-  baseFee: 5000,
-  requiresAdvance: false,
-  requiresProofPhoto: false,
-  requiresPickupAddress: false,
-  requiresDestinationAddress: false,
-);
+const _household = testHousehold;
 
 final _draft = HouseholdOrderDraft(
   service: HouseholdService.rumah,
-  address: HouseholdSamples.savedAddresses.last, // alamat terpanjang
+  address: testHome,
   widthM: 10,
   lengthM: 10,
   tools: ToolOption.notProvided,
-  helper: HouseholdSamples.helpers.first,
+  helper: testHelpers.first,
   hours: 1,
 );
 
@@ -44,14 +32,15 @@ final _draft = HouseholdOrderDraft(
 Future<void> _pumpNarrow(
   WidgetTester tester,
   Widget page, {
-  OrderStore? orderStore,
+  FakeOrderRepository? orderRepo,
 }) async {
   await pumpPage(
     tester,
     page,
     size: const Size(360, 740),
-    orderStore: orderStore,
+    orderRepo: orderRepo,
   );
+  await tester.pump();
   await tester.pump();
 }
 
@@ -77,29 +66,6 @@ void main() {
     final size = tester.getSize(tile.first);
     expect(size.width, size.height);
     expect(size.width, lessThan(73));
-  });
-
-  testWidgets('layanan ditolak sejak awal saat pesanan masih berjalan', (
-    tester,
-  ) async {
-    final store = OrderStore(clock: () => DateTime(2026, 10, 22, 9));
-    store.place(draft: _draft, payment: HouseholdSamples.paymentMethods.first);
-
-    await _pumpNarrow(
-      tester,
-      HouseholdPage(category: _household),
-      orderStore: store,
-    );
-    await tester.tap(find.text('Rumah'));
-    await tester.pump();
-
-    expect(find.byType(HouseOrderFormPage), findsNothing);
-    expect(
-      find.text('Masih ada pesanan Household yang berjalan.'),
-      findsOneWidget,
-    );
-
-    store.reset(); // hentikan detak jam pesanan sebelum test selesai
   });
 
   testWidgets('header mengikuti ukuran desain di bawah status bar', (
@@ -139,109 +105,85 @@ void main() {
     expect(find.text('Alamat Rumah'), findsOneWidget);
   });
 
-  testWidgets('pilih alamat, tab Tersimpan', (tester) async {
+  testWidgets('pilih alamat: alamat tersimpan dan Tambah alamat baru', (
+    tester,
+  ) async {
     await _pumpNarrow(tester, const AddressPickerPage());
-    await tester.tap(find.text('Tersimpan'));
-    await tester.pump();
+    expect(find.text('Tersimpan'), findsOneWidget);
+    expect(find.text(testOffice.fullAddress), findsOneWidget);
     expect(find.text('Tambah alamat baru'), findsOneWidget);
   });
 
   testWidgets('daftar helper', (tester) async {
-    await _pumpNarrow(tester, const HourlyHelperListPage());
+    await _pumpNarrow(tester, const HourlyHelperListPage(categoryId: 3));
     expect(find.text('Daftar Helper'), findsOneWidget);
   });
 
   testWidgets('detail pesanan dengan rincian terbuka', (tester) async {
-    await _pumpNarrow(tester, OrderReviewPage(draft: _draft));
+    await _pumpNarrow(
+      tester,
+      OrderReviewPage(draft: _draft, category: _household),
+    );
     await tester.tap(find.text('Total'));
     await tester.pump();
     expect(find.text('Biaya Helper'), findsOneWidget);
   });
 
-  testWidgets('metode pembayaran', (tester) async {
-    await _pumpNarrow(tester, const PaymentMethodPage());
-    expect(find.text('Mandiri'), findsWidgets);
-  });
+  group('pesanan berjalan', () {
+    final start = DateTime(2026, 10, 22, 9);
 
-  group('pesanan aktif', () {
-    late DateTime real;
-    late OrderStore store;
+    FakeOrderRepository repo(OrderStatus status) => FakeOrderRepository(
+      orders: [
+        FakeOrderRepository.sample(
+          status: status,
+          description: householdOrderDescription(_draft),
+          destination: testHome,
+          history: [
+            (status: OrderStatus.accepted, at: start),
+            if (status == OrderStatus.inProgress)
+              (status: OrderStatus.inProgress, at: start),
+          ],
+        ),
+      ],
+    );
 
-    setUp(() {
-      real = DateTime(2026, 10, 21, 9, 45);
-      store = OrderStore(clock: () => real);
-      store.place(
-        draft: _draft,
-        payment: HouseholdSamples.paymentMethods.first,
-        voucher: OrderSamples.vouchers.first,
+    testWidgets('menunggu helper: bisa batal', (tester) async {
+      await _pumpNarrow(
+        tester,
+        const OrderDetailPage(orderId: 1),
+        orderRepo: repo(OrderStatus.awaitingQuote),
       );
+      expect(find.text('Menunggu helper menerima'), findsOneWidget);
+      expect(find.text('Batalkan Pesanan'), findsOneWidget);
     });
 
-    tearDown(() => store.reset());
-
-    testWidgets('menuju lokasi, masih bisa batal', (tester) async {
-      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
-      expect(find.bySemanticsLabel('Batalkan pesanan'), findsOneWidget);
-      expect(find.text('Estimasi sampai'), findsOneWidget);
-    });
-
-    testWidgets('jendela batal habis: bar hilang dengan animasi', (
-      tester,
-    ) async {
-      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
-      expect(find.bySemanticsLabel('Batalkan pesanan'), findsOneWidget);
-
-      // 11 detik nyata = 11 menit pesanan, lewat dari jendela 10 menit.
-      real = real.add(const Duration(seconds: 11));
-      await tester.pump(const Duration(seconds: 1)); // tick store
-      await tester.pump(const Duration(milliseconds: 400)); // animasi
-
-      expect(find.bySemanticsLabel('Batalkan pesanan'), findsNothing);
-      expect(find.text('Estimasi sampai'), findsOneWidget);
-    });
-
-    testWidgets('bekerja: hitung mundur lalu detail', (tester) async {
-      real = real.add(const Duration(seconds: 31)); // 31 menit pesanan
-      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
+    testWidgets('dikerjakan: hitung mundur durasi', (tester) async {
+      await _pumpNarrow(
+        tester,
+        OrderDetailPage(
+          orderId: 1,
+          clock: () => start.add(const Duration(minutes: 5, seconds: 37)),
+        ),
+        orderRepo: repo(OrderStatus.inProgress),
+      );
       expect(find.text('Durasi tersisa'), findsOneWidget);
-
-      await tester.tap(find.text('Lihat detail pesanan'));
-      await tester.pump();
-      expect(find.text('Selesai di jam'), findsOneWidget);
+      expect(find.text('54:23'), findsOneWidget);
+      expect(find.text('Pesanan Selesai'), findsOneWidget);
+      // Sedang dikerjakan: tidak bisa dibatalkan dari app.
+      expect(find.text('Batalkan Pesanan'), findsNothing);
     });
 
-    testWidgets('tambah durasi', (tester) async {
-      real = real.add(const Duration(seconds: 31));
-      await _pumpNarrow(tester, ExtendDurationPage(), orderStore: store);
-      expect(find.text('Biaya tambahan'), findsOneWidget);
-    });
-
-    testWidgets('waktu habis: dialog, Selesai, lalu rating', (tester) async {
-      real = real.add(const Duration(seconds: 120));
-      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
-      await tester.pump(); // dialog dibuka sesudah frame pertama
-      await tester.pump(const Duration(milliseconds: 300));
-
+    testWidgets('durasi habis', (tester) async {
+      await _pumpNarrow(
+        tester,
+        OrderDetailPage(
+          orderId: 1,
+          clock: () => start.add(const Duration(hours: 2)),
+        ),
+        orderRepo: repo(OrderStatus.inProgress),
+      );
+      expect(find.text('Waktu helper sudah habis'), findsOneWidget);
       expect(find.text('00:00'), findsOneWidget);
-      expect(find.textContaining('Waktu helper sudah habis'), findsOneWidget);
-
-      await tester.tap(find.text('Selesai'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Beri reting helper'), findsOneWidget);
-    });
-
-    testWidgets('waktu habis: Tambah membuka Tambah Durasi', (tester) async {
-      real = real.add(const Duration(seconds: 120));
-      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      await tester.tap(find.text('Tambah'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ExtendDurationPage), findsOneWidget);
-      // Dialog tidak muncul di atas halaman Tambah Durasi.
-      expect(find.textContaining('Waktu helper sudah habis'), findsNothing);
     });
   });
 }

@@ -12,5 +12,8 @@
 	     termasuk ke backend. Gejalanya request gagal tanpa pesan jelas. -->
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Lokasi untuk alamat baru (geolocator). -->
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
 </dict>
 </plist>

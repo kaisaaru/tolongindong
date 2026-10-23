@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import 'household_models.dart';
-import 'household_samples.dart';
 import 'widgets/household_widgets.dart';
 
 /// Lembar "Pilih waktu pengantaran": tujuh hari ke depan, lalu slot per jam.
@@ -63,11 +62,7 @@ class _ScheduleSheetState extends State<_ScheduleSheet> {
   late TimeSlot? _slot = widget.initial;
 
   List<TimeSlot> get _slots => [
-    for (
-      var h = HouseholdSamples.firstSlotHour;
-      h < HouseholdSamples.lastSlotHour;
-      h++
-    )
+    for (var h = firstSlotHour; h < lastSlotHour; h++)
       if (_day != _today || h > widget.now.hour)
         TimeSlot(day: _day, startHour: h),
   ];

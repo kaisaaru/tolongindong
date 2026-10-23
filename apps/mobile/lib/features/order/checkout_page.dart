@@ -1,32 +1,36 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
+import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
+import '../address/address_repository.dart';
 import '../chat/chat_store.dart';
-import '../household/household_models.dart';
+import '../wallet/wallet_check.dart';
+import 'order_detail_page.dart';
 import 'order_models.dart';
+import 'order_repository.dart';
 import 'order_store.dart';
 import 'order_style.dart';
 import 'order_success_page.dart';
-import 'payment_method_page.dart';
-import 'personal_order_page.dart';
-import 'voucher_page.dart';
 import 'widgets/order_widgets.dart';
 
-/// Ringkasan pesanan sebelum dibuat: voucher, metode pembayaran, rincian.
-///
-/// Belum mengirim apa pun ke backend. `POST /orders` belum menerima voucher,
-/// metode pembayaran selain TD-Wallet belum ada,
-/// dan alur direct booking di sana meminta quote helper dulu sebelum dana
-/// ditahan — beda dengan desain yang harganya sudah tetap.
+/// Ringkasan pesanan Personal sebelum dibuat: detail tugas, pembayaran
+/// TD-Wallet, rincian. "Pesan Sekarang" mengirim `POST /orders` (direct
+/// booking) ke helper ini; voucher belum diterima backend.
 class CheckoutPage extends StatefulWidget {
-  const CheckoutPage({super.key, required this.helper});
+  const CheckoutPage({super.key, required this.helper, required this.category});
 
   final HelperListing helper;
+
+  /// Kategori Personal di server (`category_id`).
+  final ServiceCategory category;
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -34,80 +38,103 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   late final _store = context.read<OrderStore>();
-  late final _chatStore = context.read<ChatStore>();
+  final _task = TextEditingController();
+  String? _taskError;
+  bool _placing = false;
 
-  Voucher? _voucher;
-  PaymentMethod? _payment;
+  int get _total => widget.helper.price;
 
-  int get _price => widget.helper.price;
-  int get _discount => _voucher?.discountFor(_price) ?? 0;
-  int get _total => _price - _discount;
-
-  Future<void> _pickVoucher() async {
-    final picked = await Navigator.of(context).push<Voucher>(
-      MaterialPageRoute(builder: (_) => VoucherPage(selected: _voucher)),
+  @override
+  void initState() {
+    super.initState();
+    // Saldo di baris metode pembayaran.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => refreshWalletBalance(context),
     );
-    if (picked != null && mounted) setState(() => _voucher = picked);
   }
 
-  Future<void> _pickPayment() async {
-    final picked = await Navigator.of(context).push<PaymentMethod>(
-      MaterialPageRoute(builder: (_) => PaymentMethodPage(selected: _payment)),
-    );
-    if (picked != null && mounted) setState(() => _payment = picked);
+  @override
+  void dispose() {
+    _task.dispose();
+    super.dispose();
+  }
+
+  /// Alamat utama untuk lokasi pengerjaan, kalau ada. Tidak wajib.
+  Future<int?> _primaryAddressId() async {
+    try {
+      final addresses = await context.read<AddressRepository>().list();
+      return addresses.firstOrNull?.id;
+    } on ApiException {
+      return null;
+    }
   }
 
   Future<void> _submit() async {
-    if (_store.personal != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Masih ada pesanan Personal yang berjalan. Selesaikan dulu di '
-            'Aktifitas.',
-          ),
-        ),
-      );
+    final task = _task.text.trim();
+    if (task.length < 5) {
+      setState(() => _taskError = 'Ceritakan tugasnya, minimal 5 karakter');
       return;
     }
-
-    // Sama seperti Household dan Delivery: metode pembayaran yang belum
-    // dipilih ditanyakan saat memesan, bukan ditolak.
-    if (_payment == null) await _pickPayment();
-    final payment = _payment;
-    if (payment == null || !mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (!await ensureWalletBalance(context, _total) || !mounted) return;
 
     final helper = widget.helper;
-    _store.placePersonal(helper: helper, payment: payment, voucher: _voucher);
-    // Pesanan Personal dikerjakan sambil mengobrol: ruangnya langsung ada
-    // di tab Obrolan.
-    _chatStore.openWithHelper(
-      helperId: helper.id,
-      name: helper.name,
-      photoUrl: helper.photoUrl,
-    );
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => OrderSuccessPage(
-          info: OrderSuccessInfo(
-            service: 'Personal - ${helper.subcategory}',
-            message:
-                '${helper.name} siap mengerjakan. Kirim detail tugasmu '
-                'lewat chat.',
-            payment: payment.name,
-            total: _total,
+    final chats = context.read<ChatStore>();
+    setState(() => _placing = true);
+    try {
+      final order = await _store.place(
+        categoryId: widget.category.id,
+        helperId: helper.id,
+        description: OrderDescription.compose('Personal - ${helper.name}', [
+          ('Tugas', task),
+          ('Tarif', '${rupiah(helper.price)}/${helper.unit ?? 'pesanan'}'),
+        ]),
+        price: _total,
+        destinationAddressId: await _primaryAddressId(),
+      );
+      // Pesanan Personal dikerjakan sambil mengobrol: ruangnya disiapkan
+      // di tab Obrolan. Gagal dibuat tidak menggagalkan pesanan.
+      unawaited(
+        chats
+            .openWithHelper(
+              helperId: helper.id,
+              name: helper.name,
+              photoUrl: helper.photoUrl,
+            )
+            .then<void>((_) {}, onError: (Object _) {}),
+      );
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => OrderSuccessPage(
+            info: OrderSuccessInfo(
+              service: 'Personal',
+              message:
+                  'Menunggu ${helper.name} menerima pesananmu. Kirim detail '
+                  'tugas lewat chat.',
+              payment: 'TD-Wallet',
+              total: _total,
+            ),
+            orderPage: (_) => OrderDetailPage(orderId: order.id),
           ),
-          orderPage: (_) => const PersonalOrderPage(),
         ),
-      ),
-      // Sisakan beranda di bawahnya supaya halaman sukses bisa kembali ke sana.
-      (route) => route.isFirst,
-    );
+        // Sisakan beranda di bawahnya supaya halaman sukses bisa kembali ke
+        // sana.
+        (route) => route.isFirst,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final helper = widget.helper;
-    final voucher = _voucher;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -126,14 +153,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 22),
                 child: PersonalOrderSummary(
                   helper: helper,
-                  voucherLabel: voucher == null
-                      ? 'Gunakan Vocher'
-                      : '${voucher.title} · ${voucher.description}',
-                  paymentLabel: _payment?.name ?? 'Pilih metode pembayaran',
-                  price: _price,
-                  discount: _discount,
-                  onVoucher: _pickVoucher,
-                  onPayment: _pickPayment,
+                  details: _TaskField(
+                    controller: _task,
+                    errorText: _taskError,
+                    onChanged: (_) {
+                      if (_taskError != null) setState(() => _taskError = null);
+                    },
+                  ),
+                  voucherLabel: 'Voucher belum bisa dipakai',
+                  paymentLabel: walletPaymentLabel(context),
+                  price: _total,
+                  discount: 0,
+                  onPayment: () => openWallet(context),
                 ),
               ),
             ],
@@ -142,7 +173,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
         bottomNavigationBar: OrderBottomBar(
           caption: 'Total',
           amount: rupiah(_total),
-          button: PrimaryButton(label: 'Pesan Sekarang', onPressed: _submit),
+          button: PrimaryButton(
+            label: 'Pesan Sekarang',
+            isLoading: _placing,
+            onPressed: _submit,
+          ),
         ),
       ),
     );
@@ -160,11 +195,15 @@ class PersonalOrderSummary extends StatelessWidget {
     required this.paymentLabel,
     required this.price,
     required this.discount,
+    this.details,
     this.onVoucher,
     this.onPayment,
   });
 
   final HelperListing helper;
+
+  /// Di bawah baris helper, misal isian detail tugas.
+  final Widget? details;
   final String voucherLabel;
   final String paymentLabel;
   final int price;
@@ -212,6 +251,10 @@ class PersonalOrderSummary extends StatelessWidget {
             ),
           ],
         ),
+        if (details case final details?) ...[
+          const SizedBox(height: 24),
+          details,
+        ],
         const SizedBox(height: 34),
         const Divider(height: 1),
         _OptionRow(
@@ -352,6 +395,64 @@ class _PriceRow extends StatelessWidget {
             size: 12,
             weight: weight,
             color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Isian "Detail tugas": backend mewajibkan deskripsi pesanan.
+class _TaskField extends StatelessWidget {
+  const _TaskField({
+    required this.controller,
+    required this.errorText,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String? errorText;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: color),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Detail tugas',
+          style: AppTypography.style(size: 14, weight: AppTypography.semiBold),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: controller,
+          onChanged: onChanged,
+          minLines: 3,
+          maxLines: 6,
+          maxLength: 2000,
+          textCapitalization: TextCapitalization.sentences,
+          style: AppTypography.style(
+            size: 12,
+            weight: AppTypography.regular,
+            height: 1.5,
+          ),
+          decoration: InputDecoration(
+            hintText:
+                'Ceritakan yang perlu dikerjakan, misal: desain logo usaha '
+                'kopi, 3 pilihan, selesai Jumat.',
+            errorText: errorText,
+            filled: true,
+            fillColor: AppColors.light,
+            contentPadding: const EdgeInsets.all(12),
+            enabledBorder: border(const Color(0xFFDDDDDD)),
+            focusedBorder: border(AppColors.primary),
+            errorBorder: border(AppColors.error),
+            focusedErrorBorder: border(AppColors.error),
           ),
         ),
       ],

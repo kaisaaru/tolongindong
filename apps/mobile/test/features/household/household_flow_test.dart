@@ -1,37 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/api/api_exception.dart';
 import 'package:mobile/features/activity/activity_view.dart';
-import 'package:mobile/features/household/active_order_page.dart';
 import 'package:mobile/features/household/hourly_helper_list_page.dart';
 import 'package:mobile/features/household/house_order_form_page.dart';
 import 'package:mobile/features/household/household_models.dart';
-import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/household/order_review_page.dart';
-import 'package:mobile/features/order/order_samples.dart';
-import 'package:mobile/features/order/order_store.dart';
+import 'package:mobile/features/order/order_detail_page.dart';
+import 'package:mobile/features/order/order_repository.dart';
 import 'package:mobile/features/order/order_success_page.dart';
-import 'package:mobile/features/order/payment_method_page.dart';
-import 'package:mobile/models/service_category.dart';
 
+import '../../helpers/fake_helper_repository.dart';
+import '../../helpers/fake_order_repository.dart';
+import '../../helpers/fake_wallet_repository.dart';
 import '../../helpers/pump_page.dart';
+import '../../helpers/test_data.dart';
 
-const _household = ServiceCategory(
-  id: 3,
-  code: 'household',
-  name: 'Household',
-  baseFee: 5000,
-  requiresAdvance: false,
-  requiresProofPhoto: false,
-  requiresPickupAddress: false,
-  requiresDestinationAddress: false,
-);
-
-final _helper = HouseholdSamples.helpers.first; // Rp40.000/jam
+const _household = testHousehold;
+final _helper = testHelpers.first; // Rp40.000/jam
 
 HouseholdOrderDraft _draft({TimeSlot? slot, int hours = 1}) =>
     HouseholdOrderDraft(
       service: HouseholdService.rumah,
-      address: HouseholdSamples.savedAddresses.first,
+      address: testHome,
       widthM: 10,
       lengthM: 10,
       tools: ToolOption.provided,
@@ -40,141 +31,35 @@ HouseholdOrderDraft _draft({TimeSlot? slot, int hours = 1}) =>
       hours: hours,
     );
 
-/// Store dengan jam palsu yang bisa dimajukan.
-class _Clock {
-  DateTime real = DateTime(2026, 10, 21, 9, 45);
-  void advance(Duration d) => real = real.add(d);
-}
-
 void main() {
-  group('PriceBreakdown', () {
-    test('voucher 20% memotong biaya awal, bukan tambahan durasi', () {
-      final price = PriceBreakdown(
-        hourlyRate: 40000,
-        baseHours: 1,
-        extraHours: const [1],
-        voucher: OrderSamples.vouchers.first,
-      );
-      expect(price.baseCost, 40000);
-      expect(price.discount, 8000);
-      expect(price.extraCost, 40000);
-      expect(price.total, 72000);
-    });
+  test('rincian harga: biaya helper per jam ditambah biaya lain', () {
+    const price = PriceBreakdown(
+      hourlyRate: 40000,
+      baseHours: 2,
+      fees: [PriceLine('Muatan - Sedang', 10000)],
+    );
+    expect(price.baseCost, 80000);
+    expect(price.feeCost, 10000);
+    expect(price.total, 90000);
   });
 
-  group('OrderStore', () {
-    late _Clock clock;
-    late OrderStore store;
+  test('detail form ditulis ke task_description dan terbaca lagi', () {
+    final text = householdOrderDescription(_draft(hours: 2));
+    final parsed = OrderDescription.parse(text);
 
-    setUp(() {
-      clock = _Clock();
-      store = OrderStore(clock: () => clock.real);
-    });
-
-    tearDown(() => store.dispose());
-
-    test('menuju -> bekerja -> selesai, dengan jam 60x lebih cepat', () {
-      store.place(
-        draft: _draft(),
-        payment: HouseholdSamples.paymentMethods.first,
-      );
-      expect(store.status, ActiveStatus.onTheWay);
-      expect(store.canCancel, isTrue);
-
-      // 11 detik nyata = 11 menit pesanan: jendela batal (10 menit) habis.
-      clock.advance(const Duration(seconds: 11));
-      expect(store.canCancel, isFalse);
-      expect(store.status, ActiveStatus.onTheWay);
-
-      // Tiba 30 menit setelah dibuat.
-      clock.advance(const Duration(seconds: 20));
-      expect(store.status, ActiveStatus.working);
-      expect(store.remaining.inMinutes, 59);
-
-      // Durasi 1 jam habis: tunggu pilihan tambah waktu atau selesai.
-      clock.advance(const Duration(seconds: 60));
-      expect(store.status, ActiveStatus.timeUp);
-      expect(activeStatusLabel(store), 'Waktu helper sudah habis');
-
-      store.endWork();
-      expect(store.status, ActiveStatus.finished);
-    });
-
-    test('tambah durasi saat waktu habis dihitung mulai saat itu', () {
-      store.place(
-        draft: _draft(),
-        payment: HouseholdSamples.paymentMethods.first,
-      );
-      // Tiba 30 menit, kerja 1 jam, lalu 15 menit tanpa memilih.
-      clock.advance(const Duration(seconds: 105));
-      expect(store.status, ActiveStatus.timeUp);
-
-      store.addHours(1);
-
-      expect(store.status, ActiveStatus.working);
-      expect(store.remaining.inMinutes, 60);
-      // Biaya tetap per jam yang ditambah, bukan per menit menunggu.
-      expect(store.active!.price.total, 80000);
-    });
-
-    test('tambah durasi memperpanjang jam selesai dan total', () {
-      store.place(
-        draft: _draft(),
-        payment: HouseholdSamples.paymentMethods.first,
-        voucher: OrderSamples.vouchers.first,
-      );
-      final before = store.active!.finishAt;
-
-      store.addHours(1);
-
-      expect(store.active!.finishAt, before.add(const Duration(hours: 1)));
-      expect(store.active!.totalHours, 2);
-      expect(store.active!.price.total, 40000 - 8000 + 40000);
-    });
-
-    test('batal dan rating masuk riwayat', () {
-      final payment = HouseholdSamples.paymentMethods.first;
-      store.place(draft: _draft(), payment: payment);
-      store.cancel();
-      expect(store.active, isNull);
-
-      store.place(draft: _draft(), payment: payment);
-      store.complete(rating: 5);
-
-      final history = store.history;
-      expect(history, hasLength(2));
-      // Terbaru di atas.
-      expect(history.first.outcome, HistoryOutcome.completed);
-      expect(history.first.rating, 5);
-      expect(history.last.outcome, HistoryOutcome.cancelled);
-    });
-
-    test('pesanan terjadwal tiba di awal slot', () {
-      final slot = TimeSlot(day: DateTime(2026, 10, 22), startHour: 8);
-      store.place(
-        draft: _draft(slot: slot),
-        payment: HouseholdSamples.paymentMethods.first,
-      );
-      expect(store.active!.arriveAt, DateTime(2026, 10, 22, 8));
-      expect(store.status, ActiveStatus.onTheWay);
-    });
+    expect(parsed.title, 'Household - Rumah');
+    expect(parsed.valueOf('Ukuran'), 'L: 10 m, P: 10 m');
+    expect(parsed.valueOf('Ketersediaan alat'), 'Alat disediakan');
+    expect(parsed.valueOf('Waktu pengerjaan'), 'Sekarang');
+    expect(parsed.durationHours, 2);
   });
 
-  test('label status dan hitung mundur', () {
+  test('hitung mundur', () {
     expect(countdownLabel(const Duration(minutes: 54, seconds: 23)), '54:23');
     expect(
       countdownLabel(const Duration(hours: 1, minutes: 4, seconds: 5)),
       '1:04:05',
     );
-
-    final clock = _Clock();
-    final store = OrderStore(clock: () => clock.real);
-    addTearDown(store.dispose);
-    store.place(
-      draft: _draft(),
-      payment: HouseholdSamples.paymentMethods.first,
-    );
-    expect(activeStatusLabel(store), 'Tiba dalam 30 menit');
   });
 
   test('ukuran meter: koma atau titik, ditampilkan dengan koma', () {
@@ -227,132 +112,201 @@ void main() {
     expect(button().onPressed, isNull);
   });
 
-  testWidgets('filter Task 1000+ menyisakan helper berpengalaman', (
-    tester,
-  ) async {
-    await pumpPage(tester, const HourlyHelperListPage());
-    await tester.pumpAndSettle();
+  group('daftar helper', () {
+    testWidgets('dari GET /helpers kategori ini; filter Task 1000+', (
+      tester,
+    ) async {
+      final helpers = FakeHelperRepository();
+      await pumpPage(
+        tester,
+        const HourlyHelperListPage(categoryId: 3),
+        helperRepo: helpers,
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Jarak 1 km'), findsOneWidget);
-    expect(find.text('Jarak 12 km'), findsOneWidget);
+      expect(helpers.requested, [3]);
+      expect(find.text('Jarak 1,2 km'), findsOneWidget);
+      expect(find.text('Jarak 3,4 km'), findsOneWidget);
 
-    // Chip paling kanan belum dibangun ListView; geser baris chip dulu.
-    await tester.dragUntilVisible(
-      find.text('Task 1000+'),
-      find.byType(ListView).first,
-      const Offset(-120, 0),
-    );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Task 1000+'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Task 1000+'));
-    await tester.pumpAndSettle();
+      // Chip paling kanan belum dibangun ListView; geser baris chip dulu.
+      await tester.dragUntilVisible(
+        find.text('Task 1000+'),
+        find.byType(ListView).first,
+        const Offset(-120, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Task 1000+'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Jarak 1 km'), findsOneWidget);
-    expect(find.text('Jarak 12 km'), findsNothing);
+      expect(find.text('Jarak 1,2 km'), findsOneWidget);
+      expect(find.text('Jarak 3,4 km'), findsNothing);
+    });
+
+    testWidgets('kosong: tidak ada helper di sekitar', (tester) async {
+      await pumpPage(
+        tester,
+        const HourlyHelperListPage(categoryId: 3),
+        helperRepo: FakeHelperRepository(hourlyResult: []),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Belum ada helper di sekitarmu'), findsOneWidget);
+    });
+
+    testWidgets('gagal dimuat: bisa dicoba lagi', (tester) async {
+      final helpers = FakeHelperRepository(
+        error: const ApiException(
+          code: 'NETWORK_ERROR',
+          message: 'Tidak ada koneksi internet.',
+        ),
+      );
+      await pumpPage(
+        tester,
+        const HourlyHelperListPage(categoryId: 3),
+        helperRepo: helpers,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Tidak ada koneksi internet.'), findsOneWidget);
+
+      helpers.error = null;
+      await tester.tap(find.text('Coba lagi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Agus Nomercy'), findsOneWidget);
+    });
   });
 
-  testWidgets('Aktifitas menampilkan pesanan aktif dan riwayat', (
+  testWidgets('Aktifitas: pesanan berjalan dan riwayat dari server', (
     tester,
   ) async {
-    final clock = _Clock();
-    final store = OrderStore(clock: () => clock.real);
-    addTearDown(store.dispose);
-    final payment = HouseholdSamples.paymentMethods.first;
+    final orders = FakeOrderRepository(
+      orders: [
+        FakeOrderRepository.sample(id: 2, status: OrderStatus.onTheWay),
+        FakeOrderRepository.sample(
+          id: 1,
+          status: OrderStatus.cancelledByClient,
+        ),
+      ],
+    );
+    await pumpPage(
+      tester,
+      const Scaffold(body: ActivityView()),
+      orderRepo: orders,
+    );
+    await tester.pumpAndSettle();
 
-    store.place(draft: _draft(), payment: payment);
-    store.cancel();
-    store.place(draft: _draft(), payment: payment);
-
-    await pumpPage(tester, Scaffold(body: ActivityView()), orderStore: store);
-    await tester.pump();
-
-    expect(find.text('Tiba dalam 30 menit'), findsOneWidget);
+    expect(find.text('Household - Rumah'), findsOneWidget);
+    expect(find.text('Helper menuju lokasi'), findsOneWidget);
 
     await tester.tap(find.text('Riwayat'));
-    await tester.pump();
-
+    await tester.pumpAndSettle();
     expect(find.text('Household - Rumah'), findsOneWidget);
     expect(find.text('Dibatalkan'), findsOneWidget);
-
-    // Hentikan ticker store sebelum test selesai.
-    store.reset();
   });
 
-  testWidgets('Pesan tanpa metode pembayaran: konfirmasi, pilih bayar, '
-      'berhasil, lalu pesanan aktif', (tester) async {
-    final clock = _Clock();
-    final store = OrderStore(clock: () => clock.real);
-    addTearDown(store.dispose);
+  group('Pesan', () {
+    testWidgets('konfirmasi, saldo cukup, pesanan dibuat ke helper itu, '
+        'lalu Detail Pesanan', (tester) async {
+      final orders = FakeOrderRepository(addresses: testAddresses);
+      await pumpPage(
+        tester,
+        OrderReviewPage(draft: _draft(), category: _household),
+        orderRepo: orders,
+        walletRepo: FakeWalletRepository(balance: 500000),
+      );
+      await tester.pumpAndSettle();
 
-    await pumpPage(tester, OrderReviewPage(draft: _draft()), orderStore: store);
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Pesan'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Apakah kamu sudah yakin\ndengan pesananmu?'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Sudah'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Pesan'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Apakah kamu sudah yakin\ndengan pesananmu?'),
-      findsOneWidget,
-    );
+      expect(find.byType(OrderSuccessPage), findsOneWidget);
+      expect(find.text('Household - Rumah'), findsOneWidget);
+      expect(find.text('TD-Wallet'), findsOneWidget);
 
-    await tester.tap(find.text('Sudah'));
-    await tester.pumpAndSettle();
-    expect(find.byType(PaymentMethodPage), findsOneWidget);
+      final body = orders.created.single;
+      expect(body['category_id'], 3);
+      expect(body['helper_id'], 'h-1');
+      expect(body['client_estimated_price'], 40000);
+      // Rumah: alamat jadi tujuan, tanpa lokasi jemput.
+      expect(body['destination_address_id'], 11);
+      expect(body['pickup_address_id'], isNull);
 
-    await tester.tap(find.text('BCA'));
-    await tester.pumpAndSettle();
-    expect(find.byType(OrderSuccessPage), findsOneWidget);
-    expect(store.active?.payment.name, 'BCA');
-    // Ringkasan pesanan di halaman sukses.
-    expect(find.text('Household - Rumah'), findsOneWidget);
-    expect(find.text('BCA'), findsOneWidget);
+      await tester.tap(find.text('Lihat Pesanan'));
+      await tester.pumpAndSettle();
+      expect(find.byType(OrderDetailPage), findsOneWidget);
+      expect(find.text('Menunggu helper menerima'), findsOneWidget);
+    });
 
-    await tester.tap(find.text('Lihat Pesanan'));
-    // Bar "Batal" beranimasi tiap frame, jadi tidak pernah "settle".
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(ActiveOrderPage), findsOneWidget);
-    expect(find.byType(OrderSuccessPage), findsNothing);
+    testWidgets('saldo kurang: diajak isi saldo, pesanan tidak dibuat', (
+      tester,
+    ) async {
+      final orders = FakeOrderRepository();
+      await pumpPage(
+        tester,
+        OrderReviewPage(draft: _draft(), category: _household),
+        orderRepo: orders,
+        walletRepo: FakeWalletRepository(balance: 10000),
+      );
+      await tester.pumpAndSettle();
 
-    // Hentikan ticker store sebelum test selesai.
-    store.reset();
-  });
+      await tester.tap(find.text('Pesan'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sudah'));
+      await tester.pumpAndSettle();
 
-  testWidgets('Pesan: Kembali di dialog tidak membuat pesanan', (tester) async {
-    final store = OrderStore();
-    addTearDown(store.dispose);
+      expect(find.text('Saldo TD-Wallet kurang'), findsOneWidget);
+      await tester.tap(find.text('Nanti'));
+      await tester.pumpAndSettle();
 
-    await pumpPage(tester, OrderReviewPage(draft: _draft()), orderStore: store);
-    await tester.pumpAndSettle();
+      expect(find.byType(OrderReviewPage), findsOneWidget);
+      expect(orders.created, isEmpty);
+    });
 
-    await tester.tap(find.text('Pesan'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Kembali'));
-    await tester.pumpAndSettle();
+    testWidgets('Kembali di dialog tidak membuat pesanan', (tester) async {
+      final orders = FakeOrderRepository();
+      await pumpPage(
+        tester,
+        OrderReviewPage(draft: _draft(), category: _household),
+        orderRepo: orders,
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byType(OrderReviewPage), findsOneWidget);
-    expect(store.active, isNull);
-  });
+      await tester.tap(find.text('Pesan'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kembali'));
+      await tester.pumpAndSettle();
 
-  testWidgets('Pesan saat masih ada pesanan berjalan: tanpa dialog', (
-    tester,
-  ) async {
-    final clock = _Clock();
-    final store = OrderStore(clock: () => clock.real);
-    addTearDown(store.dispose);
-    store.place(
-      draft: _draft(),
-      payment: HouseholdSamples.paymentMethods.first,
-    );
+      expect(find.byType(OrderReviewPage), findsOneWidget);
+      expect(orders.created, isEmpty);
+    });
 
-    await pumpPage(tester, OrderReviewPage(draft: _draft()), orderStore: store);
-    await tester.pump();
+    testWidgets('ditolak server: pesannya tampil, tetap di halaman ini', (
+      tester,
+    ) async {
+      final orders = FakeOrderRepository()
+        ..failNextCreate = const ApiException(
+          code: 'HELPER_UNAVAILABLE',
+          message: 'Helper sedang tidak tersedia.',
+        );
+      await pumpPage(
+        tester,
+        OrderReviewPage(draft: _draft(), category: _household),
+        orderRepo: orders,
+        walletRepo: FakeWalletRepository(balance: 500000),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Pesan'));
-    await tester.pump();
-    expect(find.textContaining('Masih ada pesanan yang berjalan'), findsOne);
-    expect(find.text('Sudah'), findsNothing);
+      await tester.tap(find.text('Pesan'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sudah'));
+      await tester.pumpAndSettle();
 
-    store.reset();
+      expect(find.text('Helper sedang tidak tersedia.'), findsOneWidget);
+      expect(find.byType(OrderReviewPage), findsOneWidget);
+    });
   });
 }

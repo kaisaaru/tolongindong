@@ -3,11 +3,16 @@ import 'package:provider/provider.dart';
 
 import 'core/api/api_client.dart';
 import 'core/storage/token_storage.dart';
+import 'features/address/address_repository.dart';
+import 'features/address/location_service.dart';
 import 'features/auth/auth_repository.dart';
 import 'features/auth/session_store.dart';
+import 'features/chat/chat_repository.dart';
 import 'features/chat/chat_store.dart';
 import 'features/home/catalog_repository.dart';
 import 'features/notification/notification_repository.dart';
+import 'features/order/helper_repository.dart';
+import 'features/order/order_repository.dart';
 import 'features/order/order_store.dart';
 import 'features/wallet/wallet_repository.dart';
 import 'models/auth_user.dart';
@@ -31,6 +36,11 @@ class AppScope extends StatelessWidget {
     this.catalogRepo,
     this.walletRepo,
     this.notificationRepo,
+    this.helperRepo,
+    this.addressRepo,
+    this.orderRepo,
+    this.chatRepo,
+    this.locationService,
     this.orderStore,
     this.chatStore,
     this.user,
@@ -41,6 +51,11 @@ class AppScope extends StatelessWidget {
   final CatalogRepository? catalogRepo;
   final WalletRepository? walletRepo;
   final NotificationRepository? notificationRepo;
+  final HelperRepository? helperRepo;
+  final AddressRepository? addressRepo;
+  final OrderRepository? orderRepo;
+  final ChatRepository? chatRepo;
+  final LocationService? locationService;
   final OrderStore? orderStore;
   final ChatStore? chatStore;
 
@@ -74,15 +89,38 @@ class AppScope extends StatelessWidget {
           create: (c) =>
               notificationRepo ?? NotificationRepository(api: c.read()),
         ),
+        Provider<HelperRepository>(
+          create: (c) => helperRepo ?? HelperRepository(api: c.read()),
+        ),
+        Provider<AddressRepository>(
+          create: (c) => addressRepo ?? AddressRepository(api: c.read()),
+        ),
+        Provider<OrderRepository>(
+          create: (c) => orderRepo ?? OrderRepository(api: c.read()),
+        ),
+        Provider<ChatRepository>(
+          create: (c) => chatRepo ?? ChatRepository(api: c.read()),
+        ),
+        Provider<LocationService>(
+          create: (_) => locationService ?? LocationService(),
+        ),
         ChangeNotifierProvider(
           create: (c) => SessionStore(c.read<AuthRepository>(), user: user),
         ),
         if (orders == null)
-          ChangeNotifierProvider(create: (_) => OrderStore())
+          ChangeNotifierProvider(
+            create: (c) => OrderStore(c.read<OrderRepository>()),
+          )
         else
           ChangeNotifierProvider.value(value: orders),
         if (chats == null)
-          ChangeNotifierProvider(create: (_) => ChatStore())
+          ChangeNotifierProvider(
+            // Pesan "dari saya" ditentukan dari pengguna yang sedang masuk.
+            create: (c) => ChatStore(
+              c.read<ChatRepository>(),
+              userId: () => c.read<SessionStore>().user?.id,
+            ),
+          )
         else
           ChangeNotifierProvider.value(value: chats),
       ],

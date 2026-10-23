@@ -2,29 +2,66 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/format/rupiah.dart';
+import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/primary_button.dart';
-import '../order/order_models.dart';
+import '../order/order_detail_page.dart';
+import '../order/order_repository.dart';
 import '../order/order_store.dart';
 import '../order/order_style.dart';
 import '../order/order_success_page.dart';
-import '../order/payment_method_page.dart';
-import '../order/voucher_page.dart';
 import '../order/widgets/order_widgets.dart';
-import 'active_order_page.dart';
+import '../wallet/wallet_check.dart';
 import 'address_picker_page.dart';
 import 'household_models.dart';
 import 'route_picker_page.dart';
 import 'widgets/household_widgets.dart';
 
-/// "Detail Pesanan": ringkasan sebelum memesan, pilih voucher dan metode
-/// pembayaran, lalu konfirmasi.
+/// Isi form Household untuk `task_description`: backend belum punya kolom
+/// untuk ukuran, alat, jadwal, maupun durasi. Dibaca kembali di
+/// [OrderDetailPage] (baris "Durasi" untuk hitung mundur).
+String householdOrderDescription(HouseholdOrderDraft draft) {
+  final price = PriceBreakdown(
+    hourlyRate: draft.helper.hourlyRate,
+    baseHours: draft.hours,
+    fees: draft.fees,
+  );
+  return OrderDescription.compose('Household - ${draft.service.label}', [
+    if (draft.load case final load?)
+      ('Muatan', '${load.label} (${load.detail})'),
+    if (draft.isMove) ('Kebutuhan armada', draft.fleet?.label),
+    if (draft.widthM != null)
+      (
+        'Ukuran',
+        'L: ${meterLabel(draft.widthM!)} m, '
+            'P: ${meterLabel(draft.lengthM ?? 0)} m',
+      ),
+    if (!draft.isMove) ('Ketersediaan alat', draft.tools?.label),
+    ('Waktu pengerjaan', draft.timeLabel),
+    if (!draft.isMove) ('Durasi', '${draft.hours} Jam'),
+    ('Tarif helper', '${rupiah(draft.helper.hourlyRate)}/jam'),
+    ('Biaya helper', rupiah(price.baseCost)),
+    for (final fee in price.fees) (fee.label, rupiah(fee.amount)),
+    ('Catatan', draft.note),
+  ]);
+}
+
+/// "Detail Pesanan": ringkasan sebelum memesan, lalu konfirmasi. Dibayar
+/// dari TD-Wallet; voucher belum didukung `POST /orders`.
 class OrderReviewPage extends StatefulWidget {
-  const OrderReviewPage({super.key, required this.draft});
+  const OrderReviewPage({
+    super.key,
+    required this.draft,
+    required this.category,
+  });
 
   final HouseholdOrderDraft draft;
+
+  /// Kategori Household di server (`category_id`).
+  final ServiceCategory category;
 
   @override
   State<OrderReviewPage> createState() => _OrderReviewPageState();
@@ -34,16 +71,22 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
   late final _store = context.read<OrderStore>();
 
   late HouseholdOrderDraft _draft = widget.draft;
-  Voucher? _voucher;
-  PaymentMethod? _payment;
   bool _expanded = false;
+  bool _placing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Saldo di baris metode pembayaran.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => refreshWalletBalance(context),
+    );
+  }
 
   PriceBreakdown get _price => PriceBreakdown(
     hourlyRate: _draft.helper.hourlyRate,
     baseHours: _draft.hours,
-    extraHours: const [],
     fees: _draft.fees,
-    voucher: _voucher,
   );
 
   Future<void> _pickAddress() async {
@@ -75,74 +118,70 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
     }
   }
 
-  Future<void> _pickVoucher() async {
-    final picked = await Navigator.of(context).push<Voucher>(
-      MaterialPageRoute(builder: (_) => VoucherPage(selected: _voucher)),
-    );
-    if (picked != null && mounted) setState(() => _voucher = picked);
-  }
-
-  Future<void> _pickPayment() async {
-    final picked = await Navigator.of(context).push<PaymentMethod>(
-      MaterialPageRoute(builder: (_) => PaymentMethodPage(selected: _payment)),
-    );
-    if (picked != null && mounted) setState(() => _payment = picked);
-  }
-
-  /// "Pesan": konfirmasi dulu (Frame 407), lalu metode pembayaran kalau
-  /// belum dipilih, lalu "Pesanan Berhasil Dibuat" dan pesanan aktif.
-  ///
-  /// Desain (frame 185) menampilkan dialog konfirmasi walau metode
-  /// pembayaran belum dipilih, jadi pemilihannya dipindah ke sesudah
-  /// "Sudah".
+  /// "Pesan": konfirmasi dulu (Frame 407), cek saldo TD-Wallet, lalu
+  /// `POST /orders` ke helper pilihan. Berhasil: "Pesanan Berhasil Dibuat",
+  /// lalu detail pesanan.
   Future<void> _submit() async {
-    if (_store.active != null) {
+    final draft = _draft;
+    final total = _price.total;
+    final pickupId = draft.isMove ? draft.address.id : null;
+    final destinationId = draft.isMove
+        ? draft.destination?.id
+        : draft.address.id;
+    if (destinationId == null || (draft.isMove && pickupId == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Masih ada pesanan yang berjalan. Selesaikan dulu di Aktifitas.',
-          ),
-        ),
+        const SnackBar(content: Text('Pilih alamat tersimpan dulu.')),
       );
       return;
     }
 
     final sure = await showConfirmOrderDialog(context);
     if (sure != true || !mounted) return;
+    if (!await ensureWalletBalance(context, total) || !mounted) return;
 
-    if (_payment == null) await _pickPayment();
-    final payment = _payment;
-    if (payment == null || !mounted) return;
-
-    final draft = _draft;
-    _store.place(draft: draft, payment: payment, voucher: _voucher);
-    final helper = draft.helper.name;
-    final slot = draft.slot;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => OrderSuccessPage(
-          info: OrderSuccessInfo(
-            service: 'Household - ${draft.service.label}',
-            message: slot == null
-                ? '$helper menuju lokasimu, tiba sekitar '
-                      '${OrderStore.travelTime.inMinutes} menit lagi.'
-                : '$helper datang ${dateLabel(slot.day)}, '
-                      'pukul ${slot.hourLabel}.',
-            payment: payment.name,
-            total: _price.total,
+    setState(() => _placing = true);
+    try {
+      final order = await _store.place(
+        categoryId: widget.category.id,
+        helperId: draft.helper.id,
+        description: householdOrderDescription(draft),
+        price: total,
+        pickupAddressId: pickupId,
+        destinationAddressId: destinationId,
+      );
+      if (!mounted) return;
+      final slot = draft.slot;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => OrderSuccessPage(
+            info: OrderSuccessInfo(
+              service: 'Household - ${draft.service.label}',
+              message: slot == null
+                  ? 'Menunggu ${draft.helper.name} menerima pesananmu.'
+                  : 'Menunggu ${draft.helper.name} menerima pesanan untuk '
+                        '${dateLabel(slot.day)}, pukul ${slot.hourLabel}.',
+              payment: 'TD-Wallet',
+              total: total,
+            ),
+            orderPage: (_) => OrderDetailPage(orderId: order.id),
           ),
-          orderPage: (_) => ActiveOrderPage(),
         ),
-      ),
-      (route) => route.isFirst,
-    );
+        (route) => route.isFirst,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final draft = _draft;
     final price = _price;
-    final voucher = _voucher;
     final cardSide = OrderStyle.inset(context, 40);
     final totalSide = OrderStyle.inset(context, 37);
 
@@ -196,17 +235,22 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                               const SizedBox(height: 21),
                               const SectionLabel('Detail Pembayaran'),
                               const SizedBox(height: 14),
-                              OrderOptionBox.icon(
-                                OrderStyle.iconVoucher,
-                                label: voucher?.title ?? 'Gunakan Vocher',
-                                onTap: _pickVoucher,
+                              // Voucher belum diterima `POST /orders`.
+                              const OrderOptionBox(
+                                leading: OrderIcon(
+                                  OrderStyle.iconVoucher,
+                                  size: 14,
+                                  color: AppColors.textSecondary,
+                                ),
+                                label: 'Voucher belum bisa dipakai',
+                                subtitle: 'Segera hadir',
                               ),
                               const SizedBox(height: 11),
                               OrderOptionBox.icon(
                                 OrderStyle.iconPaymentCard,
-                                label:
-                                    _payment?.name ?? 'Pilih metode pembayaran',
-                                onTap: _pickPayment,
+                                label: walletPaymentLabel(context),
+                                subtitle: 'Saldo ditahan saat helper menerima',
+                                onTap: () => openWallet(context),
                               ),
                             ],
                           ),
@@ -240,18 +284,13 @@ class _OrderReviewPageState extends State<OrderReviewPage> {
                                     thousands(fee.amount),
                                     muted: true,
                                   ),
-                                if (price.discount > 0)
-                                  InfoRow(
-                                    'Potongan vocher',
-                                    thousands(-price.discount),
-                                    muted: true,
-                                  ),
                               ],
                               const SizedBox(height: 12),
                               SizedBox(
                                 height: 42,
                                 child: PrimaryButton(
                                   label: 'Pesan',
+                                  isLoading: _placing,
                                   onPressed: _submit,
                                 ),
                               ),

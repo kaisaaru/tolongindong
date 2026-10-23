@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../models/service_category.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../home/widgets/promo_carousel.dart';
-import '../order/order_store.dart';
-import 'active_order_page.dart';
 import 'household_models.dart';
 import 'house_order_form_page.dart';
 import 'move_order_form_page.dart';
@@ -21,25 +18,6 @@ class HouseholdPage extends StatelessWidget {
   final ServiceCategory category;
 
   void _open(BuildContext context, HouseholdService service) {
-    // Hanya satu pesanan Household boleh berjalan. Diberi tahu sekarang,
-    // bukan setelah form panjangnya selesai diisi.
-    final orders = context.read<OrderStore>();
-    if (orders.active != null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: const Text('Masih ada pesanan Household yang berjalan.'),
-            action: SnackBarAction(
-              label: 'Lihat',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => ActiveOrderPage()),
-              ),
-            ),
-          ),
-        );
-      return;
-    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => service == HouseholdService.pindahan

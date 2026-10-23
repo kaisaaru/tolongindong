@@ -1,40 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/features/household/active_order_page.dart';
 import 'package:mobile/features/household/house_order_form_page.dart';
 import 'package:mobile/features/household/household_models.dart';
-import 'package:mobile/features/household/household_samples.dart';
 import 'package:mobile/features/household/move_order_form_page.dart';
 import 'package:mobile/features/household/order_review_page.dart';
 import 'package:mobile/features/household/route_picker_page.dart';
 import 'package:mobile/features/household/widgets/household_widgets.dart';
-import 'package:mobile/features/order/order_samples.dart';
-import 'package:mobile/features/order/order_store.dart';
-import 'package:mobile/models/service_category.dart';
+import 'package:mobile/features/order/order_detail_page.dart';
+import 'package:mobile/features/order/order_repository.dart';
 
+import '../../helpers/fake_order_repository.dart';
+import '../../helpers/fake_wallet_repository.dart';
 import '../../helpers/pump_page.dart';
+import '../../helpers/test_data.dart';
 
-const _household = ServiceCategory(
-  id: 3,
-  code: 'household',
-  name: 'Household',
-  baseFee: 5000,
-  requiresAdvance: false,
-  requiresProofPhoto: false,
-  requiresPickupAddress: false,
-  requiresDestinationAddress: false,
-);
+const _household = testHousehold;
 
 /// Pesanan seperti frame 177: muatan Sedang, termasuk kendaraan, helper
 /// Rp40.000/jam.
 final _moveDraft = HouseholdOrderDraft(
   service: HouseholdService.pindahan,
-  address: HouseholdSamples.currentLocation,
-  destination: HouseholdSamples.savedAddresses.last, // alamat terpanjang
+  address: testHome,
+  destination: testOffice,
   load: LoadOption.moving[1], // Sedang
-
   fleet: FleetOption.withVehicle,
-  helper: HouseholdSamples.helpers.first,
+  helper: testHelpers.first,
   hours: 1,
 );
 
@@ -42,18 +32,24 @@ Future<void> _pump(
   WidgetTester tester,
   Widget page,
   Size size, {
-  OrderStore? orderStore,
+  FakeOrderRepository? orderRepo,
 }) async {
-  await pumpPage(tester, page, size: size, orderStore: orderStore);
-  await tester.pump();
+  await pumpPage(
+    tester,
+    page,
+    size: size,
+    orderRepo: orderRepo,
+    walletRepo: FakeWalletRepository(balance: 500000),
+  );
+  await tester.pumpAndSettle();
 }
 
 /// Layar HP sempit: overflow apa pun membuat test gagal.
 Future<void> _pumpNarrow(
   WidgetTester tester,
   Widget page, {
-  OrderStore? orderStore,
-}) => _pump(tester, page, const Size(360, 740), orderStore: orderStore);
+  FakeOrderRepository? orderRepo,
+}) => _pump(tester, page, const Size(360, 740), orderRepo: orderRepo);
 
 void main() {
   group('biaya Pindahan', () {
@@ -61,7 +57,6 @@ void main() {
       final price = PriceBreakdown(
         hourlyRate: 40000,
         baseHours: 1,
-        extraHours: const [],
         fees: _moveDraft.fees,
       );
       expect(
@@ -77,33 +72,9 @@ void main() {
         isEmpty,
       );
     });
-
-    test('voucher dihitung dari biaya awal, tambahan durasi tidak', () {
-      final price = PriceBreakdown(
-        hourlyRate: 40000,
-        baseHours: 1,
-        extraHours: const [1],
-        fees: _moveDraft.fees,
-        voucher: OrderSamples.vouchers.first, // 20%, maks Rp10.000
-      );
-      expect(price.discount, 10000);
-      expect(price.total, 110000 - 10000 + 40000);
-    });
-
-    test('pesanan aktif membawa biaya tambahan', () {
-      final store = OrderStore(clock: () => DateTime(2026, 10, 22, 9));
-      addTearDown(store.reset);
-      store.place(
-        draft: _moveDraft,
-        payment: HouseholdSamples.paymentMethods.first,
-      );
-      expect(store.active!.price.total, 110000);
-      store.addHours(1);
-      expect(store.active!.price.total, 150000);
-    });
   });
 
-  testWidgets('form: pilih tujuan, lokasi awal terisi lokasi saat ini', (
+  testWidgets('form: pilih tujuan lalu asal dari alamat tersimpan', (
     tester,
   ) async {
     // Layar tinggi supaya seluruh form terlihat tanpa menggulir.
@@ -123,18 +94,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(RoutePickerPage), findsOneWidget);
 
-    await tester.tap(find.text('KOST BUMISAKA'));
+    // Kolom tujuan aktif dulu; setelah terisi, giliran lokasi awal.
+    await tester.tap(find.text('Kantor'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RoutePickerPage), findsOneWidget);
+    await tester.tap(find.text('Rumah'));
     await tester.pumpAndSettle();
 
     expect(find.byType(RoutePickerPage), findsNothing);
-    expect(
-      find.text(HouseholdSamples.currentLocation.fullAddress),
-      findsOneWidget,
-    );
-    expect(
-      find.text(HouseholdSamples.recentAddresses[1].fullAddress),
-      findsOneWidget,
-    );
+    expect(find.text(testHome.fullAddress), findsOneWidget);
+    expect(find.text(testOffice.fullAddress), findsOneWidget);
 
     await tester.tap(find.textContaining('Sedang (4–8 Kardus)'));
     await tester.tap(find.text('Termasuk kendaraan'));
@@ -147,10 +116,10 @@ void main() {
   });
 
   testWidgets('rute: lokasi awal dan tujuan tidak boleh sama', (tester) async {
-    await _pumpNarrow(tester, const RoutePickerPage());
+    await _pumpNarrow(tester, const RoutePickerPage(origin: testHome));
 
-    // Kolom tujuan aktif; lokasi awal sudah "Lokasi saat ini".
-    await tester.tap(find.text('Lokasi saat ini'));
+    // Kolom tujuan aktif; lokasi awal sudah Rumah.
+    await tester.tap(find.text('Rumah'));
     await tester.pump();
 
     expect(
@@ -158,6 +127,29 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(RoutePickerPage), findsOneWidget);
+  });
+
+  testWidgets('Pesan Pindahan: asal jadi lokasi jemput', (tester) async {
+    final orders = FakeOrderRepository(addresses: testAddresses);
+    await _pump(
+      tester,
+      OrderReviewPage(draft: _moveDraft, category: _household),
+      const Size(412, 917),
+      orderRepo: orders,
+    );
+
+    await tester.tap(find.text('Pesan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sudah'));
+    await tester.pumpAndSettle();
+
+    final body = orders.created.single;
+    expect(body['pickup_address_id'], testHome.id);
+    expect(body['destination_address_id'], testOffice.id);
+    expect(body['client_estimated_price'], 110000);
+    final parsed = OrderDescription.parse(body['task_description']! as String);
+    expect(parsed.title, 'Household - Pindahan');
+    expect(parsed.valueOf('Kebutuhan armada'), 'Termasuk kendaraan');
   });
 
   for (final (name, page) in [
@@ -191,11 +183,15 @@ void main() {
 
     testWidgets('pilih rute', (tester) async {
       await _pumpNarrow(tester, const RoutePickerPage());
-      expect(find.text('Lokasi saat ini'), findsOneWidget);
+      expect(find.text('Tersimpan'), findsOneWidget);
+      expect(find.text('Rumah'), findsOneWidget);
     });
 
     testWidgets('detail pesanan dengan rincian terbuka', (tester) async {
-      await _pumpNarrow(tester, OrderReviewPage(draft: _moveDraft));
+      await _pumpNarrow(
+        tester,
+        OrderReviewPage(draft: _moveDraft, category: _household),
+      );
       expect(find.text('Lokasi awal'), findsOneWidget);
       expect(find.text('Lokasi tujuan'), findsOneWidget);
       expect(find.text('Termasuk kendaraan'), findsOneWidget);
@@ -207,19 +203,26 @@ void main() {
       expect(find.text('Rp110.000'), findsOneWidget);
     });
 
-    testWidgets('pesanan aktif', (tester) async {
-      final store = OrderStore(clock: () => DateTime(2026, 10, 22, 9));
-      store.place(
-        draft: _moveDraft,
-        payment: HouseholdSamples.paymentMethods.first,
+    testWidgets('pesanan berjalan', (tester) async {
+      final orders = FakeOrderRepository(
+        orders: [
+          FakeOrderRepository.sample(
+            status: OrderStatus.onTheWay,
+            description: householdOrderDescription(_moveDraft),
+            price: 110000,
+            pickup: testHome,
+            destination: testOffice,
+          ),
+        ],
       );
-
-      await _pumpNarrow(tester, ActiveOrderPage(), orderStore: store);
+      await _pumpNarrow(
+        tester,
+        const OrderDetailPage(orderId: 1),
+        orderRepo: orders,
+      );
+      expect(find.text('Lokasi jemput'), findsOneWidget);
       expect(find.text('Lokasi tujuan'), findsOneWidget);
-      expect(find.text('Muatan - Sedang'), findsOneWidget);
-
-      // Hentikan ticker store sebelum test selesai.
-      store.reset();
+      expect(find.text('Termasuk kendaraan'), findsOneWidget);
     });
   });
 }

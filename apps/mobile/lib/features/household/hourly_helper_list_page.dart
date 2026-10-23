@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/api/api_exception.dart';
 
 import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../../widgets/empty_state.dart';
+import '../order/helper_repository.dart';
 import '../order/order_style.dart';
 import '../order/widgets/order_widgets.dart';
 import 'household_models.dart';
-import 'household_samples.dart';
 
 enum HelperFilter {
   semua('Semua'),
@@ -31,31 +35,40 @@ enum HelperFilter {
 /// "Daftar Helper": helper per jam terdekat. Mengetuk kartu kembali ke form
 /// membawa helper itu.
 ///
-/// Sesuai `GET /helpers?sort_by=distance`: radius 10 km dari alamat utama,
-/// diurutkan dari yang terdekat.
+/// Dari `GET /helpers?sort_by=distance`: helper terverifikasi yang sedang
+/// tersedia, radius 10 km dari alamat utama, diurutkan dari yang terdekat.
 class HourlyHelperListPage extends StatefulWidget {
-  const HourlyHelperListPage({super.key, this.selected, this.helpers});
+  const HourlyHelperListPage({
+    super.key,
+    required this.categoryId,
+    this.selected,
+  });
 
+  /// Kategori layanan (Household atau Delivery) di server.
+  final int categoryId;
   final HourlyHelper? selected;
-
-  /// Diisi saat pengujian. Default: data contoh.
-  final List<HourlyHelper>? helpers;
 
   @override
   State<HourlyHelperListPage> createState() => _HourlyHelperListPageState();
 }
 
 class _HourlyHelperListPageState extends State<HourlyHelperListPage> {
-  late final _helpers = [...(widget.helpers ?? HouseholdSamples.helpers)]
-    ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+  late Future<List<HourlyHelper>> _helpers = _fetch();
 
   HelperFilter _filter = HelperFilter.semua;
   String _query = '';
 
-  List<HourlyHelper> get _visible {
+  Future<List<HourlyHelper>> _fetch() =>
+      context.read<HelperRepository>().hourly(widget.categoryId);
+
+  void _reload() => setState(() {
+    _helpers = _fetch();
+  });
+
+  List<HourlyHelper> _visible(List<HourlyHelper> helpers) {
     final q = _query.trim().toLowerCase();
     return [
-      for (final h in _helpers)
+      for (final h in helpers)
         if (_filter.matches(h) &&
             (q.isEmpty || h.name.toLowerCase().contains(q)))
           h,
@@ -64,8 +77,6 @@ class _HourlyHelperListPageState extends State<HourlyHelperListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visible;
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -106,35 +117,67 @@ class _HourlyHelperListPageState extends State<HourlyHelperListPage> {
                 ),
               ),
               Expanded(
-                child: visible.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Tidak ada helper yang cocok.',
-                          style: AppTypography.style(
-                            size: AppTypography.small,
-                            weight: AppTypography.regular,
-                            color: AppColors.textDescription,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.fromLTRB(
-                          22,
-                          21,
-                          22,
-                          24 + MediaQuery.paddingOf(context).bottom,
-                        ),
-                        itemCount: visible.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 14),
-                        itemBuilder: (context, index) {
-                          final h = visible[index];
-                          return _HelperCard(
-                            helper: h,
-                            selected: h.id == widget.selected?.id,
-                            onTap: () => Navigator.of(context).pop(h),
+                child: FutureBuilder<List<HourlyHelper>>(
+                  future: _helpers,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final error = snapshot.error;
+                    if (error != null) {
+                      return EmptyState(
+                        icon: Icons.cloud_off_rounded,
+                        title: 'Helper gagal dimuat',
+                        message: error is ApiException
+                            ? error.message
+                            : 'Coba lagi sebentar lagi.',
+                        actionLabel: 'Coba lagi',
+                        onAction: _reload,
+                      );
+                    }
+                    final all = snapshot.data ?? const <HourlyHelper>[];
+                    if (all.isEmpty) {
+                      return const EmptyState(
+                        icon: Icons.person_search_outlined,
+                        title: 'Belum ada helper di sekitarmu',
+                        message:
+                            'Helper yang tersedia dalam radius 10 km dari '
+                            'alamat utamamu akan tampil di sini.',
+                      );
+                    }
+                    final visible = _visible(all);
+                    return visible.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Tidak ada helper yang cocok.',
+                              style: AppTypography.style(
+                                size: AppTypography.small,
+                                weight: AppTypography.regular,
+                                color: AppColors.textDescription,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            padding: EdgeInsets.fromLTRB(
+                              22,
+                              21,
+                              22,
+                              24 + MediaQuery.paddingOf(context).bottom,
+                            ),
+                            itemCount: visible.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 14),
+                            itemBuilder: (context, index) {
+                              final h = visible[index];
+                              return _HelperCard(
+                                helper: h,
+                                selected: h.id == widget.selected?.id,
+                                onTap: () => Navigator.of(context).pop(h),
+                              );
+                            },
                           );
-                        },
-                      ),
+                  },
+                ),
               ),
             ],
           ),
@@ -252,9 +295,12 @@ class _HelperCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final km = helper.distanceKm == helper.distanceKm.roundToDouble()
-        ? helper.distanceKm.toInt().toString()
-        : helper.distanceKm.toStringAsFixed(1).replaceAll('.', ',');
+    final distance = helper.distanceKm;
+    final km = distance == null
+        ? null
+        : distance == distance.roundToDouble()
+        ? distance.toInt().toString()
+        : distance.toStringAsFixed(1).replaceAll('.', ',');
 
     return Material(
       color: AppColors.light,
@@ -305,7 +351,7 @@ class _HelperCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Jarak $km km',
+                      km == null ? 'Jarak belum diketahui' : 'Jarak $km km',
                       style: AppTypography.style(
                         size: 12,
                         weight: AppTypography.regular,

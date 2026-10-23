@@ -31,9 +31,20 @@ class _ChatListViewState extends State<ChatListView> {
   late final _store = context.read<ChatStore>();
   String _query = '';
 
-  void _open(ChatRoom room) => Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
+  @override
+  void initState() {
+    super.initState();
+    // Selalu terbaru saat tab dibuka: balasan helper bisa masuk kapan saja.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _store.refresh());
+  }
+
+  Future<void> _open(ChatRoom room) async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
+    // Urutan dan penanda belum dibaca mengikuti percakapan barusan.
+    if (mounted) await _store.refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +66,12 @@ class _ChatListViewState extends State<ChatListView> {
             _SearchField(onChanged: (v) => setState(() => _query = v)),
             const SizedBox(height: 16),
             Expanded(
-              child: ListenableBuilder(
-                listenable: _store,
-                builder: (context, _) => _buildList(),
+              child: RefreshIndicator(
+                onRefresh: _store.refresh,
+                child: ListenableBuilder(
+                  listenable: _store,
+                  builder: (context, _) => _buildList(),
+                ),
               ),
             ),
           ],
@@ -66,17 +80,42 @@ class _ChatListViewState extends State<ChatListView> {
     );
   }
 
+  /// Tetap bisa ditarik untuk memuat ulang walau isinya kosong atau gagal.
+  Widget _scrollable(Widget child) => LayoutBuilder(
+    builder: (context, box) => SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(height: box.maxHeight, child: child),
+    ),
+  );
+
   Widget _buildList() {
     final all = _store.rooms;
+    final error = _store.error;
+    if (all.isEmpty && _store.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (all.isEmpty && error != null) {
+      return _scrollable(
+        EmptyState(
+          icon: Icons.cloud_off_rounded,
+          title: 'Obrolan gagal dimuat',
+          message: error.message,
+          actionLabel: 'Coba lagi',
+          onAction: _store.refresh,
+        ),
+      );
+    }
     if (all.isEmpty) {
-      return EmptyState(
-        icon: Icons.chat_bubble_outline_rounded,
-        title: 'Belum ada obrolan',
-        message:
-            'Chat helper dari profilnya, sebelum atau sesudah memesan. '
-            'Obrolannya tersimpan di sini.',
-        actionLabel: 'Cari Helper',
-        onAction: widget.onExplore,
+      return _scrollable(
+        EmptyState(
+          icon: Icons.chat_bubble_outline_rounded,
+          title: 'Belum ada obrolan',
+          message:
+              'Chat helper dari profilnya, sebelum atau sesudah memesan. '
+              'Obrolannya tersimpan di sini.',
+          actionLabel: 'Cari Helper',
+          onAction: widget.onExplore,
+        ),
       );
     }
 
@@ -94,6 +133,7 @@ class _ChatListViewState extends State<ChatListView> {
     }
 
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
       itemCount: rooms.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
