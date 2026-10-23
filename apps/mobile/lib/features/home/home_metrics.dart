@@ -1,5 +1,3 @@
-import 'dart:ui' show Color;
-
 /// Ukuran beranda, diukur per piksel dari desain Figma (frame Android
 /// Compact, lebar 412 dp) lalu dikonversi ke dp. Semua angka di satu tempat
 /// supaya penyetelan tidak perlu menyisir widget satu per satu.
@@ -9,6 +7,9 @@ import 'dart:ui' show Color;
 /// jadi proporsinya tetap sama walau tinggi status bar berbeda.
 class HomeMetrics {
   const HomeMetrics._();
+
+  /// Lebar frame desain.
+  static const designWidth = 412.0;
 
   // ── Header ────────────────────────────────────────────────────────────
   static const headerPadding = 22.0;
@@ -48,14 +49,24 @@ class HomeMetrics {
   static const tileRadius = 14.0;
   static const tileLabelGap = 12.4;
   static const tileLabelSize = 12.0;
-  static const tileRowGap = 21.2;
 
   // ── Seksi ─────────────────────────────────────────────────────────────
   static const sectionTitleSize = 14.0;
-  static const promoTopGap = 29.8; // label grid -> judul Penawaran Spesial
-  static const titleToBanner = 17.8;
-  static const foodTopGap = 28.6; // banner -> judul Makanan Favorit
-  static const titleToCards = 15.8;
+  static const sectionTopGap = 29.8; // akhir seksi -> judul seksi berikutnya
+  static const titleToContent = 17.8; // judul seksi -> isinya
+
+  // ── Kartu jasa (Jasa tersedia) ────────────────────────────────────────
+  // Diukur dari frame desain Android Compact (412 dp).
+  static const offerCardWidth = 245.0;
+  static const offerCardHeight = 156.0;
+  static const offerCardGap = 15.0;
+  static const offerCardPadding = 5.5;
+  static const offerCardRadius = 15.0;
+  static const offerPanelHeight = 106.0;
+  static const offerPanelRadius = 10.0;
+  static const offerTitleSize = 18.0; // SemiBold
+  static const offerMetaSize = 10.0; // Regular
+  static const offerPriceSize = 12.5;
 
   // ── Banner promo ──────────────────────────────────────────────────────
   static const bannerWidth = 340.0;
@@ -63,24 +74,9 @@ class HomeMetrics {
   static const bannerRadius = 16.0;
   static const bannerGap = 14.4;
 
-  // ── Kartu makanan ─────────────────────────────────────────────────────
-  static const foodCardWidth = 138.0;
-  static const foodCardHeight = 184.0;
-  static const foodCardGap = 13.3;
-  static const foodCardPadding = 5.5;
-  static const foodImageHeight = 93.6;
-  static const foodTitleSize = 13.5; // Regular
-  static const foodRatingSize = 9.0; // Medium
-  static const foodRatingColor = Color(0xFF8A8A8A);
-  static const foodStarSize = 11.0;
-
   // ── Navigasi bawah ────────────────────────────────────────────────────
-  static const navWidth = 316.0;
-  static const navHeight = 56.0;
-  static const navBottomGap = 31.0; // minimal; ikut safe area kalau lebih besar
-  static const navFabSize = 46.0;
-
-  /// Pusat tiap ikon relatif terhadap pusat bilah: Beranda, Cari Helper,
-  /// (tombol +), Percakapan, Profil.
-  static const navIconOffsets = [-132.0, -72.0, 72.0, 130.0];
+  static const navHeight = 64.0;
+  static const navIconSize = 30.0;
+  static const navLabelGap = 4.0;
+  static const navLabelSize = 11.0;
 }

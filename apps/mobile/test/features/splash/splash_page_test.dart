@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/onboarding/onboarding_page.dart';
@@ -20,7 +21,7 @@ void main() {
   testWidgets('belum login dan belum lihat onboarding, splash ke onboarding', (
     tester,
   ) async {
-    await pumpPage(tester, SplashPage(authRepo: FakeAuthRepository()));
+    await pumpPage(tester, SplashPage(), authRepo: FakeAuthRepository());
 
     await tester.pump(SplashPage.duration - const Duration(milliseconds: 1));
     expect(find.byType(OnboardingPage), findsNothing);
@@ -44,10 +45,9 @@ void main() {
     );
     await pumpPage(
       tester,
-      SplashPage(
-        authRepo: FakeAuthRepository(sessionUser: user),
-        catalogRepo: FakeCatalogRepository(),
-      ),
+      SplashPage(),
+      authRepo: FakeAuthRepository(sessionUser: user),
+      catalogRepo: FakeCatalogRepository(),
     );
 
     await tester.pump(SplashPage.duration);
@@ -61,7 +61,7 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({'onboarding_seen': true});
-    await pumpPage(tester, SplashPage(authRepo: FakeAuthRepository()));
+    await pumpPage(tester, SplashPage(), authRepo: FakeAuthRepository());
 
     await tester.pump(SplashPage.duration);
     await tester.pumpAndSettle();
@@ -69,4 +69,47 @@ void main() {
     expect(find.byType(OnboardingPage), findsNothing);
     expect(find.byType(SplashPage), findsNothing);
   });
+
+  testWidgets(
+    'server lambat bangun: splash memberi tahu sedang menghubungkan',
+    (tester) async {
+      await pumpPage(
+        tester,
+        const SplashPage(),
+        authRepo: _SlowAuthRepository(),
+      );
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(_notice(tester), 0);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(_notice(tester), 1);
+
+      // Begitu server menjawab, splash tetap pindah seperti biasa.
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(OnboardingPage), findsOneWidget);
+    },
+  );
 }
+
+/// Server deploy yang baru bangun setelah 10 detik.
+class _SlowAuthRepository extends FakeAuthRepository {
+  @override
+  Future<bool> hasSession() async {
+    await Future<void>.delayed(const Duration(seconds: 10));
+    return false;
+  }
+}
+
+/// Opacity keterangan "Menghubungkan ke server...".
+double _notice(WidgetTester tester) => tester
+    .widget<AnimatedOpacity>(
+      find.ancestor(
+        of: find.text('Menghubungkan ke server...'),
+        matching: find.byType(AnimatedOpacity),
+      ),
+    )
+    .opacity;

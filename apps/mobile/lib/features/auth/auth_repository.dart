@@ -8,8 +8,8 @@ import '../../models/auth_user.dart';
 /// [ApiException]. Halaman tidak perlu tahu soal path, header, atau JSON.
 class AuthRepository {
   AuthRepository({ApiClient? api, TokenStorage? storage})
-      : _api = api ?? ApiClient(storage: storage),
-        _storage = storage ?? TokenStorage();
+    : _api = api ?? ApiClient(storage: storage),
+      _storage = storage ?? TokenStorage();
 
   final ApiClient _api;
   final TokenStorage _storage;
@@ -21,12 +21,15 @@ class AuthRepository {
     required String phoneNumber,
     required String password,
   }) async {
-    final data = await _api.post('/register', body: {
-      'full_name': fullName,
-      'email': email,
-      'phone_number': phoneNumber,
-      'password': password,
-    });
+    final data = await _api.post(
+      '/register',
+      body: {
+        'full_name': fullName,
+        'email': email,
+        'phone_number': phoneNumber,
+        'password': password,
+      },
+    );
     return OtpChallenge.fromJson((data as Map).cast<String, dynamic>());
   }
 
@@ -36,23 +39,31 @@ class AuthRepository {
     required String otpCode,
     String? tempToken,
   }) async {
-    final data = await _api.post('/verify-otp', body: {
-      'phone_number': phoneNumber,
-      'otp_code': otpCode,
-      'temp_token': ?tempToken,
-    });
+    final data = await _api.post(
+      '/verify-otp',
+      body: {
+        'phone_number': phoneNumber,
+        'otp_code': otpCode,
+        'temp_token': ?tempToken,
+      },
+    );
     return _persist(data);
   }
 
   /// Kirim ulang OTP. Backend membatasi satu kali per 60 detik
   /// (kode `OTP_THROTTLED`).
-  Future<OtpChallenge> resendOtp(String phoneNumber, {String type = 'register'}) async {
-    final data = await _api.post('/send-otp', body: {
-      'phone_number': phoneNumber,
-      'type': type,
-    });
+  Future<OtpChallenge> resendOtp(
+    String phoneNumber, {
+    String type = 'register',
+  }) async {
+    final data = await _api.post(
+      '/send-otp',
+      body: {'phone_number': phoneNumber, 'type': type},
+    );
     return OtpChallenge.fromJson(
-      data is Map ? data.cast<String, dynamic>() : {'phone_number': phoneNumber},
+      data is Map
+          ? data.cast<String, dynamic>()
+          : {'phone_number': phoneNumber},
     );
   }
 
@@ -61,16 +72,58 @@ class AuthRepository {
     required String identifier,
     required String password,
   }) async {
-    final data = await _api.post('/login', body: {
-      'identifier': identifier,
-      'password': password,
-    });
+    final data = await _api.post(
+      '/login',
+      body: {'identifier': identifier, 'password': password},
+    );
     return _persist(data);
   }
 
   Future<AuthUser> signInWithGoogle(String idToken) async {
     final data = await _api.post('/google', body: {'id_token': idToken});
     return _persist(data);
+  }
+
+  /// Lupa password (FR-AUTH-006): kirim OTP ke nomor akun. Akun yang biasa
+  /// masuk lewat email pun dipulihkan lewat nomor HP.
+  Future<OtpChallenge> forgotPassword(String phoneNumber) async {
+    final data = await _api.post(
+      '/password/forgot',
+      body: {'phone_number': phoneNumber},
+    );
+    return OtpChallenge.fromJson(
+      data is Map
+          ? data.cast<String, dynamic>()
+          : {'phone_number': phoneNumber},
+    );
+  }
+
+  /// Simpan password baru memakai OTP dari [forgotPassword]. Tidak
+  /// menerbitkan token: pengguna masuk lagi dengan password barunya.
+  Future<void> resetPassword({
+    required String phoneNumber,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    await _api.post(
+      '/password/reset',
+      body: {
+        'phone_number': phoneNumber,
+        'otp_code': otpCode,
+        'new_password': newPassword,
+      },
+    );
+  }
+
+  /// Ganti password saat sudah masuk.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _api.post(
+      '/password/change',
+      body: {'current_password': currentPassword, 'new_password': newPassword},
+    );
   }
 
   /// Profil pengguna yang tokennya tersimpan. Dipakai saat app dibuka

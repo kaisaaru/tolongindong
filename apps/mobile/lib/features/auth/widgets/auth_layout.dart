@@ -34,23 +34,44 @@ class AuthLayout extends StatelessWidget {
       value: SystemUiOverlayStyle.dark, // ikon status bar gelap di latar putih
       child: Scaffold(
         body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, viewport) => SingleChildScrollView(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: 348, // konten 300 + padding 24 kiri-kanan
-                    minHeight: viewport.maxHeight,
-                  ),
-                  // Bikin Column minimal setinggi layar (supaya Spacer di
-                  // bawah bisa bekerja), tapi tetap boleh lebih tinggi.
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: AutofillGroup(child: _buildContent()),
-                    ),
+          child: Stack(
+            children: [
+              _buildScroll(),
+              // Daftar dan OTP dibuka dari halaman lain: beri jalan kembali
+              // yang terlihat (misal salah memasukkan nomor HP), bukan hanya
+              // gestur sistem.
+              if (ModalRoute.of(context)?.canPop ?? false)
+                Positioned(
+                  top: 4,
+                  left: 4,
+                  child: IconButton(
+                    tooltip: 'Kembali',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_rounded),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScroll() {
+    return LayoutBuilder(
+      builder: (context, viewport) => SingleChildScrollView(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 348, // konten 300 + padding 24 kiri-kanan
+              minHeight: viewport.maxHeight,
+            ),
+            // Bikin Column minimal setinggi layar (supaya Spacer di
+            // bawah bisa bekerja), tapi tetap boleh lebih tinggi.
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: AutofillGroup(child: _buildContent()),
               ),
             ),
           ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../theme/app_colors.dart';
@@ -11,6 +12,7 @@ import '../../widgets/primary_button.dart';
 import '../../widgets/text_link.dart';
 import '../home/home_page.dart';
 import 'auth_repository.dart';
+import 'session_store.dart';
 import 'widgets/auth_layout.dart';
 
 class OtpPage extends StatefulWidget {
@@ -20,11 +22,7 @@ class OtpPage extends StatefulWidget {
     this.debugOtp,
     this.expiresInSeconds = 300,
     this.tempToken,
-    this.authRepo,
   });
-
-  /// Diisi hanya saat pengujian, supaya halaman bisa diuji tanpa server.
-  final AuthRepository? authRepo;
 
   /// Nomor tujuan OTP. Yang ditampilkan cuma 4 digit terakhir.
   final String phoneNumber;
@@ -48,7 +46,7 @@ class _OtpPageState extends State<OtpPage> {
   static const _resendCooldown = 60; // backend menolak lebih cepat dari ini
 
   final _codeController = TextEditingController();
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
 
   late String? _debugOtp = widget.debugOtp;
   late int _expiresIn = widget.expiresInSeconds;
@@ -120,10 +118,11 @@ class _OtpPageState extends State<OtpPage> {
       );
 
       if (!mounted) return;
+      context.read<SessionStore>().signIn(user);
       // Seluruh tumpukan daftar/OTP dibuang: tombol kembali tidak boleh
       // membawa pengguna balik ke layar OTP setelah akun aktif.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => HomePage(user: user)),
+        MaterialPageRoute<void>(builder: (_) => const HomePage()),
         (_) => false,
       );
     } on ApiException catch (e) {

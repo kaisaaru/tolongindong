@@ -7,8 +7,8 @@ import '../../../theme/app_typography.dart';
 import '../home_assets.dart';
 import '../home_metrics.dart';
 
-/// Satu ubin di grid kategori. Dipakai untuk kategori dari server maupun
-/// dua ubin statis di akhir (Helper dan Lainnya).
+/// Satu ubin di baris kategori. Dipakai untuk kategori dari server maupun
+/// ubin statis Helper di akhir.
 class CategoryTile {
   const CategoryTile({
     required this.label,
@@ -30,57 +30,53 @@ class CategoryTile {
   factory CategoryTile.fromCategory(
     ServiceCategory category, {
     VoidCallback? onTap,
-  }) =>
-      CategoryTile(
-        label: HomeAssets.displayName(category.code, category.name),
-        assetPath: HomeAssets.categoryIcon(category.code),
-        onTap: onTap,
-      );
+  }) => CategoryTile(
+    label: category.name,
+    assetPath: HomeAssets.categoryIcon(category.code),
+    onTap: onTap,
+  );
 }
 
-/// Grid 4 kolom berisi enam kategori layanan (FR-HLP-001) ditambah pintasan
-/// Helper dan Lainnya.
+/// Satu baris berisi tiga kategori layanan (FR-HLP-001) ditambah pintasan
+/// Helper.
 ///
 /// Ubin berukuran tetap 69 dp dengan jarak tetap, bukan dibagi rata ke lebar
 /// layar — di desain ukurannya memang tidak berubah mengikuti lebar.
+///
+/// Baris selebar 337,5 dp ini muat di frame desain (412 dp), tapi tidak di
+/// layar 360 dp. Di layar sesempit itu seluruh baris diperkecil utuh supaya
+/// proporsi ubin, jarak, dan label tetap sama dengan desain.
 class CategoryGrid extends StatelessWidget {
   const CategoryGrid({super.key, required this.tiles});
 
   final List<CategoryTile> tiles;
 
-  static const _perRow = 4;
-
-  /// Tinggi total dua baris, dipakai penanda memuat supaya layar tidak
-  /// melompat saat kategori selesai dimuat.
-  static const height = 2 *
-          (HomeMetrics.tileSize +
-              HomeMetrics.tileLabelGap +
-              HomeMetrics.tileLabelSize) +
-      HomeMetrics.tileRowGap;
+  /// Tinggi satu baris, dipakai penanda memuat supaya layar tidak melompat
+  /// saat kategori selesai dimuat.
+  static const height =
+      HomeMetrics.tileSize +
+      HomeMetrics.tileLabelGap +
+      HomeMetrics.tileLabelSize;
 
   @override
   Widget build(BuildContext context) {
-    final rows = <List<CategoryTile>>[
-      for (var i = 0; i < tiles.length; i += _perRow)
-        tiles.sublist(i, (i + _perRow).clamp(0, tiles.length)),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var r = 0; r < rows.length; r++) ...[
-          if (r > 0) const SizedBox(height: HomeMetrics.tileRowGap),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var c = 0; c < rows[r].length; c++) ...[
-                if (c > 0) const SizedBox(width: HomeMetrics.tileGap),
-                _Tile(tile: rows[r][c]),
-              ],
+    // Sisi kanan diberi jarak yang sama dengan padding kiri beranda.
+    return Padding(
+      padding: const EdgeInsets.only(right: HomeMetrics.bodyPadding),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: HomeMetrics.tileGap),
+              _Tile(tile: tiles[i]),
             ],
-          ),
-        ],
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

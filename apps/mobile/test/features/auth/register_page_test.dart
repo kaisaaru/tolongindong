@@ -69,7 +69,7 @@ void main() {
         expiresInSeconds: 300,
       ),
     );
-    await pumpPage(tester, RegisterPage(authRepo: repo));
+    await pumpPage(tester, RegisterPage(), authRepo: repo);
     await fillForm(tester);
 
     await tester.tap(daftarButton);
@@ -94,7 +94,7 @@ void main() {
         statusCode: 422,
       ),
     );
-    await pumpPage(tester, RegisterPage(authRepo: repo));
+    await pumpPage(tester, RegisterPage(), authRepo: repo);
     await fillForm(tester);
 
     await tester.tap(daftarButton);

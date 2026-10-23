@@ -18,14 +18,14 @@ class HomeHeader extends StatelessWidget {
   const HomeHeader({
     super.key,
     required this.user,
-    this.location = 'Jln. Karya Jaya',
+    required this.location,
     this.hasUnreadNotification = false,
     this.onNotificationTap,
   });
 
   final AuthUser user;
 
-  /// Sementara teks statis. Nanti dari GPS + alamat tersimpan (FR-PRF-002).
+  /// Alamat utama tersimpan (FR-PRF-002), atau ajakan mengatur alamat.
   final String location;
 
   final bool hasUnreadNotification;
@@ -66,16 +66,20 @@ class HomeHeader extends StatelessWidget {
               ),
               child: Align(
                 alignment: Alignment.topCenter,
-                child: SizedBox(
-                  height: HomeMetrics.avatarSize,
+                // Setinggi avatar seperti desain, tapi boleh tumbuh saat
+                // ukuran font HP diperbesar supaya sapaan tidak terpotong.
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: HomeMetrics.avatarSize,
+                  ),
                   child: Row(
                     children: [
                       _Avatar(photoUrl: user.photoUrl, name: user.fullName),
                       const SizedBox(width: HomeMetrics.avatarTextGap),
                       Expanded(
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               'Hallo, ${_firstName(user.fullName)}',
@@ -122,7 +126,9 @@ class HomeHeader extends StatelessWidget {
     double boxHeight,
     double screenHeight,
   ) {
-    final t = screenHeight <= 0 ? 0.0 : (boxHeight / screenHeight).clamp(0.0, 1.0);
+    final t = screenHeight <= 0
+        ? 0.0
+        : (boxHeight / screenHeight).clamp(0.0, 1.0);
     return LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
@@ -139,11 +145,11 @@ class HomeHeader extends StatelessWidget {
 
 /// Tiga pita miring di latar header.
 ///
-/// Geometrinya diambil dari `assets/shape/Rectangle 22524/22525/22526.svg`
-/// (persegi panjang `#E22C2C` diputar -19,78° dengan inner shadow), lalu
-/// diposisikan sesuai pengukuran desain. Digambar langsung alih-alih memakai
-/// berkas SVG-nya karena `flutter_svg` tidak mendukung elemen `<filter>`,
-/// sehingga inner shadow-nya akan hilang.
+/// Geometrinya diambil dari ekspor SVG Figma (persegi panjang `#E22C2C`
+/// diputar -19,78° dengan inner shadow), lalu diposisikan sesuai pengukuran
+/// desain. Digambar langsung alih-alih memakai berkas SVG-nya karena
+/// `flutter_svg` tidak mendukung elemen `<filter>`, sehingga inner shadow-nya
+/// akan hilang.
 class _HeaderBandsPainter extends CustomPainter {
   const _HeaderBandsPainter({required this.shift});
 

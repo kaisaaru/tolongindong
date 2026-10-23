@@ -11,6 +11,31 @@ void main() {
       .widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Verifikasi'))
       .onPressed;
 
+  testWidgets('dibuka dari halaman daftar: ada tombol kembali', (tester) async {
+    await pumpPage(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => page)),
+          child: const Text('Daftar'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Daftar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Kembali'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OtpPage), findsNothing);
+  });
+
+  testWidgets('halaman pertama tanpa tombol kembali', (tester) async {
+    await pumpPage(tester, page);
+    expect(find.byTooltip('Kembali'), findsNothing);
+  });
+
   testWidgets('nomor tujuan cuma tampil 4 digit terakhir', (tester) async {
     await pumpPage(tester, page);
 

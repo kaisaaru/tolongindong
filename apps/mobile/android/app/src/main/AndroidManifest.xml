@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Wajib untuk build release: tanpa ini semua panggilan API gagal.
+         Manifest debug/profile sudah punya sendiri, release belum. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Lokasi untuk alamat baru: helper terdekat dan ongkos kirim. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
-        android:label="mobile"
+        android:label="TolonginDong"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

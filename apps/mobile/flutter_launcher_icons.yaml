@@ -1,0 +1,16 @@
+# Ikon aplikasi dari logo SEMENTARA (lihat lib/widgets/app_logo.dart).
+# Setelah mengganti gambar di assets/launcher/, jalankan:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/launcher/icon.png"
+  android: true
+  adaptive_icon_background: "#FF4B4B"
+  adaptive_icon_foreground: "assets/launcher/icon_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    background_color: "#FF4B4B"
+    theme_color: "#FF4B4B"
+  macos:
+    generate: true
