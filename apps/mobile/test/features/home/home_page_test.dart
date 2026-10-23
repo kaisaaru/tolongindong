@@ -193,15 +193,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(_user.fullName), findsOneWidget);
     expect(find.text(_user.email), findsOneWidget);
-    expect(find.text('Terverifikasi'), findsOneWidget);
+    expect(find.text('ID Verified'), findsOneWidget);
 
-    await tester.tap(find.text('Keluar'));
+    await tester.tap(find.text('Keluar Akun'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Batal'));
     await tester.pumpAndSettle();
     expect(find.byType(LoginPage), findsNothing);
 
-    await tester.tap(find.text('Keluar'));
+    await tester.tap(find.text('Keluar Akun'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Keluar'));
     await tester.pumpAndSettle();
@@ -302,9 +302,7 @@ void main() {
     expect(find.text('Belum ada notifikasi'), findsOneWidget);
   });
 
-  testWidgets('Akun: kartu saldo membuka TD-Wallet, menu ganti password', (
-    tester,
-  ) async {
+  testWidgets('Akun: menu TD-Wallet dan Keamanan & Kata Sandi', (tester) async {
     await pumpPage(
       tester,
       HomePage(),
@@ -317,14 +315,14 @@ void main() {
     await tester.tap(find.text('Akun'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Isi saldo'));
+    await tester.tap(find.text('TD-Wallet'));
     await tester.pumpAndSettle();
     expect(find.byType(WalletPage), findsOneWidget);
     expect(find.text('Rp 75.000'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Kembali'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ganti password'));
+    await tester.tap(find.text('Keamanan & Kata Sandi'));
     await tester.pumpAndSettle();
     expect(find.byType(ChangePasswordPage), findsOneWidget);
   });

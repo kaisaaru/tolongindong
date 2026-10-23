@@ -111,8 +111,8 @@ class _HomePageState extends State<HomePage> {
     if (mounted) await _loadHeader();
   }
 
-  // Saldo di tab Akun ikut berubah sendiri: TD-Wallet memperbarui
-  // SessionStore setelah isi saldo.
+  // Saldo di menu TD-Wallet tab Akun ikut berubah sendiri: TD-Wallet
+  // memperbarui SessionStore setelah isi saldo.
   void _openWallet() => Navigator.of(
     context,
   ).push(MaterialPageRoute<void>(builder: (_) => const WalletPage()));
@@ -246,10 +246,9 @@ class _HomePageState extends State<HomePage> {
           body: AccountView(
             user: user,
             onLogout: _logout,
-            onOpenOrders: () => _goTo(HomeTab.aktifitas),
-            onOpenChats: () => _goTo(HomeTab.obrolan),
             onOpenWallet: _openWallet,
             onChangePassword: _openChangePassword,
+            onOpenNotifications: _openNotifications,
           ),
           bottomNavigationBar: nav,
         ),

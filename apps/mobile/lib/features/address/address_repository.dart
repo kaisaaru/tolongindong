@@ -39,4 +39,13 @@ class AddressRepository {
     );
     return SavedAddress.fromJson((data as Map).cast<String, dynamic>());
   }
+
+  Future<void> delete(int id) async {
+    await _api.delete('/addresses/$id');
+  }
+
+  /// Alamat utama dipakai sebagai lokasi awal pesanan dan di beranda.
+  Future<void> setPrimary(int id) async {
+    await _api.post('/addresses/$id/primary');
+  }
 }

@@ -53,6 +53,9 @@ class ApiClient {
   Future<dynamic> post(String path, {Object? body}) =>
       _send(() => _dio.post<dynamic>(path, data: body));
 
+  Future<dynamic> delete(String path) =>
+      _send(() => _dio.delete<dynamic>(path));
+
   /// Mengembalikan isi `data` apa adanya — bisa Map (profil user) atau
   /// List (daftar kategori), jadi pemanggil yang menentukan bentuknya.
   Future<dynamic> _send(Future<Response<dynamic>> Function() request) async {
