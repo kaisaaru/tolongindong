@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/app_scope.dart';
+import 'package:mobile/core/media/photo_picker.dart';
 import 'package:mobile/features/address/address_repository.dart';
 import 'package:mobile/features/address/location_service.dart';
 import 'package:mobile/features/auth/auth_repository.dart';
 import 'package:mobile/features/chat/chat_repository.dart';
 import 'package:mobile/features/chat/chat_store.dart';
+import 'package:mobile/features/helper/helper_store.dart';
+import 'package:mobile/features/helper/helper_work_repository.dart';
 import 'package:mobile/features/home/catalog_repository.dart';
 import 'package:mobile/features/notification/notification_repository.dart';
 import 'package:mobile/features/order/helper_repository.dart';
@@ -20,9 +23,11 @@ import 'fake_auth_repository.dart';
 import 'fake_catalog_repository.dart';
 import 'fake_chat_repository.dart';
 import 'fake_helper_repository.dart';
+import 'fake_helper_work_repository.dart';
 import 'fake_location_service.dart';
 import 'fake_notification_repository.dart';
 import 'fake_order_repository.dart';
+import 'fake_photo_picker.dart';
 import 'fake_wallet_repository.dart';
 
 /// Pengguna yang sudah masuk di setiap test, kecuali diganti lewat `user`.
@@ -54,8 +59,11 @@ Widget testApp(
   OrderRepository? orderRepo,
   ChatRepository? chatRepo,
   LocationService? locationService,
+  HelperWorkRepository? helperWorkRepo,
+  PhotoPicker? photoPicker,
   OrderStore? orderStore,
   ChatStore? chatStore,
+  HelperStore? helperStore,
   AuthUser? user = testUser,
 }) => AppScope(
   authRepo: authRepo ?? FakeAuthRepository(sessionUser: user),
@@ -67,8 +75,11 @@ Widget testApp(
   orderRepo: orderRepo ?? FakeOrderRepository(),
   chatRepo: chatRepo ?? FakeChatRepository(),
   locationService: locationService ?? FakeLocationService(),
+  helperWorkRepo: helperWorkRepo ?? FakeHelperWorkRepository(),
+  photoPicker: photoPicker ?? FakePhotoPicker(),
   orderStore: orderStore,
   chatStore: chatStore,
+  helperStore: helperStore,
   user: user,
   child: MaterialApp(theme: AppTheme.light, home: page),
 );
@@ -88,8 +99,11 @@ Future<void> pumpPage(
   OrderRepository? orderRepo,
   ChatRepository? chatRepo,
   LocationService? locationService,
+  HelperWorkRepository? helperWorkRepo,
+  PhotoPicker? photoPicker,
   OrderStore? orderStore,
   ChatStore? chatStore,
+  HelperStore? helperStore,
   AuthUser? user = testUser,
 }) async {
   tester.view.physicalSize = size;
@@ -108,8 +122,11 @@ Future<void> pumpPage(
       orderRepo: orderRepo,
       chatRepo: chatRepo,
       locationService: locationService,
+      helperWorkRepo: helperWorkRepo,
+      photoPicker: photoPicker,
       orderStore: orderStore,
       chatStore: chatStore,
+      helperStore: helperStore,
       user: user,
     ),
   );

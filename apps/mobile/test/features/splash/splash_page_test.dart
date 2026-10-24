@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/storage/app_preferences.dart';
+import 'package:mobile/features/helper/helper_shell.dart';
+import 'package:mobile/features/helper/helper_work_repository.dart';
 import 'package:mobile/features/home/home_page.dart';
 import 'package:mobile/features/onboarding/onboarding_page.dart';
 import 'package:mobile/features/splash/splash_page.dart';
@@ -8,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_catalog_repository.dart';
+import '../../helpers/fake_helper_work_repository.dart';
 import '../../helpers/pump_page.dart';
 
 void main() {
@@ -32,17 +36,18 @@ void main() {
     expect(find.byType(OnboardingPage), findsOneWidget);
   });
 
+  const user = AuthUser(
+    id: 'uuid-1',
+    fullName: 'Nanda',
+    email: 'nanda@example.com',
+    phoneNumber: '08123456789',
+    photoUrl: null,
+    verificationStatus: VerificationStatus.verified,
+    isAdmin: false,
+    wallet: Wallet.empty,
+  );
+
   testWidgets('sudah login, splash langsung ke beranda', (tester) async {
-    const user = AuthUser(
-      id: 'uuid-1',
-      fullName: 'Nanda',
-      email: 'nanda@example.com',
-      phoneNumber: '08123456789',
-      photoUrl: null,
-      verificationStatus: VerificationStatus.verified,
-      isAdmin: false,
-      wallet: Wallet.empty,
-    );
     await pumpPage(
       tester,
       SplashPage(),
@@ -56,6 +61,34 @@ void main() {
     expect(find.byType(HomePage), findsOneWidget);
     expect(find.byType(OnboardingPage), findsNothing);
   });
+
+  for (final (verified, expected) in [(true, HelperShell), (false, HomePage)]) {
+    testWidgets(
+      'terakhir di mode Helper: ${verified ? 'mode Helper' : 'helper '
+                'tidak lagi terverifikasi, kembali ke Client'}',
+      (tester) async {
+        await AppPreferences().setMode(AppMode.helper);
+        await pumpPage(
+          tester,
+          SplashPage(),
+          authRepo: FakeAuthRepository(sessionUser: user),
+          catalogRepo: FakeCatalogRepository(),
+          helperWorkRepo: FakeHelperWorkRepository(
+            helperStatus: verified ? testHelperStatus : HelperStatus.none,
+          ),
+        );
+
+        await tester.pump(SplashPage.duration);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(expected), findsOneWidget);
+        expect(
+          await AppPreferences().mode(),
+          verified ? AppMode.helper : AppMode.client,
+        );
+      },
+    );
+  }
 
   testWidgets('sudah lihat onboarding tapi belum login, splash ke login', (
     tester,

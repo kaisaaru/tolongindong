@@ -28,6 +28,9 @@ class FakeOrderRepository implements OrderRepository {
   /// Isi `POST /orders` yang diterima, berurutan.
   final created = <Map<String, Object?>>[];
   final confirmed = <int>[];
+
+  /// Penawaran yang disetujui: (pesanan, penawaran).
+  final selected = <(int, int)>[];
   final cancelled = <int>[];
   final ratings = <int, int>{};
 
@@ -60,6 +63,10 @@ class FakeOrderRepository implements OrderRepository {
     SavedAddress? destination,
     List<({OrderStatus status, DateTime at})> history = const [],
     int cancellationFee = 0,
+    OrderClient? client,
+    List<OrderOffer> offers = const [],
+    int estimatedPrice = 0,
+    DateTime? respondBy,
   }) => ServerOrder(
     id: id,
     number: 'ORD-20261022-$id',
@@ -74,6 +81,12 @@ class FakeOrderRepository implements OrderRepository {
     destination: destination,
     history: history,
     cancellationFee: cancellationFee,
+    client: client,
+    offers: offers,
+    estimatedPrice: estimatedPrice,
+    helperPayout: price - platformCommissionOf(price),
+    platformCommission: platformCommissionOf(price),
+    respondBy: respondBy,
   );
 
   ServerOrder _byId(int id) => orders.firstWhere(
@@ -90,9 +103,16 @@ class FakeOrderRepository implements OrderRepository {
   }
 
   /// Status berpindah (oleh helper, admin, atau pelanggan) dan tercatat di
-  /// riwayat.
-  void advance(int id, OrderStatus status, {int? cancellationFee}) {
+  /// riwayat. [price] mengganti harga, misal setelah penawaran disetujui.
+  void advance(
+    int id,
+    OrderStatus status, {
+    int? cancellationFee,
+    int? price,
+    List<OrderOffer>? offers,
+  }) {
     final o = _byId(id);
+    final total = price ?? o.price;
     _replace(
       ServerOrder(
         id: o.id,
@@ -101,13 +121,22 @@ class FakeOrderRepository implements OrderRepository {
         categoryCode: o.categoryCode,
         categoryName: o.categoryName,
         description: o.description,
-        price: o.price,
+        price: total,
         createdAt: o.createdAt,
         helper: o.helper,
         pickup: o.pickup,
         destination: o.destination,
         history: [...o.history, (status: status, at: _clock())],
         cancellationFee: cancellationFee ?? o.cancellationFee,
+        client: o.client,
+        offers: offers ?? o.offers,
+        estimatedPrice: o.estimatedPrice,
+        helperPayout: total - platformCommissionOf(total),
+        platformCommission: platformCommissionOf(total),
+        respondBy: o.respondBy,
+        helperFinishedAt: status == OrderStatus.awaitingConfirmation
+            ? _clock()
+            : o.helperFinishedAt,
       ),
     );
   }
@@ -179,6 +208,13 @@ class FakeOrderRepository implements OrderRepository {
       OrderStatus.cancelledByClient,
       cancellationFee: waiting ? 0 : 5000,
     );
+  }
+
+  @override
+  Future<void> selectOffer(int orderId, int offerId) async {
+    selected.add((orderId, offerId));
+    final offer = _byId(orderId).offers.firstWhere((o) => o.id == offerId);
+    advance(orderId, OrderStatus.accepted, price: offer.price, offers: []);
   }
 
   @override

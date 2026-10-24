@@ -24,6 +24,15 @@ class ChatRepository {
     return ((data as Map)['room_id'] as num).toInt();
   }
 
+  /// `GET /orders/{id}/messages`: ruang pesanan ini, dibuat server kalau
+  /// belum ada. Dipakai helper, yang tidak bisa memulai obrolan lewat
+  /// `/chats/helpers`.
+  Future<int> roomForOrder(int orderId) async {
+    final data = await _api.get('/orders/$orderId/messages');
+    final room = ((data as Map)['chat_room'] as Map).cast<String, dynamic>();
+    return (room['id'] as num).toInt();
+  }
+
   /// `GET /chats/rooms/{id}/messages`. Server sekaligus menandai pesan
   /// lawan bicara sebagai sudah dibaca.
   Future<List<ChatMessage>> messages(int roomId, String? myUserId) async {

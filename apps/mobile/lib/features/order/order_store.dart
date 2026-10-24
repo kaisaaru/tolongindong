@@ -123,6 +123,12 @@ class OrderStore extends ChangeNotifier {
     return load(id);
   }
 
+  /// Setujui penawaran harga helper; saldo sebesar penawaran ditahan.
+  Future<ServerOrder> selectOffer(int id, int offerId) async {
+    await _repo.selectOffer(id, offerId);
+    return load(id);
+  }
+
   Future<ServerOrder> confirm(int id) async {
     await _repo.confirm(id);
     return load(id);

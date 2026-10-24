@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../core/format/rupiah.dart';
 import '../../models/auth_user.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
-import '../home/widgets/tips_section.dart';
+import '../helper/helper_store.dart';
 import '../order/widgets/order_widgets.dart';
+import 'help_page.dart';
+import 'saved_addresses_page.dart';
+import 'widgets/account_menu.dart';
 
-/// Isi tab "Akun": profil, saldo TD-Wallet, status verifikasi, pintasan
-/// pesanan dan obrolan, bantuan, dan keluar.
+/// Tab "Akun" dengan judul "Profil Saya" (desain Profil Saya): profil,
+/// lalu menu Akun & Keamanan, Layanan & Fitur, Pengaturan & Bantuan, dan
+/// Keluar Akun. Data dari `GET /me` yang sudah dimuat beranda.
 ///
-/// Desain Akun belum ada; tata letaknya mengikuti tab Aktifitas (judul 24,
-/// kartu bergaris 24 dp dari tepi). Data dari `GET /me` yang sudah dimuat
-/// beranda.
+/// Desain tidak punya kartu saldo; TD-Wallet jadi satu menu di Layanan &
+/// Fitur, karena hanya dari sini saldo bisa diisi.
 class AccountView extends StatelessWidget {
   const AccountView({
     super.key,
     required this.user,
     required this.onLogout,
-    this.onOpenOrders,
-    this.onOpenChats,
-    this.onOpenWallet,
-    this.onChangePassword,
+    required this.onOpenWallet,
+    required this.onChangePassword,
+    required this.onOpenNotifications,
+    required this.onSwitchToHelper,
   });
 
   final AuthUser user;
@@ -29,13 +33,13 @@ class AccountView extends StatelessWidget {
   /// Dipanggil setelah pengguna mengonfirmasi keluar.
   final VoidCallback onLogout;
 
-  /// Pindah ke tab Aktifitas dan Obrolan. Null: barisnya tidak tampil.
-  final VoidCallback? onOpenOrders;
-  final VoidCallback? onOpenChats;
-
   /// Buka halaman TD-Wallet (saldo, isi saldo, mutasi).
-  final VoidCallback? onOpenWallet;
-  final VoidCallback? onChangePassword;
+  final VoidCallback onOpenWallet;
+  final VoidCallback onChangePassword;
+  final VoidCallback onOpenNotifications;
+
+  /// Masuk mode Helper; menu ini muncul untuk helper terverifikasi.
+  final VoidCallback onSwitchToHelper;
 
   Future<void> _confirmLogout(BuildContext context) async {
     final sure = await showDialog<bool>(
@@ -58,195 +62,128 @@ class AccountView extends StatelessWidget {
     if (sure == true) onLogout();
   }
 
+  /// Menu yang backend-nya belum ada.
+  static void _soon(BuildContext context, String feature) =>
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('$feature belum tersedia.')));
+
+  static void _push(BuildContext context, Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+
   @override
   Widget build(BuildContext context) {
-    final wallet = user.wallet;
-    final phone = user.phoneNumber;
-
+    final isHelper = context.watch<HelperStore>().status.isVerifiedHelper;
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+      child: Column(
         children: [
-          Text(
-            'Akun',
-            style: AppTypography.style(
-              size: 24,
-              weight: AppTypography.semiBold,
-            ),
-          ),
-          const SizedBox(height: 22),
-          _Card(
-            child: Row(
+          // Kembali di tab ini membawa ke Beranda (PopScope di beranda).
+          const AccountTitleBar('Profil Saya'),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AccountStyle.side,
+                13,
+                AccountStyle.side,
+                24,
+              ),
               children: [
-                HelperAvatar(
-                  name: user.fullName,
-                  photoUrl: user.photoUrl,
-                  size: 56,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.style(
-                          size: 16,
-                          weight: AppTypography.semiBold,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      _Detail(user.email),
-                      if (phone != null && phone.isNotEmpty) _Detail(phone),
-                      const SizedBox(height: 8),
-                      _VerificationChip(user.verificationStatus),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          _Card(
-            padding: EdgeInsets.zero,
-            child: InkWell(
-              onTap: onOpenWallet,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+                _ProfileHeader(user: user),
+                const SizedBox(height: 30),
+                const AccountSectionTitle('Akun & Keamanan'),
+                AccountMenuCard(
                   children: [
-                    const Icon(
-                      Icons.account_balance_wallet_outlined,
-                      color: AppColors.primary,
+                    AccountMenuRow(
+                      asset: AccountStyle.iconUser,
+                      tint: const Color(0xFFEEF2FF),
+                      label: 'Edit Profil',
+                      // Backend belum punya endpoint ubah profil.
+                      onTap: () => _soon(context, 'Edit profil'),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Saldo TD-Wallet',
-                            style: AppTypography.style(
-                              size: 12,
-                              weight: AppTypography.regular,
-                              color: AppColors.textDescription,
-                              height: 1.4,
-                            ),
-                          ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              rupiah(wallet.availableBalance),
-                              style: AppTypography.style(
-                                size: 20,
-                                weight: AppTypography.bold,
-                                height: 1.4,
-                              ),
-                            ),
-                          ),
-                          // Saldo yang ditahan untuk pesanan berjalan (escrow).
-                          if (wallet.heldBalance > 0)
-                            _Detail('Ditahan ${rupiah(wallet.heldBalance)}'),
-                        ],
-                      ),
+                    AccountMenuRow(
+                      asset: AccountStyle.iconLocation,
+                      tint: const Color(0xFFECFDF5),
+                      label: 'Alamat Tersimpan',
+                      onTap: () => _push(context, const SavedAddressesPage()),
                     ),
-                    if (onOpenWallet != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        'Isi saldo',
-                        style: AppTypography.style(
-                          size: 12,
-                          weight: AppTypography.semiBold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.primary,
-                      ),
-                    ],
+                    AccountMenuRow(
+                      asset: AccountStyle.iconShield,
+                      tint: const Color(0xFFEFF6FF),
+                      label: 'Keamanan & Kata Sandi',
+                      onTap: onChangePassword,
+                    ),
                   ],
                 ),
-              ),
-            ),
-          ),
-          if (onOpenOrders != null ||
-              onOpenChats != null ||
-              onChangePassword != null) ...[
-            const SizedBox(height: 14),
-            _Card(
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  if (onOpenOrders case final open?)
-                    _MenuRow(
-                      icon: Icons.receipt_long_outlined,
-                      label: 'Pesanan saya',
-                      onTap: open,
+                const SizedBox(height: 26),
+                const AccountSectionTitle('Layanan & Fitur'),
+                AccountMenuCard(
+                  children: [
+                    AccountMenuRow(
+                      icon: Icons.account_balance_wallet_outlined,
+                      tint: const Color(0xFFFFF1F1),
+                      label: 'TD-Wallet',
+                      trailing: rupiah(user.wallet.availableBalance),
+                      onTap: onOpenWallet,
                     ),
-                  if (onOpenChats case final open?)
-                    _MenuRow(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      label: 'Obrolan',
-                      onTap: open,
+                    if (isHelper)
+                      AccountMenuRow(
+                        asset: AccountStyle.iconBriefcase,
+                        tint: const Color(0xFFFFF7ED),
+                        label: 'Beralih ke Mode Helper',
+                        onTap: onSwitchToHelper,
+                      )
+                    else
+                      AccountMenuRow(
+                        asset: AccountStyle.iconBriefcase,
+                        tint: const Color(0xFFFFF7ED),
+                        label: 'Daftar Jadi Helper',
+                        badge: 'Baru',
+                        // Pendaftaran helper butuh unggah KTP dan selfie.
+                        onTap: () => _soon(context, 'Daftar jadi helper'),
+                      ),
+                    AccountMenuRow(
+                      asset: AccountStyle.iconTicket,
+                      tint: const Color(0xFFFAF5FF),
+                      label: 'Voucher Saya',
+                      // Voucher belum bisa dipakai di pesanan.
+                      onTap: () => _soon(context, 'Voucher'),
                     ),
-                  if (onChangePassword case final open?)
-                    _MenuRow(
-                      icon: Icons.lock_reset_rounded,
-                      label: 'Ganti password',
-                      onTap: open,
+                  ],
+                ),
+                const SizedBox(height: 26),
+                const AccountSectionTitle('Pengaturan & Bantuan'),
+                AccountMenuCard(
+                  children: [
+                    AccountMenuRow(
+                      asset: AccountStyle.iconBell,
+                      tint: const Color(0xFFFEFCE8),
+                      label: 'Notifikasi',
+                      onTap: onOpenNotifications,
                     ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 22),
-          Text(
-            'Bantuan',
-            style: AppTypography.style(
-              size: 14,
-              weight: AppTypography.semiBold,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _Card(
-            padding: EdgeInsets.zero,
-            child: Column(
-              children: [
-                for (final tip in AppTip.all)
-                  _MenuRow(
-                    icon: tip.icon,
-                    label: tip.title,
-                    onTap: () => showTipSheet(context, tip),
-                  ),
-                _MenuRow(
-                  icon: Icons.info_outline_rounded,
-                  label: 'Tentang TolonginDong',
-                  onTap: () => showAboutDialog(
-                    context: context,
-                    applicationName: 'TolonginDong',
-                    applicationVersion: '1.0.0',
-                    applicationLegalese:
-                        'Bantuan helper terverifikasi untuk tugas harianmu.',
-                  ),
+                    AccountMenuRow(
+                      asset: AccountStyle.iconHelp,
+                      tint: const Color(0xFFF0F9FF),
+                      label: 'Pusat Bantuan & Kebijakan',
+                      onTap: () => _push(context, const HelpPage()),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                AccountMenuCard(
+                  children: [
+                    AccountMenuRow(
+                      asset: AccountStyle.iconLogout,
+                      tint: const Color(0xFFFEF2F2),
+                      label: 'Keluar Akun',
+                      color: AccountStyle.danger,
+                      showChevron: false,
+                      onTap: () => _confirmLogout(context),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 28),
-          OutlinedButton.icon(
-            onPressed: () => _confirmLogout(context),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: const BorderSide(color: AppColors.primary),
-            ),
-            icon: const Icon(Icons.logout_rounded, size: 18),
-            label: const Text('Keluar'),
           ),
         ],
       ),
@@ -254,124 +191,110 @@ class AccountView extends StatelessWidget {
   }
 }
 
-/// Kartu bergaris seperti kartu di tab Aktifitas.
-class _Card extends StatelessWidget {
-  const _Card({required this.child, this.padding = const EdgeInsets.all(16)});
+/// Foto 75 dp, nama, email, dan status verifikasi.
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.user});
 
-  final Widget child;
-  final EdgeInsets padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: padding,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE6E6E6)),
-      ),
-      child: child,
-    );
-  }
-}
-
-/// Satu baris menu: ikon, label, panah.
-class _MenuRow extends StatelessWidget {
-  const _MenuRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+  final AuthUser user;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: AppColors.primary),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
+    return Row(
+      children: [
+        HelperAvatar(name: user.fullName, photoUrl: user.photoUrl, size: 75),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.fullName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.style(
-                  size: 13,
-                  weight: AppTypography.medium,
+                  size: 18,
+                  weight: AppTypography.semiBold,
+                  color: AccountStyle.ink,
                   height: 1.4,
                 ),
               ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textSecondary,
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                user.email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.style(
+                  size: 12,
+                  weight: AppTypography.regular,
+                  color: AccountStyle.muted,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              _VerificationBadge(user.verificationStatus),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _Detail extends StatelessWidget {
-  const _Detail(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: AppTypography.style(
-        size: 12,
-        weight: AppTypography.regular,
-        color: AppColors.textDescription,
-        height: 1.5,
-      ),
-    );
-  }
-}
-
-/// Status verifikasi identitas (FR-VER-003): hijau kalau sudah, kuning
-/// saat menunggu admin, merah kalau ditolak.
-class _VerificationChip extends StatelessWidget {
-  const _VerificationChip(this.status);
+/// Status verifikasi identitas (FR-VER-003). Desain: "ID Verified" biru.
+class _VerificationBadge extends StatelessWidget {
+  const _VerificationBadge(this.status);
 
   final VerificationStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (status) {
-      VerificationStatus.verified => ('Terverifikasi', AppColors.success),
-      VerificationStatus.pending => ('Menunggu verifikasi', AppColors.warning),
-      VerificationStatus.rejected => ('Verifikasi ditolak', AppColors.error),
+    final (label, color, background) = switch (status) {
+      VerificationStatus.verified => (
+        'ID Verified',
+        const Color(0xFF2563EB),
+        const Color(0xFFEFF6FF),
+      ),
+      VerificationStatus.pending => (
+        'Menunggu verifikasi',
+        const Color(0xFFB45309),
+        const Color(0xFFFFFBEB),
+      ),
+      VerificationStatus.rejected => (
+        'Verifikasi ditolak',
+        AccountStyle.danger,
+        const Color(0xFFFEF2F2),
+      ),
       VerificationStatus.unverified => (
         'Belum verifikasi',
-        AppColors.textSecondary,
+        AccountStyle.muted,
+        const Color(0xFFF1F5F9),
       ),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: AppTypography.style(
-          size: 10,
-          weight: AppTypography.semiBold,
-          color: color,
-          height: 1.5,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (status == VerificationStatus.verified)
+            const OrderIcon(AccountStyle.iconVerified, size: 13)
+          else
+            Icon(Icons.info_outline_rounded, size: 13, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTypography.style(
+              size: 11,
+              weight: AppTypography.semiBold,
+              color: color,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }

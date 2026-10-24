@@ -6,6 +6,10 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Kamera dipakai untuk memotret bukti penyelesaian pekerjaan.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Galeri dipakai untuk memilih foto bukti penyelesaian pekerjaan.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Lokasi dipakai untuk menyimpan alamat baru, supaya helper terdekat dan ongkos kirim bisa dihitung.</string>
 	<key>CFBundleDisplayName</key>

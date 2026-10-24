@@ -10,6 +10,7 @@ import '../address/address_repository.dart';
 import '../order/order_style.dart';
 import '../order/widgets/order_widgets.dart';
 import 'household_models.dart';
+import 'widgets/household_widgets.dart';
 
 /// Pilih alamat tersimpan (`GET /addresses`), bisa dicari, atau tambah
 /// alamat baru. Mengetuk alamat langsung kembali ke form membawa alamat itu.
@@ -315,25 +316,6 @@ class _AddressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch (address.kind) {
-      // Ikon target di desain belum diekspor; ikon Material yang mirip,
-      // dengan merah tua yang sama seperti ikon riwayat.
-      AddressKind.current => const Icon(
-        Icons.my_location_rounded,
-        size: 22,
-        color: Color(0xFF9A1919),
-      ),
-      AddressKind.home => const OrderIcon(OrderStyle.iconAddressHome, size: 22),
-      AddressKind.office => const OrderIcon(
-        OrderStyle.iconAddressOffice,
-        size: 22,
-      ),
-      AddressKind.recent => const OrderIcon(
-        OrderStyle.iconAddressRecent,
-        size: 22,
-      ),
-    };
-
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -341,7 +323,7 @@ class _AddressRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            icon,
+            AddressKindIcon(address.kind),
             const SizedBox(width: 14),
             Expanded(
               child: Column(

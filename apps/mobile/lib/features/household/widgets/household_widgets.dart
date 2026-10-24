@@ -685,6 +685,30 @@ class InfoRow extends StatelessWidget {
   }
 }
 
+/// Ikon jenis alamat tersimpan: rumah, kantor, atau lainnya.
+class AddressKindIcon extends StatelessWidget {
+  const AddressKindIcon(this.kind, {super.key, this.size = 22});
+
+  final AddressKind kind;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (kind) {
+      // Ikon target di desain belum diekspor; ikon Material yang mirip,
+      // dengan merah tua yang sama seperti ikon riwayat.
+      AddressKind.current => Icon(
+        Icons.my_location_rounded,
+        size: size,
+        color: const Color(0xFF9A1919),
+      ),
+      AddressKind.home => OrderIcon(OrderStyle.iconAddressHome, size: size),
+      AddressKind.office => OrderIcon(OrderStyle.iconAddressOffice, size: size),
+      AddressKind.recent => OrderIcon(OrderStyle.iconAddressRecent, size: size),
+    };
+  }
+}
+
 /// Alamat pesanan: ikon, judul (default label alamat), dan alamat lengkap.
 class AddressBox extends StatelessWidget {
   const AddressBox({

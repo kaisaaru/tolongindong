@@ -99,7 +99,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Rp 0'), findsOneWidget);
 
-    await tester.tap(find.text('Isi saldo'));
+    await tester.tap(find.text('TD-Wallet'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Isi Saldo'));
     await tester.pumpAndSettle();
@@ -138,7 +138,7 @@ void main() {
 
     await tester.tap(find.text('Akun'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Keluar'));
+    await tester.tap(find.text('Keluar Akun'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(TextButton, 'Keluar'));
     await tester.pumpAndSettle();

@@ -46,4 +46,26 @@ class FakeAddressRepository implements AddressRepository {
     addresses.add(address);
     return address;
   }
+
+  @override
+  Future<void> delete(int id) async {
+    addresses.removeWhere((a) => a.id == id);
+  }
+
+  @override
+  Future<void> setPrimary(int id) async {
+    for (var i = 0; i < addresses.length; i++) {
+      final a = addresses[i];
+      addresses[i] = SavedAddress(
+        id: a.id,
+        label: a.label,
+        fullAddress: a.fullAddress,
+        kind: a.kind,
+        latitude: a.latitude,
+        longitude: a.longitude,
+        landmarkNote: a.landmarkNote,
+        isPrimary: a.id == id,
+      );
+    }
+  }
 }

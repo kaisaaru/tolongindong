@@ -12,6 +12,8 @@ import '../../widgets/app_logo.dart';
 import '../auth/auth_repository.dart';
 import '../auth/session_store.dart';
 import '../auth/login_page.dart';
+import '../helper/helper_shell.dart';
+import '../helper/helper_store.dart';
 import '../home/home_page.dart';
 import '../onboarding/onboarding_page.dart';
 import 'widgets/splash_waves.dart';
@@ -79,14 +81,30 @@ class _SplashPageState extends State<SplashPage> {
     ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
+  /// Mode terakhir dipakai. Mode Helper hanya kalau akun masih helper
+  /// terverifikasi; kalau tidak, kembali ke mode Client.
+  Future<Widget> _homeFor(HelperStore helper) async {
+    if (await _prefs.mode() == AppMode.helper) {
+      try {
+        await helper.loadStatus();
+        if (helper.status.isVerifiedHelper) return const HelperShell();
+      } on ApiException {
+        // Status helper gagal dimuat: buka mode Client dulu.
+      }
+      await _prefs.setMode(AppMode.client);
+    }
+    return const HomePage();
+  }
+
   Future<Widget> _resolveDestination() async {
     // Diambil sebelum menunggu apa pun: context tidak boleh dipakai lagi
     // kalau halaman sudah ditutup saat balasan tiba.
     final session = context.read<SessionStore>();
+    final helper = context.read<HelperStore>();
     if (await _authRepo.hasSession()) {
       try {
         session.signIn(await _authRepo.me());
-        return const HomePage();
+        return await _homeFor(helper);
       } on ApiException catch (e) {
         // Token hanya dibuang kalau server benar-benar menolaknya. Jaringan
         // mati bukan alasan menghapus sesi — pengguna cuma diminta login lagi.
