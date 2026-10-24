@@ -72,6 +72,24 @@ class FakeChatRepository implements ChatRepository {
     return room.id;
   }
 
+  /// Pesanan yang dibukakan ruangnya lewat [roomForOrder].
+  final openedOrders = <int>[];
+
+  @override
+  Future<int> roomForOrder(int orderId) async {
+    openedOrders.add(orderId);
+    for (final r in stored) {
+      if (r.orderId == orderId) return r.id;
+    }
+    final room = FakeRoom(
+      id: stored.length + 1,
+      peerName: 'Nadia Putri',
+      orderId: orderId,
+    );
+    stored.add(room);
+    return room.id;
+  }
+
   @override
   Future<List<ChatMessage>> messages(int roomId, String? myUserId) async {
     final room = _room(roomId)..unread = 0;

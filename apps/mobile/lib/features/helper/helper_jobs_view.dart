@@ -345,13 +345,16 @@ class _WaitingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final validUntil = offer.validUntil;
+    final expired = validUntil != null && !validUntil.isAfter(clock());
     return HelperCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           HelperBanner(
-            title: 'Menunggu keputusan Client',
-            trailing: validUntil == null
+            title: expired
+                ? 'Batas persetujuan lewat · kirim ulang'
+                : 'Menunggu keputusan Client',
+            trailing: validUntil == null || expired
                 ? null
                 : CountdownText(until: validUntil, clock: clock),
           ),

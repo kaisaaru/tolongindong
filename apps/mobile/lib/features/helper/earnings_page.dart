@@ -376,6 +376,11 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     final store = context.watch<HelperStore>();
     final job = store.byId(widget.orderId);
     final client = job?.client?.name ?? 'Client';
+    final finishedAt = job == null
+        ? null
+        : job.helperFinishedAt ??
+              job.enteredAt(OrderStatus.awaitingConfirmation);
+    final autoAt = job == null ? null : autoConfirmAt(job);
 
     return Scaffold(
       backgroundColor: HelperStyle.background,
@@ -402,12 +407,12 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                       else if (job.status == OrderStatus.awaitingConfirmation)
                         HelperBanner(
                           title: 'Menunggu konfirmasi Client',
-                          message: switch (job.helperFinishedAt) {
+                          message: switch (finishedAt) {
                             final at? =>
                               'Ditandai selesai ${dateLabel(at)}, '
-                                  '${clockLabel(at)}. Pendapatan $client belum '
-                                  'cair.',
-                            null => 'Pendapatan $client belum cair.',
+                                  '${clockLabel(at)}. Pendapatan dari $client '
+                                  'belum cair.',
+                            null => 'Pendapatan dari $client belum cair.',
                           },
                         )
                       else
@@ -420,6 +425,25 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                         child: Column(
                           children: [
                             JobSummary(order: job, details: false),
+                            const Divider(
+                              height: 22,
+                              color: HelperStyle.cardBorder,
+                            ),
+                            HelperRow(
+                              'Kategori',
+                              HelperStyle.categoryName(job.categoryCode),
+                            ),
+                            HelperRow(
+                              'Permintaan',
+                              '${dateLabel(job.createdAt)}, '
+                                  '${clockLabel(job.createdAt)}',
+                            ),
+                            if (finishedAt != null)
+                              HelperRow(
+                                'Ditandai selesai',
+                                '${dateLabel(finishedAt)}, '
+                                    '${clockLabel(finishedAt)}',
+                              ),
                             const Divider(
                               height: 22,
                               color: HelperStyle.cardBorder,
@@ -440,10 +464,15 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                           title:
                               'Escrow simulasi '
                               '${rupiah(job.price, spaced: false)} masih ditahan',
-                          message:
-                              '${rupiah(job.netPayout, spaced: false)} baru '
-                              'cair setelah konfirmasi $client. Tidak ada '
-                              'pembayaran nyata atau penarikan bank.',
+                          message: autoAt == null
+                              ? '${rupiah(job.netPayout, spaced: false)} baru '
+                                    'cair setelah konfirmasi $client. Tidak '
+                                    'ada pembayaran nyata atau penarikan bank.'
+                              : '${rupiah(job.netPayout, spaced: false)} baru '
+                                    'cair setelah konfirmasi $client, atau '
+                                    'otomatis ${dateLabel(autoAt)}, '
+                                    '${clockLabel(autoAt)}. Tidak ada '
+                                    'pembayaran nyata atau penarikan bank.',
                         ),
                       ],
                     ],

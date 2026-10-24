@@ -9,9 +9,11 @@ import '../home/home_assets.dart';
 import '../home/home_metrics.dart';
 import '../home/widgets/home_bottom_nav.dart' show NavSvgIcon;
 import 'helper_dashboard_view.dart';
+import 'helper_job_page.dart';
 import 'helper_jobs_view.dart';
 import 'helper_profile_view.dart';
 import 'helper_store.dart';
+import 'job_chat.dart';
 import 'widgets/helper_widgets.dart';
 
 enum HelperTab { beranda, pesanan, chat, profil }
@@ -36,6 +38,7 @@ class _HelperShellState extends State<HelperShell> {
   @override
   void initState() {
     super.initState();
+    _store.addListener(_showNews);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _store.refresh();
       _store.startPolling();
@@ -44,8 +47,43 @@ class _HelperShellState extends State<HelperShell> {
 
   @override
   void dispose() {
+    _store.removeListener(_showNews);
     _store.stopPolling();
     super.dispose();
+  }
+
+  /// Pengganti notifikasi: kabar dari pemeriksaan berkala tampil sebagai
+  /// snackbar di halaman mana pun yang sedang terbuka.
+  void _showNews() {
+    final news = _store.takeNews();
+    if (news.isEmpty || !mounted) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    for (final (:kind, :job) in news) {
+      final client = job.client?.name ?? 'Client';
+      messenger.showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 6),
+          // Bawaannya snackbar beraksi tidak pernah hilang sendiri, jadi
+          // kabar berikutnya tertahan di antrean.
+          persist: false,
+          content: Text(switch (kind) {
+            HelperNewsKind.request =>
+              'Permintaan baru dari $client: ${job.title}',
+            HelperNewsKind.approved =>
+              '$client menyetujui penawaranmu. Kamu bisa mulai perjalanan.',
+          }),
+          action: SnackBarAction(
+            label: 'Lihat',
+            onPressed: () => navigator.push(
+              MaterialPageRoute<void>(
+                builder: (_) => HelperJobPage(orderId: job.id),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   void _goTo(HelperTab tab) => setState(() => _tab = tab);
@@ -79,14 +117,23 @@ class _HelperChatView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final store = context.read<HelperStore>();
+    return Column(
       children: [
-        HelperHeader(
+        const HelperHeader(
           title: 'Chat',
           subtitle: 'Koordinasi langsung dengan Client',
           back: false,
         ),
-        Expanded(child: ChatListView(forHelper: true)),
+        Expanded(
+          child: ChatListView(
+            forHelper: true,
+            roomPage: (room) => helperChatRoom(room, switch (room.orderId) {
+              final id? => store.byId(id),
+              null => null,
+            }),
+          ),
+        ),
       ],
     );
   }

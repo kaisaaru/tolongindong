@@ -6,11 +6,18 @@ import '../../core/api/api_exception.dart';
 import '../order/order_repository.dart';
 import 'helper_work_repository.dart';
 
+enum HelperNewsKind { request, approved }
+
+/// Kabar dari pemeriksaan berkala: permintaan baru masuk, atau Client
+/// menyetujui penawaran.
+typedef HelperNews = ({HelperNewsKind kind, ServerOrder job});
+
 /// Mode Helper: status akun helper dan pekerjaan yang ditujukan padanya,
 /// dipakai Beranda, Pesanan, dan halaman pekerjaan helper.
 ///
 /// Belum ada notifikasi permintaan baru dari backend, jadi selama mode
-/// Helper terbuka daftar diperiksa ulang tiap [pollEvery] ([startPolling]).
+/// Helper terbuka daftar diperiksa ulang tiap [pollEvery] ([startPolling]),
+/// dan perubahan penting dikumpulkan untuk [takeNews].
 class HelperStore extends ChangeNotifier {
   HelperStore(
     this._repo, {
@@ -28,6 +35,14 @@ class HelperStore extends ChangeNotifier {
   bool _loading = false;
   ApiException? _error;
   Timer? _poll;
+
+  /// Permintaan yang sudah pernah terlihat; null sampai daftar pertama
+  /// dimuat, supaya isi awal tidak dianggap kabar baru.
+  Set<int>? _seenRequests;
+
+  /// Penawaran terkirim yang keputusannya belum terlihat helper.
+  final Set<int> _awaitingDecision = {};
+  final List<HelperNews> _news = [];
 
   DateTime get now => _clock();
   HelperStatus get status => _status;
@@ -97,6 +112,36 @@ class HelperStore extends ChangeNotifier {
 
   int get paidOutTotal => paidOut.fold(0, (sum, o) => sum + o.netPayout);
 
+  /// Kabar sejak pengambilan terakhir, lama ke baru; sekali ambil lalu
+  /// dikosongkan.
+  List<HelperNews> takeNews() {
+    final news = [..._news];
+    _news.clear();
+    return news;
+  }
+
+  void _collectNews() {
+    final seen = _seenRequests;
+    final requests = toReview;
+    if (seen != null) {
+      for (final o in requests) {
+        if (!seen.contains(o.id)) {
+          _news.add((kind: HelperNewsKind.request, job: o));
+        }
+      }
+    }
+    _seenRequests = {...?seen, for (final o in requests) o.id};
+
+    for (final o in _jobs) {
+      if (!_awaitingDecision.contains(o.id)) continue;
+      if (o.status == OrderStatus.accepted) {
+        _news.add((kind: HelperNewsKind.approved, job: o));
+      }
+      if (!_waitingDecision(o)) _awaitingDecision.remove(o.id);
+    }
+    _awaitingDecision.addAll([for (final o in waitingDecision) o.id]);
+  }
+
   /// Akun yang belum pernah mendaftar jadi helper tetap berhasil, dengan
   /// `isVerifiedHelper` false.
   Future<void> loadStatus() async {
@@ -134,6 +179,7 @@ class HelperStore extends ChangeNotifier {
             else
               o,
         ]);
+      _collectNews();
       _error = null;
     } on ApiException catch (e) {
       if (!quiet) _error = e;
@@ -153,6 +199,12 @@ class HelperStore extends ChangeNotifier {
       _jobs.insert(0, job);
     } else {
       _jobs[i] = job;
+    }
+    // Keputusan yang tampil di halaman pekerjaan bukan kabar lagi.
+    if (_waitingDecision(job)) {
+      _awaitingDecision.add(id);
+    } else {
+      _awaitingDecision.remove(id);
     }
     notifyListeners();
     return job;
@@ -206,6 +258,9 @@ class HelperStore extends ChangeNotifier {
     _status = HelperStatus.none;
     _statusLoaded = false;
     _jobs.clear();
+    _seenRequests = null;
+    _awaitingDecision.clear();
+    _news.clear();
     _error = null;
     notifyListeners();
   }

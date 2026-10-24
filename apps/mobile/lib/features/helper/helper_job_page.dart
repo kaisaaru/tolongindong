@@ -9,14 +9,12 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/countdown_text.dart';
 import '../../widgets/empty_state.dart';
-import '../chat/chat_models.dart';
-import '../chat/chat_room_page.dart';
-import '../chat/chat_store.dart';
 import '../household/household_models.dart';
 import '../order/order_repository.dart';
 import '../order/widgets/order_widgets.dart';
 import 'earnings_page.dart';
 import 'helper_store.dart';
+import 'job_chat.dart';
 import 'job_progress_page.dart';
 import 'make_offer_page.dart';
 import 'proof_page.dart';
@@ -25,11 +23,18 @@ import 'widgets/helper_widgets.dart';
 /// Satu pekerjaan helper. Isinya mengikuti status:
 ///
 /// - menunggu helper: Detail permintaan (Tolak / Buat Penawaran)
-/// - penawaran terkirim: Menunggu keputusan Client
+/// - penawaran terkirim: Menunggu keputusan Client (kirim ulang kalau
+///   batas 5 menit lewat)
 /// - diterima: Pesanan diterima (Mulai Perjalanan)
-/// - menuju lokasi / sampai: Menuju lokasi (Mulai Pengerjaan)
-/// - dikerjakan: Pengerjaan aktif (Unggah Bukti)
+/// - menuju lokasi: Menuju lokasi (Tiba di Lokasi; Delivery langsung
+///   Mulai Pengerjaan)
+/// - sampai: Tiba di lokasi (Mulai Pengerjaan)
+/// - dikerjakan: Pengerjaan aktif (Delivery: Unggah Bukti; lainnya: Lihat
+///   Progres Pekerjaan, lalu Selesaikan Pekerjaan)
 /// - menunggu konfirmasi / selesai: Pekerjaan selesai
+///
+/// Delivery mengikuti desain Helper Delivery (tanpa tahap tiba, bukti
+/// foto); Household dan Personal mengikuti alur bernomor 01-17.
 ///
 /// Diperiksa ulang tiap [pollEvery] supaya keputusan Client ikut terlihat.
 class HelperJobPage extends StatefulWidget {
@@ -155,9 +160,12 @@ class _HelperJobPageState extends State<HelperJobPage> {
     await _run(() => _store.reject(job.id));
   }
 
-  Future<void> _offer(ServerOrder job) => Navigator.of(
-    context,
-  ).push(MaterialPageRoute<void>(builder: (_) => MakeOfferPage(job: job)));
+  Future<void> _offer(ServerOrder job, {int? price}) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => MakeOfferPage(job: job, initialPrice: price),
+        ),
+      );
 
   Future<void> _proof(ServerOrder job) => Navigator.of(
     context,
@@ -173,43 +181,21 @@ class _HelperJobPageState extends State<HelperJobPage> {
     ),
   );
 
-  Future<void> _chat(ServerOrder job) async {
-    final chats = context.read<ChatStore>();
-    try {
-      await chats.refresh();
-      final room = _roomFor(chats.rooms, job);
-      if (!mounted) return;
-      if (room == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Belum ada obrolan dengan Client untuk pesanan ini.'),
-          ),
-        );
-        return;
-      }
-      await Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    }
-  }
+  void _earnings() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const EarningsPage()));
 
-  /// Ruang pesanan ini, atau ruang dengan pemesannya.
-  static ChatRoom? _roomFor(List<ChatRoom> rooms, ServerOrder job) {
-    for (final r in rooms) {
-      if (r.orderId == job.id) return r;
-    }
-    final name = job.client?.name;
-    for (final r in rooms) {
-      if (name != null && r.peerName == name) return r;
-    }
-    return null;
-  }
+  Future<void> _chat(ServerOrder job) => openJobChat(context, job);
+
+  /// "Chat dengan Nadia" selebar kartu.
+  Widget _chatButton(ServerOrder job) => HelperButton(
+    label: 'Chat dengan ${_firstName(job)}',
+    soft: true,
+    onPressed: () => _chat(job),
+  );
+
+  static String _firstName(ServerOrder job) =>
+      (job.client?.name ?? 'Client').trim().split(' ').first;
 
   @override
   Widget build(BuildContext context) {
@@ -264,8 +250,19 @@ class _HelperJobPageState extends State<HelperJobPage> {
       return _done(job);
     }
 
+    final delivery = job.categoryCode == 'delivery';
     final client = job.client?.name ?? 'Client';
+    final first = _firstName(job);
     final price = job.price;
+    final working =
+        status == OrderStatus.inProgress ||
+        status == OrderStatus.priceAdjustment;
+    // Delivery tidak punya tahap tiba sendiri: sampai = masih menuju.
+    final arrived = status == OrderStatus.arrived && !delivery;
+    final travelling =
+        status == OrderStatus.onTheWay ||
+        (status == OrderStatus.arrived && delivery);
+
     final (title, subtitle) = switch (status) {
       _ when status.isWaiting => (
         'Detail permintaan',
@@ -275,9 +272,12 @@ class _HelperJobPageState extends State<HelperJobPage> {
         'Pesanan diterima',
         'Pesanan aktif · #${job.number}',
       ),
-      OrderStatus.onTheWay ||
-      OrderStatus.arrived => ('Menuju lokasi', 'Perjalanan ke lokasi Client'),
-      OrderStatus.inProgress || OrderStatus.priceAdjustment => (
+      _ when arrived => (
+        'Tiba di lokasi',
+        'Siap memulai pekerjaan di lokasi $first',
+      ),
+      _ when travelling => ('Menuju lokasi', 'Perjalanan ke lokasi Client'),
+      _ when working => (
         'Pengerjaan aktif',
         'Tetap perbarui progres pekerjaanmu',
       ),
@@ -285,9 +285,15 @@ class _HelperJobPageState extends State<HelperJobPage> {
     };
 
     final respondBy = job.respondBy;
+    final departedAt = job.enteredAt(OrderStatus.onTheWay);
+    final arrivedAt = job.enteredAt(OrderStatus.arrived);
+    final startedAt = job.enteredAt(OrderStatus.inProgress);
     final banner = switch (status) {
       _ when status.isWaiting && respondBy != null => HelperBanner(
         title: 'Batas respons 5 menit',
+        message:
+            'Masuk ${clockLabel(job.createdAt)} · respons paling lambat '
+            '${clockLabel(respondBy)}',
         trailing: CountdownText(until: respondBy, clock: () => _store.now),
       ),
       _ when status.isWaiting => null,
@@ -298,18 +304,32 @@ class _HelperJobPageState extends State<HelperJobPage> {
             '$client menyetujui ${rupiah(price, spaced: false)}. Kamu bisa '
             'mulai perjalanan.',
       ),
-      OrderStatus.onTheWay => const HelperBanner(
+      _ when arrived => HelperBanner(
+        tone: BannerTone.green,
+        title: arrivedAt == null
+            ? 'Tiba di lokasi'
+            : 'Tiba di lokasi · ${clockLabel(arrivedAt)}',
+        message: arrivedAt == null
+            ? '$client tahu kamu sudah sampai.'
+            : '${dateLabel(arrivedAt)} · $client tahu kamu sudah sampai.',
+      ),
+      _ when travelling => HelperBanner(
         title: 'Dalam perjalanan',
-        message: 'Client sudah diberi tahu bahwa kamu menuju lokasi.',
+        message: departedAt == null
+            ? 'Client sudah diberi tahu bahwa kamu menuju lokasi.'
+            : 'Berangkat ${dateLabel(departedAt)}, '
+                  '${clockLabel(departedAt)}. Client sudah diberi tahu '
+                  'bahwa kamu menuju lokasi.',
       ),
-      OrderStatus.arrived => const HelperBanner(
-        title: 'Sudah sampai',
-        message: 'Mulai pengerjaan saat kamu siap.',
-      ),
-      OrderStatus.inProgress ||
-      OrderStatus.priceAdjustment => const HelperBanner(
+      _ when working => HelperBanner(
         title: 'Sedang dikerjakan',
-        message: 'Kamu sudah tiba dan mulai mengerjakan pesanan.',
+        message: switch ((startedAt, arrivedAt)) {
+          (final s?, final a?) when !delivery =>
+            'Dimulai ${dateLabel(s)}, ${clockLabel(s)}. Tiba di lokasi '
+                '${clockLabel(a)}.',
+          (final s?, _) => 'Dimulai ${dateLabel(s)}, ${clockLabel(s)}.',
+          _ => 'Kamu sudah tiba dan mulai mengerjakan pesanan.',
+        },
       ),
       OrderStatus.cancelledByHelper => const HelperBanner(
         tone: BannerTone.gray,
@@ -324,11 +344,12 @@ class _HelperJobPageState extends State<HelperJobPage> {
       _ => HelperBanner(tone: BannerTone.gray, title: status.label),
     };
 
-    final working =
-        status == OrderStatus.onTheWay ||
-        status == OrderStatus.arrived ||
-        status == OrderStatus.inProgress ||
-        status == OrderStatus.priceAdjustment;
+    final note = AppTypography.style(
+      size: 10,
+      weight: AppTypography.regular,
+      color: HelperStyle.muted,
+      height: 1.5,
+    );
 
     return Scaffold(
       backgroundColor: HelperStyle.background,
@@ -347,18 +368,24 @@ class _HelperJobPageState extends State<HelperJobPage> {
                   HelperCard(
                     child: JobSummary(
                       order: job,
-                      onChat: working ? () => _chat(job) : null,
+                      onChat: status.isTerminal ? null : () => _chat(job),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  if (status.isWaiting)
+                  if (status.isWaiting) ...[
                     HelperCard(
                       child: HelperRow(
                         'Estimasi Client · belum disepakati',
                         rupiah(job.estimatedPrice, spaced: false),
                       ),
-                    )
-                  else if (status == OrderStatus.accepted)
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Data kebutuhan diisi oleh Client. Tinjau dahulu '
+                      'sebelum menentukan upah jasa dalam penawaran.',
+                      style: note,
+                    ),
+                  ] else if (status == OrderStatus.accepted)
                     HelperCard(
                       child: Column(
                         children: [
@@ -377,40 +404,81 @@ class _HelperJobPageState extends State<HelperJobPage> {
                         ],
                       ),
                     )
-                  else if (working)
-                    _WorkStep(
-                      job: job,
-                      onProgress:
-                          status == OrderStatus.inProgress ||
-                              status == OrderStatus.priceAdjustment
-                          ? () => _progress(job)
-                          : null,
+                  else if (travelling && delivery) ...[
+                    _StepCard(
+                      icon: HelperStyle.iconDropoff,
+                      title: switch (job.pickup) {
+                        final p? => 'Jemput di ${p.label}',
+                        null =>
+                          'Menuju ${job.destination?.label ?? 'lokasi Client'}',
+                      },
+                      message:
+                          'Pastikan detail pesanan sesuai sebelum mulai '
+                          'mengerjakan.',
+                      price: price,
                     ),
-                  if (status == OrderStatus.onTheWay ||
-                      status == OrderStatus.arrived) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Tekan tombol di bawah hanya setelah kamu tiba dan siap '
                       'memulai pengerjaan.',
-                      style: AppTypography.style(
-                        size: 10,
-                        weight: AppTypography.regular,
-                        color: HelperStyle.muted,
-                        height: 1.5,
-                      ),
+                      style: note,
                     ),
-                  ],
+                  ] else if (travelling)
+                    _StepCard(
+                      icon: HelperStyle.iconDropoff,
+                      title: 'Perbarui status secara manual',
+                      message:
+                          'Tidak ada peta atau pelacakan GPS langsung. Tekan '
+                          '"Tiba di Lokasi" hanya setelah sampai di alamat '
+                          '$first.',
+                      price: price,
+                      children: [_chatButton(job)],
+                    )
+                  else if (arrived)
+                    HelperBanner(
+                      title: 'Pengerjaan belum dimulai',
+                      message:
+                          'Pastikan kebutuhan $first sudah dipahami. Tombol di '
+                          'bawah memulai pengerjaan, bukan menandai selesai.',
+                    )
+                  else if (working && delivery)
+                    _StepCard(
+                      icon: HelperStyle.categoryIcon(job.categoryCode),
+                      title: 'Antar, serahkan, dokumentasikan',
+                      message:
+                          'Serahkan sesuai catatan Client. Ambil foto bukti '
+                          'sebelum menandai selesai.',
+                      price: price,
+                      children: [
+                        HelperButton(
+                          label: 'Lihat Progres',
+                          soft: true,
+                          onPressed: () => _progress(job),
+                        ),
+                      ],
+                    )
+                  else if (working)
+                    _StepCard(
+                      icon: HelperStyle.categoryIcon(job.categoryCode),
+                      title: 'Kerjakan sesuai kebutuhan $first',
+                      message:
+                          'Buka progres untuk melihat tahapan pesanan dan '
+                          'menandai penyelesaian saat pekerjaan sudah '
+                          'selesai.',
+                      price: price,
+                      children: [_chatButton(job)],
+                    ),
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: _actions(job),
+      bottomNavigationBar: _actions(job, delivery: delivery),
     );
   }
 
-  Widget? _actions(ServerOrder job) {
+  Widget? _actions(ServerOrder job, {required bool delivery}) {
     final status = job.status;
     if (status.isWaiting) {
       return HelperBottomBar(
@@ -433,11 +501,22 @@ class _HelperJobPageState extends State<HelperJobPage> {
         'Mulai Perjalanan',
         () => _run(() => _store.advance(job.id, OrderStatus.onTheWay)),
       ),
+      OrderStatus.onTheWay when !delivery => (
+        'Tiba di Lokasi',
+        () => _run(() => _store.advance(job.id, OrderStatus.arrived)),
+      ),
       OrderStatus.onTheWay || OrderStatus.arrived => (
         'Mulai Pengerjaan',
         () => _run(() => _store.startWork(job.id)),
       ),
-      OrderStatus.inProgress => ('Unggah Bukti', () => _proof(job)),
+      OrderStatus.inProgress when delivery => (
+        'Unggah Bukti',
+        () => _proof(job),
+      ),
+      OrderStatus.inProgress => (
+        'Lihat Progres Pekerjaan',
+        () => _progress(job),
+      ),
       _ => (null, null),
     };
     if (label == null || action == null) return null;
@@ -448,10 +527,12 @@ class _HelperJobPageState extends State<HelperJobPage> {
     );
   }
 
-  /// Penawaran terkirim, menunggu Client.
+  /// Penawaran terkirim, menunggu Client. Lewat 5 menit, helper bisa
+  /// mengirim ulang supaya Client mendapat waktu baru.
   Widget _waiting(ServerOrder job, OrderOffer offer) {
     final client = job.client?.name ?? 'Client';
     final validUntil = offer.validUntil;
+    final expired = validUntil != null && !validUntil.isAfter(_store.now);
 
     return Scaffold(
       backgroundColor: HelperStyle.background,
@@ -462,94 +543,121 @@ class _HelperJobPageState extends State<HelperJobPage> {
             subtitle: 'Penawaran berhasil dikirim ke $client',
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-              children: [
-                Center(
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      color: HelperStyle.softRed,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: const OrderIcon(HelperStyle.iconHourglass, size: 26),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Menunggu persetujuan Client',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.style(
-                    size: 17,
-                    weight: AppTypography.semiBold,
-                    color: HelperStyle.ink,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$client sedang meninjau harga penawaranmu.',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.style(
-                    size: 11,
-                    weight: AppTypography.regular,
-                    color: HelperStyle.muted,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                HelperBanner(
-                  title: 'Batas persetujuan 5 menit',
-                  message: 'Pesanan belum aktif selama menunggu persetujuan.',
-                  trailing: validUntil == null
-                      ? null
-                      : CountdownText(
-                          until: validUntil,
-                          clock: () => _store.now,
-                        ),
-                ),
-                const SizedBox(height: 12),
-                HelperCard(
-                  child: Column(
-                    children: [
-                      JobSummary(order: job, details: false),
-                      const Divider(height: 22, color: HelperStyle.cardBorder),
-                      EarningBreakdown(
-                        price: offer.price,
-                        priceLabel: 'Penawaran Helper',
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: const BoxDecoration(
+                        color: HelperStyle.softRed,
+                        shape: BoxShape.circle,
                       ),
-                      if (job.estimatedPrice > 0 &&
-                          job.estimatedPrice != offer.price) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'Estimasi awal Client '
-                          '${rupiah(job.estimatedPrice, spaced: false)}, '
-                          'berbeda dari penawaranmu '
-                          '${rupiah(offer.price, spaced: false)}.',
-                          style: AppTypography.style(
-                            size: 9,
-                            weight: AppTypography.regular,
-                            color: HelperStyle.muted,
-                            height: 1.5,
-                          ),
+                      alignment: Alignment.center,
+                      child: const OrderIcon(
+                        HelperStyle.iconHourglass,
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    expired
+                        ? 'Belum ada keputusan Client'
+                        : 'Menunggu persetujuan Client',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.style(
+                      size: 17,
+                      weight: AppTypography.semiBold,
+                      color: HelperStyle.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$client sedang meninjau harga penawaranmu.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.style(
+                      size: 11,
+                      weight: AppTypography.regular,
+                      color: HelperStyle.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (expired)
+                    HelperBanner(
+                      title: 'Batas persetujuan 5 menit sudah lewat',
+                      message:
+                          'Kirim ulang penawaran supaya $client mendapat '
+                          'waktu 5 menit lagi. Pesanan belum aktif.',
+                    )
+                  else
+                    HelperBanner(
+                      title: 'Batas persetujuan 5 menit',
+                      message:
+                          'Pesanan belum aktif selama menunggu persetujuan.',
+                      trailing: validUntil == null
+                          ? null
+                          : CountdownText(
+                              until: validUntil,
+                              clock: () => _store.now,
+                            ),
+                    ),
+                  const SizedBox(height: 12),
+                  HelperCard(
+                    child: Column(
+                      children: [
+                        JobSummary(
+                          order: job,
+                          details: false,
+                          onChat: () => _chat(job),
                         ),
+                        const Divider(
+                          height: 22,
+                          color: HelperStyle.cardBorder,
+                        ),
+                        EarningBreakdown(
+                          price: offer.price,
+                          priceLabel: 'Penawaran Helper',
+                        ),
+                        if (job.estimatedPrice > 0 &&
+                            job.estimatedPrice != offer.price) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Estimasi awal Client '
+                            '${rupiah(job.estimatedPrice, spaced: false)}, '
+                            'berbeda dari penawaranmu '
+                            '${rupiah(offer.price, spaced: false)}.',
+                            style: AppTypography.style(
+                              size: 9,
+                              weight: AppTypography.regular,
+                              color: HelperStyle.muted,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Halaman ini ikut berubah setelah Client memutuskan. Jangan '
-                  'mulai perjalanan sebelum disetujui.',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.style(
-                    size: 10,
-                    weight: AppTypography.regular,
-                    color: HelperStyle.muted,
-                    height: 1.5,
+                  const SizedBox(height: 12),
+                  _chatButton(job),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Halaman ini ikut berubah setelah Client memutuskan. Jangan '
+                    'mulai perjalanan sebelum disetujui.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.style(
+                      size: 10,
+                      weight: AppTypography.regular,
+                      color: HelperStyle.muted,
+                      height: 1.5,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -561,6 +669,11 @@ class _HelperJobPageState extends State<HelperJobPage> {
             soft: true,
             onPressed: () => Navigator.of(context).maybePop(),
           ),
+          if (expired)
+            HelperButton(
+              label: 'Kirim Ulang',
+              onPressed: () => _offer(job, price: offer.price),
+            ),
         ],
       ),
     );
@@ -570,8 +683,10 @@ class _HelperJobPageState extends State<HelperJobPage> {
   Widget _done(ServerOrder job) {
     final client = job.client?.name ?? 'Client';
     final completed = job.status == OrderStatus.completed;
+    final delivery = job.categoryCode == 'delivery';
     final finishedAt =
         job.helperFinishedAt ?? job.enteredAt(OrderStatus.awaitingConfirmation);
+    final autoAt = autoConfirmAt(job);
 
     return Scaffold(
       backgroundColor: HelperStyle.background,
@@ -640,14 +755,24 @@ class _HelperJobPageState extends State<HelperJobPage> {
                   else
                     HelperBanner(
                       title: 'Menunggu konfirmasi Client',
-                      message:
-                          'Pendapatan cair setelah $client mengonfirmasi '
-                          'pekerjaan selesai.',
+                      message: autoAt == null
+                          ? 'Pendapatan cair setelah $client mengonfirmasi '
+                                'pekerjaan selesai.'
+                          : '$client dapat mengonfirmasi pekerjaan. Jika '
+                                'tidak, konfirmasi otomatis setelah 24 jam '
+                                'pada ${dateLabel(autoAt)}, '
+                                '${clockLabel(autoAt)}.',
                     ),
                   const SizedBox(height: 12),
                   HelperCard(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        CategoryTag(
+                          completed ? 'Dikonfirmasi' : 'Pekerjaan selesai',
+                          tone: BannerTone.green,
+                        ),
+                        const SizedBox(height: 10),
                         JobSummary(order: job, details: false),
                         const Divider(
                           height: 22,
@@ -663,6 +788,22 @@ class _HelperJobPageState extends State<HelperJobPage> {
                       ],
                     ),
                   ),
+                  if (!completed) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      '${rupiah(job.netPayout, spaced: false)} masih '
+                      'tertunda dan belum masuk pendapatan cair. Dana '
+                      'simulasi TD-Wallet tetap ditahan sampai penyelesaian '
+                      'dikonfirmasi.',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.style(
+                        size: 10,
+                        weight: AppTypography.regular,
+                        color: HelperStyle.muted,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -671,11 +812,18 @@ class _HelperJobPageState extends State<HelperJobPage> {
       ),
       bottomNavigationBar: HelperBottomBar(
         children: [
-          HelperButton(
-            label: 'Kembali ke pesanan',
-            soft: true,
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
+          if (delivery)
+            HelperButton(
+              label: 'Kembali ke pesanan',
+              soft: true,
+              onPressed: () => Navigator.of(context).maybePop(),
+            )
+          else
+            HelperButton(
+              label: 'Lihat pendapatan',
+              soft: true,
+              onPressed: _earnings,
+            ),
           HelperButton(
             label: 'Lihat transaksi',
             onPressed: () => _transaction(job),
@@ -686,30 +834,25 @@ class _HelperJobPageState extends State<HelperJobPage> {
   }
 }
 
-/// Langkah saat ini selama perjalanan dan pengerjaan.
-class _WorkStep extends StatelessWidget {
-  const _WorkStep({required this.job, this.onProgress});
+/// Langkah saat ini selama perjalanan dan pengerjaan: ikon, judul,
+/// penjelasan, harga disepakati, lalu tombol tambahan.
+class _StepCard extends StatelessWidget {
+  const _StepCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.price,
+    this.children = const [],
+  });
 
-  final ServerOrder job;
-  final VoidCallback? onProgress;
+  final String icon;
+  final String title;
+  final String message;
+  final int price;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final pickup = job.pickup;
-    final destination = job.destination;
-    final onProgress = this.onProgress;
-    final working = onProgress != null;
-
-    final title = working
-        ? 'Selesaikan, lalu dokumentasikan'
-        : pickup != null
-        ? 'Jemput di ${pickup.label}'
-        : 'Menuju ${destination?.label ?? 'lokasi Client'}';
-    final message = working
-        ? 'Kerjakan sesuai catatan Client. Ambil foto bukti sebelum menandai '
-              'selesai.'
-        : 'Pastikan detail pesanan sesuai sebelum mulai mengerjakan.';
-
     return HelperCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -725,12 +868,7 @@ class _WorkStep extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
-                child: OrderIcon(
-                  working
-                      ? HelperStyle.categoryIcon(job.categoryCode)
-                      : HelperStyle.iconDropoff,
-                  size: 16,
-                ),
+                child: OrderIcon(icon, size: 16),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -762,7 +900,7 @@ class _WorkStep extends StatelessWidget {
             ],
           ),
           const Divider(height: 22, color: HelperStyle.cardBorder),
-          HelperRow('Harga disepakati', rupiah(job.price, spaced: false)),
+          HelperRow('Harga disepakati', rupiah(price, spaced: false)),
           Text(
             'Dana simulasi TD-Wallet tetap ditahan sampai pekerjaan '
             'dikonfirmasi selesai.',
@@ -773,14 +911,7 @@ class _WorkStep extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          if (working) ...[
-            const SizedBox(height: 12),
-            HelperButton(
-              label: 'Lihat Progres',
-              soft: true,
-              onPressed: onProgress,
-            ),
-          ],
+          for (final child in children) ...[const SizedBox(height: 12), child],
         ],
       ),
     );

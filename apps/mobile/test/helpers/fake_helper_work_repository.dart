@@ -68,7 +68,12 @@ class FakeHelperWorkRepository implements HelperWorkRepository {
       destination: o.destination,
       history: o.history,
       client: o.client ?? const OrderClient(id: 'c-1', name: 'Nadia Putri'),
-      offers: [...o.offers, ?offer],
+      // Seperti server: penawaran ulang menimpa penawaran helper yang sama.
+      offers: [
+        for (final x in o.offers)
+          if (offer == null || x.helperId != offer.helperId) x,
+        ?offer,
+      ],
       estimatedPrice: o.estimatedPrice,
       helperPayout: o.helperPayout,
       platformCommission: o.platformCommission,
@@ -86,6 +91,9 @@ class FakeHelperWorkRepository implements HelperWorkRepository {
 
   /// Status berpindah dari sisi lain (Client, admin).
   void setStatus(int id, OrderStatus status) => _jobs.advance(id, status);
+
+  /// Client baru saja memesan helper ini.
+  void addJob(ServerOrder job) => _jobs.orders.insert(0, job);
 
   @override
   Future<HelperStatus> status() async => helperStatus;

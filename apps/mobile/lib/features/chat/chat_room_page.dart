@@ -16,9 +16,20 @@ import 'chat_store.dart';
 /// pesan di bawah. Pesan terkirim lewat tombol kirim di keyboard, seperti
 /// desain (tidak ada tombol kirim di layar).
 class ChatRoomPage extends StatefulWidget {
-  const ChatRoomPage({super.key, required this.room});
+  const ChatRoomPage({
+    super.key,
+    required this.room,
+    this.subtitle,
+    this.pinned,
+  });
 
   final ChatRoom room;
+
+  /// Di bawah nama, misal "Client · Delivery" di mode Helper.
+  final String? subtitle;
+
+  /// Menempel di atas pesan, misal ringkasan pesanan di mode Helper.
+  final Widget? pinned;
 
   @override
   State<ChatRoomPage> createState() => _ChatRoomPageState();
@@ -99,12 +110,22 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   @override
   Widget build(BuildContext context) {
     final room = widget.room;
+    final pinned = widget.pinned;
 
     return Scaffold(
       backgroundColor: OrderStyle.background,
       body: Column(
         children: [
-          _ChatHeader(name: room.peerName, photoUrl: room.peerPhotoUrl),
+          _ChatHeader(
+            name: room.peerName,
+            photoUrl: room.peerPhotoUrl,
+            subtitle: widget.subtitle,
+          ),
+          if (pinned != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: pinned,
+            ),
           Expanded(
             child: ListenableBuilder(
               listenable: _store,
@@ -152,10 +173,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
 /// Header merah: tombol kembali, foto, dan nama helper. Tingginya sama
 /// dengan header Household (95 dp di bawah status bar, pusat tombol 33 dp).
 class _ChatHeader extends StatelessWidget {
-  const _ChatHeader({required this.name, this.photoUrl});
+  const _ChatHeader({required this.name, this.photoUrl, this.subtitle});
 
   final String name;
   final String? photoUrl;
+  final String? subtitle;
 
   static const _height = 95.0;
   static const _buttonSize = 34.0;
@@ -165,6 +187,7 @@ class _ChatHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     const avatar = 40.0;
+    final subtitle = this.subtitle;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -185,15 +208,32 @@ class _ChatHeader extends StatelessWidget {
             HelperAvatar(name: name, photoUrl: photoUrl, size: avatar),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.style(
-                  size: 16,
-                  weight: AppTypography.semiBold,
-                  color: AppColors.light,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.style(
+                      size: 16,
+                      weight: AppTypography.semiBold,
+                      color: AppColors.light,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.style(
+                        size: 10,
+                        weight: AppTypography.regular,
+                        color: AppColors.light.withValues(alpha: 0.9),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],

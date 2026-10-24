@@ -8,6 +8,7 @@ import '../home/home_page.dart';
 import '../order/widgets/order_widgets.dart';
 import 'helper_settings_page.dart';
 import 'helper_store.dart';
+import 'helper_work_repository.dart';
 import 'widgets/helper_widgets.dart';
 
 /// Profil mode Helper: identitas, layanan, pengaturan, dan beralih ke
@@ -96,6 +97,8 @@ class HelperProfileView extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    _RatingLine(status: status),
                     const Divider(height: 24, color: HelperStyle.cardBorder),
                     Text(contact, textAlign: TextAlign.center, style: muted),
                   ],
@@ -199,6 +202,45 @@ class HelperProfileView extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Lima bintang dari rata-rata rating, lalu "4,9 · 12 selesai".
+class _RatingLine extends StatelessWidget {
+  const _RatingLine({required this.status});
+
+  final HelperStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final rated = status.ratingCount > 0;
+    final average = status.rating.toStringAsFixed(1).replaceAll('.', ',');
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 1; i <= 5; i++)
+          Icon(
+            Icons.star_rounded,
+            size: 16,
+            color: rated && status.rating >= i - 0.5
+                ? HelperStyle.red
+                : HelperStyle.cardBorder,
+          ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            rated
+                ? '$average · ${status.completedCount} selesai'
+                : 'Belum ada rating · ${status.completedCount} selesai',
+            style: AppTypography.style(
+              size: 11,
+              weight: AppTypography.medium,
+              color: HelperStyle.ink,
+            ),
           ),
         ),
       ],

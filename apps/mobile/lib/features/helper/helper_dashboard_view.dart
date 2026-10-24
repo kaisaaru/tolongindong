@@ -6,6 +6,7 @@ import '../../core/format/rupiah.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../auth/session_store.dart';
+import '../household/household_models.dart';
 import '../notification/notification_page.dart';
 import '../order/order_repository.dart';
 import '../order/widgets/order_widgets.dart';
@@ -28,7 +29,7 @@ class HelperDashboardView extends StatelessWidget {
     final user = context.watch<SessionStore>().user;
     final firstName = (user?.fullName ?? '').trim().split(' ').first;
     final active = store.active;
-    final requests = store.toReview.length;
+    final requests = store.toReview;
 
     return Column(
       children: [
@@ -57,25 +58,17 @@ class HelperDashboardView extends StatelessWidget {
                 _AvailabilityCard(store: store),
                 const SizedBox(height: 12),
                 _EarningsCard(store: store),
-                if (requests > 0) ...[
-                  const SizedBox(height: 12),
-                  Material(
-                    color: HelperStyle.softRed,
-                    borderRadius: BorderRadius.circular(10),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: onOpenJobs,
-                      child: HelperBanner(
-                        title: '$requests permintaan baru menunggu responsmu',
-                        message:
-                            'Tinjau dalam 5 menit, lalu buat penawaran '
-                            'atau tolak.',
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: HelperStyle.red,
-                        ),
-                      ),
-                    ),
+                if (requests.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  _SectionTitle(
+                    'Permintaan masuk',
+                    tag: '${requests.length} perlu ditinjau',
+                  ),
+                  const SizedBox(height: 10),
+                  _RequestPreview(
+                    job: requests.first,
+                    count: requests.length,
+                    onOpenJobs: onOpenJobs,
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -367,22 +360,90 @@ class _EarningsCard extends StatelessWidget {
   }
 }
 
+/// Permintaan terbaru di Beranda: pemesan, pesanan, waktu masuk, lalu
+/// "Lihat pesanan masuk (n)" ke tab Pesanan.
+class _RequestPreview extends StatelessWidget {
+  const _RequestPreview({
+    required this.job,
+    required this.count,
+    required this.onOpenJobs,
+  });
+
+  final ServerOrder job;
+  final int count;
+  final VoidCallback onOpenJobs;
+
+  @override
+  Widget build(BuildContext context) {
+    final client = job.client;
+    final small = AppTypography.style(
+      size: 10,
+      weight: AppTypography.regular,
+      color: HelperStyle.muted,
+      height: 1.5,
+    );
+    final place = (job.destination ?? job.pickup)?.label;
+
+    return HelperCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              HelperAvatar(
+                name: client?.name ?? 'Client',
+                photoUrl: client?.photoUrl,
+                size: 32,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      client?.name ?? 'Client',
+                      style: AppTypography.style(
+                        size: 12,
+                        weight: AppTypography.semiBold,
+                        color: HelperStyle.ink,
+                      ),
+                    ),
+                    Text('Memilih kamu secara langsung', style: small),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            job.title,
+            style: AppTypography.style(
+              size: 13,
+              weight: AppTypography.semiBold,
+              color: HelperStyle.ink,
+            ),
+          ),
+          Text(
+            [?place, 'masuk ${clockLabel(job.createdAt)}'].join(' · '),
+            style: small,
+          ),
+          const SizedBox(height: 12),
+          HelperButton(
+            label: 'Lihat pesanan masuk ($count)',
+            onPressed: onOpenJobs,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Kartu pesanan berjalan: nomor, kategori, Client, tugas, status, dan
 /// "Lihat pekerjaan".
 class ActiveJobCard extends StatelessWidget {
   const ActiveJobCard({super.key, required this.job});
 
   final ServerOrder job;
-
-  static String statusText(OrderStatus status) => switch (status) {
-    OrderStatus.accepted => 'Siap berangkat',
-    OrderStatus.onTheWay => 'Menuju lokasi',
-    OrderStatus.arrived => 'Sudah sampai',
-    OrderStatus.inProgress ||
-    OrderStatus.priceAdjustment => 'Sedang dikerjakan',
-    OrderStatus.awaitingConfirmation => 'Menunggu konfirmasi Client',
-    _ => status.label,
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -441,7 +502,7 @@ class ActiveJobCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                statusText(job.status),
+                HelperStyle.statusText(job.status),
                 style: AppTypography.style(
                   size: 10,
                   weight: AppTypography.medium,

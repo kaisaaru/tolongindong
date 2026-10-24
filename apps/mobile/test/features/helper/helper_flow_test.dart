@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/storage/app_preferences.dart';
 import 'package:mobile/features/account/account_view.dart';
+import 'package:mobile/features/chat/chat_room_page.dart';
 import 'package:mobile/features/helper/earnings_page.dart';
+import 'package:mobile/features/helper/finish_confirm_page.dart';
 import 'package:mobile/features/helper/helper_job_page.dart';
 import 'package:mobile/features/helper/helper_settings_page.dart';
 import 'package:mobile/features/helper/helper_shell.dart';
@@ -17,6 +19,7 @@ import 'package:mobile/models/auth_user.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_catalog_repository.dart';
+import '../../helpers/fake_chat_repository.dart';
 import '../../helpers/fake_helper_work_repository.dart';
 import '../../helpers/fake_order_repository.dart';
 import '../../helpers/fake_photo_picker.dart';
@@ -100,6 +103,7 @@ class _Setup {
   final FakeHelperWorkRepository repo;
   late final HelperStore store;
   final photos = FakePhotoPicker();
+  final chats = FakeChatRepository();
 
   Future<void> pump(
     WidgetTester tester,
@@ -119,10 +123,22 @@ class _Setup {
       helperWorkRepo: repo,
       helperStore: store,
       photoPicker: photos,
+      chatRepo: chats,
     );
     await tester.pumpAndSettle();
   }
 }
+
+/// Household yang sudah disetujui Client, untuk alur Tiba di Lokasi.
+ServerOrder _acceptedHousehold() => FakeOrderRepository.sample(
+  id: 5,
+  status: OrderStatus.accepted,
+  description: 'Household - Kamar\nUkuran: 6 x 10 m',
+  price: 100000,
+  client: const OrderClient(id: 'c-3', name: 'Rina Lestari'),
+  destination: testHome,
+  history: [(status: OrderStatus.accepted, at: _now())],
+);
 
 void main() {
   group('Beranda helper', () {
@@ -136,7 +152,8 @@ void main() {
       // Pendapatan cair: hanya #3 (Rp50.000 - 10%).
       expect(find.text('Rp45.000'), findsOneWidget);
       expect(find.text('12'), findsOneWidget); // pesanan selesai
-      expect(find.text('1 permintaan baru menunggu responsmu'), findsOneWidget);
+      expect(find.text('1 perlu ditinjau'), findsOneWidget);
+      expect(find.text('Lihat pesanan masuk (1)'), findsOneWidget);
       expect(find.text('2 aktif'), findsOneWidget); // #2 dan #4
       expect(find.text('Budi Santoso'), findsOneWidget);
       await tester.scrollUntilVisible(
@@ -220,6 +237,15 @@ void main() {
 
       expect(setup.repo.calls.single, ('offer', 1, 100000));
       expect(find.byType(MakeOfferPage), findsNothing);
+      expect(find.text('Penawaran berhasil dikirim'), findsOneWidget);
+      expect(
+        find.textContaining('sejak pengiriman 09.47, sampai 09.52'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Lihat status penawaran'));
+      await tester.pumpAndSettle();
+      expect(find.byType(OfferSentPage), findsNothing);
       expect(find.text('Menunggu persetujuan Client'), findsOneWidget);
       expect(find.text('05:00'), findsOneWidget);
       expect(find.textContaining('berbeda dari penawaranmu'), findsOneWidget);
@@ -269,6 +295,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '100000');
       await tester.tap(find.text('Kirim Penawaran'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Lihat status penawaran'));
       await tester.pumpAndSettle();
 
       // Client menyetujui; halaman memeriksa ulang berkala.
@@ -321,6 +349,143 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(TransactionDetailPage), findsOneWidget);
       expect(find.textContaining('masih ditahan'), findsOneWidget);
+    });
+
+    testWidgets('Household: tiba di lokasi, progres, konfirmasi selesai', (
+      tester,
+    ) async {
+      final setup = _Setup(jobs: [_acceptedHousehold()]);
+      await setup.pump(tester, const HelperJobPage(orderId: 5));
+
+      await tester.tap(find.text('Mulai Perjalanan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Menuju lokasi'), findsOneWidget);
+      expect(find.text('Perbarui status secara manual'), findsOneWidget);
+      // Household tidak langsung dikerjakan: tiba dulu.
+      expect(find.text('Mulai Pengerjaan'), findsNothing);
+
+      await tester.tap(find.text('Tiba di Lokasi'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tiba di lokasi · 09.47'), findsOneWidget);
+      expect(find.text('Pengerjaan belum dimulai'), findsOneWidget);
+
+      await tester.tap(find.text('Mulai Pengerjaan'));
+      await tester.pumpAndSettle();
+      expect(
+        [for (final c in setup.repo.calls) c.$3],
+        [OrderStatus.onTheWay, OrderStatus.arrived, OrderStatus.inProgress],
+      );
+      expect(find.text('Pengerjaan aktif'), findsOneWidget);
+      expect(find.text('Kerjakan sesuai kebutuhan Rina'), findsOneWidget);
+      expect(find.text('Unggah Bukti'), findsNothing);
+
+      await tester.tap(find.text('Lihat Progres Pekerjaan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tiba di lokasi'), findsOneWidget); // tahap timeline
+      await tester.tap(find.text('Selesaikan Pekerjaan'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FinishConfirmPage), findsOneWidget);
+      await tester.tap(find.text('Ya, Selesaikan'));
+      await tester.pumpAndSettle();
+
+      expect(setup.repo.calls.last.$3, OrderStatus.awaitingConfirmation);
+      expect(find.text('Tugasmu sudah selesai!'), findsOneWidget);
+      // Ditandai 09.47; konfirmasi otomatis 24 jam kemudian.
+      expect(
+        find.textContaining('otomatis setelah 24 jam pada 23 Okt 2026, 09.47'),
+        findsOneWidget,
+      );
+      expect(find.text('Lihat pendapatan'), findsOneWidget);
+    });
+
+    testWidgets('penawaran lewat 5 menit bisa dikirim ulang', (tester) async {
+      final setup = _Setup(
+        jobs: [
+          FakeOrderRepository.sample(
+            id: 6,
+            client: _nadia,
+            estimatedPrice: 50000,
+            offers: [
+              OrderOffer(
+                id: 9,
+                helperId: 'h-1',
+                price: 60000,
+                status: OfferStatus.submitted,
+                validUntil: _now().subtract(const Duration(minutes: 1)),
+              ),
+            ],
+          ),
+        ],
+      );
+      await setup.pump(tester, const HelperJobPage(orderId: 6));
+
+      expect(find.text('Batas persetujuan 5 menit sudah lewat'), findsOne);
+      await tester.tap(find.text('Kirim Ulang'));
+      await tester.pumpAndSettle();
+      // Harga penawaran sebelumnya, bukan estimasi Client.
+      expect(find.text('60.000'), findsOneWidget);
+
+      await tester.tap(find.text('Kirim Penawaran'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Lihat status penawaran'));
+      await tester.pumpAndSettle();
+
+      expect(setup.repo.calls.single, ('offer', 6, 60000));
+      expect(find.text('Menunggu persetujuan Client'), findsOneWidget);
+      expect(find.text('05:00'), findsOneWidget);
+    });
+
+    testWidgets('chat dengan Client dari pesanan', (tester) async {
+      final setup = _Setup();
+      await setup.pump(tester, const HelperJobPage(orderId: 2));
+
+      await tester.tap(find.text('Chat dengan Budi'));
+      await tester.pumpAndSettle();
+
+      // Ruang pesanan dibuka (dibuat server kalau belum ada).
+      expect(setup.chats.openedOrders, [2]);
+      expect(find.byType(ChatRoomPage), findsOneWidget);
+      expect(find.text('Client · Personal'), findsOneWidget);
+      expect(find.text('#ORD-20261022-2 · Sedang dikerjakan'), findsOneWidget);
+    });
+
+    testWidgets('kabar permintaan baru dan penawaran disetujui', (
+      tester,
+    ) async {
+      final setup = _Setup();
+      await setup.pump(tester, const HelperShell());
+      expect(find.byType(SnackBar), findsNothing);
+
+      setup.repo.addJob(
+        FakeOrderRepository.sample(
+          id: 7,
+          description: 'Household - Kamar',
+          client: const OrderClient(id: 'c-3', name: 'Rina Lestari'),
+        ),
+      );
+      await setup.store.refresh(quiet: true);
+      await tester.pump();
+      expect(
+        find.text('Permintaan baru dari Rina Lestari: Household - Kamar'),
+        findsOneWidget,
+      );
+
+      await setup.store.submitOffer(7, 90000);
+      setup.repo.approveOffer(7);
+      await setup.store.refresh(quiet: true);
+      // Snackbar kedua antre sampai yang pertama hilang.
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 7));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Rina Lestari menyetujui penawaranmu'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Lihat'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pesanan diterima'), findsOneWidget);
     });
 
     testWidgets('foto bukti tidak wajib', (tester) async {
@@ -496,7 +661,27 @@ void main() {
       await _Setup().pump(tester, const HelperShell(), size: narrow);
       await tester.tap(find.text('Profil'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Beralih ke Client'), 200);
       expect(find.text('Beralih ke Client'), findsOneWidget);
+    });
+
+    testWidgets('alur Household sampai konfirmasi penyelesaian', (
+      tester,
+    ) async {
+      final setup = _Setup(jobs: [_acceptedHousehold()]);
+      await setup.pump(tester, const HelperJobPage(orderId: 5), size: narrow);
+      for (final step in [
+        'Mulai Perjalanan',
+        'Tiba di Lokasi',
+        'Mulai Pengerjaan',
+        'Lihat Progres Pekerjaan',
+        'Selesaikan Pekerjaan',
+      ]) {
+        await tester.tap(find.text(step));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: step);
+      }
+      expect(find.text('Pekerjaan sudah selesai?'), findsOneWidget);
     });
   });
 }

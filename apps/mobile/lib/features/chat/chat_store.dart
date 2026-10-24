@@ -8,8 +8,9 @@ import 'chat_repository.dart';
 /// "Chat helper" di profil helper dan halaman pesanan.
 ///
 /// Isinya dari server: [refresh] = `GET /chats`, [openWithHelper] =
-/// `POST /chats/helpers/{id}`, [loadMessages] = `GET /chats/rooms/{id}/
-/// messages` (sekaligus menandai terbaca), [send] = `POST .../messages`.
+/// `POST /chats/helpers/{id}`, [openForOrder] = `GET /orders/{id}/messages`,
+/// [loadMessages] = `GET /chats/rooms/{id}/messages` (sekaligus menandai
+/// terbaca), [send] = `POST .../messages`.
 class ChatStore extends ChangeNotifier {
   ChatStore(
     this._repo, {
@@ -79,6 +80,29 @@ class ChatStore extends ChangeNotifier {
       helperId: helperId,
       peerName: name,
       peerPhotoUrl: photoUrl,
+      createdAt: _clock(),
+    );
+    _rooms.add(room);
+    notifyListeners();
+    return room;
+  }
+
+  /// Ruang obrolan pesanan [orderId] dengan pemesannya; dibuat server
+  /// kalau belum ada. Untuk helper.
+  Future<ChatRoom> openForOrder({
+    required int orderId,
+    required String name,
+    String? photoUrl,
+  }) async {
+    final id = await _repo.roomForOrder(orderId);
+    for (final room in _rooms) {
+      if (room.id == id) return room;
+    }
+    final room = ChatRoom(
+      id: id,
+      peerName: name,
+      peerPhotoUrl: photoUrl,
+      orderId: orderId,
       createdAt: _clock(),
     );
     _rooms.add(room);

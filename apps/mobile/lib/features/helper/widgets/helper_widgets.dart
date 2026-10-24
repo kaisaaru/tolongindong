@@ -43,7 +43,26 @@ abstract final class HelperStyle {
   /// "Delivery", "Personal", "Household".
   static String categoryName(String code) =>
       code.isEmpty ? 'Pesanan' : '${code[0].toUpperCase()}${code.substring(1)}';
+
+  /// Tahap pekerjaan dilihat dari helper, misal "Menuju lokasi".
+  static String statusText(OrderStatus status) => switch (status) {
+    _ when status.isWaiting => 'Menunggu penawaran',
+    OrderStatus.accepted => 'Siap berangkat',
+    OrderStatus.onTheWay => 'Menuju lokasi',
+    OrderStatus.arrived => 'Tiba di lokasi',
+    OrderStatus.inProgress ||
+    OrderStatus.priceAdjustment => 'Sedang dikerjakan',
+    OrderStatus.awaitingConfirmation => 'Menunggu konfirmasi Client',
+    _ => status.label,
+  };
 }
+
+/// Kapan pekerjaan yang ditandai selesai dikonfirmasi otomatis: 24 jam
+/// setelahnya (FR-ORD-012). Hanya ditampilkan; backend belum menjalankan
+/// konfirmasi otomatis.
+DateTime? autoConfirmAt(ServerOrder job) =>
+    (job.helperFinishedAt ?? job.enteredAt(OrderStatus.awaitingConfirmation))
+        ?.add(const Duration(hours: 24));
 
 /// Header merah selebar layar: panah kembali (kalau bukan isi tab), judul,
 /// dan keterangan.
@@ -589,6 +608,56 @@ class JobSummary extends StatelessWidget {
           ],
         ],
       ],
+    );
+  }
+}
+
+/// Ringkasan pesanan yang menempel di atas obrolan: nomor dan tahap,
+/// judul, lalu waktu pesan.
+class JobChatCard extends StatelessWidget {
+  const JobChatCard({super.key, required this.order});
+
+  final ServerOrder order;
+
+  @override
+  Widget build(BuildContext context) {
+    return HelperCard(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '#${order.number} · ${HelperStyle.statusText(order.status)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.style(
+              size: 10,
+              weight: AppTypography.semiBold,
+              color: HelperStyle.ink,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            order.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.style(
+              size: 12,
+              weight: AppTypography.medium,
+              color: HelperStyle.ink,
+              height: 1.4,
+            ),
+          ),
+          Text(
+            '${dateLabel(order.createdAt)} · ${clockLabel(order.createdAt)}',
+            style: AppTypography.style(
+              size: 9,
+              weight: AppTypography.regular,
+              color: HelperStyle.muted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

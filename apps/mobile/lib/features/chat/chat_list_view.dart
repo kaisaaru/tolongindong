@@ -22,12 +22,16 @@ class ChatListView extends StatefulWidget {
     this.bottomPadding = 16,
     this.onExplore,
     this.forHelper = false,
+    this.roomPage,
   });
   final double bottomPadding;
 
   /// Mode Helper: lawan bicaranya Client, dan judul ada di header merah
   /// di atasnya.
   final bool forHelper;
+
+  /// Halaman ruang yang dibuka; bawaannya [ChatRoomPage] polos.
+  final Widget Function(ChatRoom room)? roomPage;
 
   /// Ajakan "Cari Helper" saat belum ada obrolan, misal pindah ke Beranda.
   final VoidCallback? onExplore;
@@ -48,9 +52,10 @@ class _ChatListViewState extends State<ChatListView> {
   }
 
   Future<void> _open(ChatRoom room) async {
+    final page = widget.roomPage?.call(room) ?? ChatRoomPage(room: room);
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => ChatRoomPage(room: room)));
+    ).push(MaterialPageRoute<void>(builder: (_) => page));
     // Urutan dan penanda belum dibaca mengikuti percakapan barusan.
     if (mounted) await _store.refresh();
   }

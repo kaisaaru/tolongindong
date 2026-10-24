@@ -4,26 +4,34 @@ import 'package:provider/provider.dart';
 import '../../theme/app_typography.dart';
 import '../household/household_models.dart';
 import '../order/order_repository.dart';
+import 'finish_confirm_page.dart';
 import 'helper_store.dart';
 import 'proof_page.dart';
 import 'widgets/helper_widgets.dart';
 
 /// Progres pekerjaan: tahap pesanan dari riwayat status, lalu catatan
 /// aktivitas. Isinya dari detail pekerjaan yang sudah dimuat.
+///
+/// Delivery lanjut ke unggah bukti; Household dan Personal ke konfirmasi
+/// penyelesaian.
 class JobProgressPage extends StatelessWidget {
   const JobProgressPage({super.key, required this.orderId});
 
   final int orderId;
 
-  /// Tahap yang ditampilkan, dengan keterangan untuk helper.
-  static const _steps = [
+  /// Tahap yang ditampilkan, dengan keterangan untuk helper. Delivery
+  /// tidak punya tahap "Tiba di lokasi" sendiri.
+  static List<(OrderStatus, String, String)> _steps({
+    required bool delivery,
+  }) => [
     (OrderStatus.accepted, 'Diterima', 'Penawaran disetujui'),
     (OrderStatus.onTheWay, 'Dalam perjalanan', 'Menuju lokasi'),
+    if (!delivery) (OrderStatus.arrived, 'Tiba di lokasi', 'Sampai di lokasi'),
     (OrderStatus.inProgress, 'Sedang dikerjakan', 'Mulai mengerjakan'),
     (
       OrderStatus.awaitingConfirmation,
       'Selesai',
-      'Menunggu bukti dan konfirmasi',
+      delivery ? 'Menunggu bukti dan konfirmasi' : 'Menunggu konfirmasi',
     ),
   ];
 
@@ -43,6 +51,13 @@ class JobProgressPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.watch<HelperStore>();
     final job = store.byId(orderId);
+    final delivery = job?.categoryCode == 'delivery';
+    final muted = AppTypography.style(
+      size: 10,
+      weight: AppTypography.regular,
+      color: HelperStyle.muted,
+      height: 1.5,
+    );
 
     return Scaffold(
       backgroundColor: HelperStyle.background,
@@ -60,7 +75,12 @@ class JobProgressPage extends StatelessWidget {
                     children: [
                       HelperCard(child: JobSummary(order: job, details: false)),
                       const SizedBox(height: 12),
-                      HelperCard(child: _Timeline(job: job)),
+                      HelperCard(
+                        child: _Timeline(
+                          job: job,
+                          steps: _steps(delivery: delivery),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       HelperCard(
                         child: Column(
@@ -82,17 +102,22 @@ class JobProgressPage extends StatelessWidget {
                                 ),
                                 child: Text(
                                   '${clockLabel(h.at)} · ${activity(h.status)}',
-                                  style: AppTypography.style(
-                                    size: 10,
-                                    weight: AppTypography.regular,
-                                    color: HelperStyle.muted,
-                                    height: 1.5,
-                                  ),
+                                  style: muted,
                                 ),
                               ),
                           ],
                         ),
                       ),
+                      if (job.status == OrderStatus.inProgress &&
+                          !delivery) ...[
+                        const SizedBox(height: 12),
+                        const HelperBanner(
+                          title: 'Sudah selesai mengerjakan?',
+                          message:
+                              'Lanjutkan ke konfirmasi penyelesaian setelah '
+                              'seluruh pekerjaan selesai.',
+                        ),
+                      ],
                     ],
                   ),
           ),
@@ -102,10 +127,14 @@ class JobProgressPage extends StatelessWidget {
           ? HelperBottomBar(
               children: [
                 HelperButton(
-                  label: 'Unggah Bukti Penyelesaian',
+                  label: delivery
+                      ? 'Unggah Bukti Penyelesaian'
+                      : 'Selesaikan Pekerjaan',
                   onPressed: () => Navigator.of(context).pushReplacement(
                     MaterialPageRoute<void>(
-                      builder: (_) => ProofPage(job: job!),
+                      builder: (_) => delivery
+                          ? ProofPage(job: job!)
+                          : FinishConfirmPage(job: job!),
                     ),
                   ),
                 ),
@@ -117,16 +146,16 @@ class JobProgressPage extends StatelessWidget {
 }
 
 class _Timeline extends StatelessWidget {
-  const _Timeline({required this.job});
+  const _Timeline({required this.job, required this.steps});
 
   final ServerOrder job;
+  final List<(OrderStatus, String, String)> steps;
 
   @override
   Widget build(BuildContext context) {
     // Tahap terakhir yang sudah dilewati menjadi tahap aktif.
     final reached = [
-      for (final (status, _, _) in JobProgressPage._steps)
-        job.enteredAt(status) != null,
+      for (final (status, _, _) in steps) job.enteredAt(status) != null,
     ];
     final current = reached.lastIndexWhere((r) => r);
 
@@ -142,17 +171,16 @@ class _Timeline extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        for (var i = 0; i < JobProgressPage._steps.length; i++)
+        for (final (i, (status, title, caption)) in steps.indexed)
           _TimelineStep(
-            title: JobProgressPage._steps[i].$2,
-            caption: switch (job.enteredAt(JobProgressPage._steps[i].$1)) {
-              final at? =>
-                '${clockLabel(at)} · ${JobProgressPage._steps[i].$3}',
-              null => JobProgressPage._steps[i].$3,
+            title: title,
+            caption: switch (job.enteredAt(status)) {
+              final at? => '${clockLabel(at)} · $caption',
+              null => caption,
             },
             reached: reached[i],
             current: i == current,
-            last: i == JobProgressPage._steps.length - 1,
+            last: i == steps.length - 1,
           ),
       ],
     );
