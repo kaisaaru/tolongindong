@@ -16,7 +16,9 @@ class ServiceCategoryController extends Controller
      */
     public function index(): JsonResponse
     {
-        $categories = ServiceCategory::orderBy('id')->get();
+        $categories = ServiceCategory::whereIn('code', \App\Enums\ServiceCategoryCode::values())
+            ->orderBy('id')
+            ->get();
 
         return $this->successResponse($categories, 'Daftar kategori layanan berhasil dimuat.');
     }

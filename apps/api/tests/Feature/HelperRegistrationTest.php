@@ -32,7 +32,7 @@ class HelperRegistrationTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonCount(6, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJsonStructure([
                 'success',
                 'message',
@@ -66,7 +66,7 @@ class HelperRegistrationTest extends TestCase
             'verification_status' => 'unverified',
         ]);
 
-        $categories = ServiceCategory::whereIn('code', ['food_run', 'delivery'])->pluck('id')->toArray();
+        $categories = ServiceCategory::whereIn('code', ['delivery', 'personal'])->pluck('id')->toArray();
 
         $payload = [
             'category_ids' => $categories,
@@ -97,7 +97,8 @@ class HelperRegistrationTest extends TestCase
         // Helper profile terbuat tetapi belum aktif
         $this->assertFalse($user->isVerifiedHelper());
         $this->assertNull($user->helperProfile->approved_at);
-        $this->assertFalse($user->helperProfile->is_available);
+        $this->assertEquals(\App\Enums\HelperAvailability::UNAVAILABLE, $user->helperProfile->is_available);
+        $this->assertFalse($user->helperProfile->isAvailable());
     }
 
     /**
@@ -251,14 +252,15 @@ class HelperRegistrationTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.review_status', 'approved')
-            ->assertJsonPath('data.is_available', true);
+            ->assertJsonPath('data.is_available', 'available');
 
         $helperUser->refresh();
         $helperProfile->refresh();
 
         $this->assertEquals('verified', $helperUser->verification_status);
         $this->assertNotNull($helperProfile->approved_at);
-        $this->assertTrue($helperProfile->is_available);
+        $this->assertEquals(\App\Enums\HelperAvailability::AVAILABLE, $helperProfile->is_available);
+        $this->assertTrue($helperProfile->isAvailable());
         $this->assertTrue($helperUser->isVerifiedHelper());
     }
 

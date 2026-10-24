@@ -65,13 +65,53 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<OtpChallenge> resendOtp(String phoneNumber, {String type = 'register'}) async {
+  Future<OtpChallenge> resendOtp(
+    String phoneNumber, {
+    String type = 'register',
+  }) async {
     if (failWith != null) _fail();
     return OtpChallenge(
       phoneNumber: phoneNumber,
       expiresInSeconds: 300,
       debugOtp: '123456',
     );
+  }
+
+  @override
+  Future<OtpChallenge> forgotPassword(String phoneNumber) async {
+    lastCall = {'phone_number': phoneNumber};
+    if (failWith != null) _fail();
+    return OtpChallenge(
+      phoneNumber: phoneNumber,
+      expiresInSeconds: 300,
+      debugOtp: '654321',
+    );
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String phoneNumber,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    lastCall = {
+      'phone_number': phoneNumber,
+      'otp_code': otpCode,
+      'new_password': newPassword,
+    };
+    if (failWith != null) _fail();
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    lastCall = {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    };
+    if (failWith != null) _fail();
   }
 
   @override

@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: tolongindong-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: apps/api
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: TolonginDong API
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_KEY
+        generateValue: false
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        generateValue: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        generateValue: false
+      - key: DB_USERNAME
+        generateValue: false
+      - key: DB_PASSWORD
+        generateValue: false
+      - key: RUN_MIGRATIONS
+        value: "false"

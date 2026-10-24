@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/auth/login_page.dart';
 import 'package:mobile/features/onboarding/onboarding_page.dart';
+import 'package:mobile/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../helpers/pump_page.dart';
@@ -69,5 +71,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(LoginPage), findsOneWidget);
     expect(find.byType(OnboardingPage), findsNothing);
+  });
+
+  testWidgets('HP pendek (320x568) dengan font besar tidak meluap', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const OnboardingPage()),
+    );
+
+    expect(find.text(firstTitle), findsOneWidget);
+    // Tombol tetap di dalam layar.
+    expect(tester.getBottomLeft(find.text('Selanjutnya')).dy, lessThan(568));
   });
 }

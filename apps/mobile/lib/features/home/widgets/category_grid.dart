@@ -1,0 +1,211 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../../models/service_category.dart';
+import '../../../theme/app_colors.dart';
+import '../../../theme/app_typography.dart';
+import '../home_assets.dart';
+import '../home_metrics.dart';
+
+/// Satu ubin di baris kategori. Dipakai untuk kategori dari server maupun
+/// ubin statis Helper di akhir.
+class CategoryTile {
+  const CategoryTile({
+    required this.label,
+    required this.assetPath,
+    this.onTap,
+  });
+
+  final String label;
+
+  /// PNG berisi kartu lengkap (latar, blob pink, ilustrasi) dengan sudut
+  /// transparan. SVG berisi ikon polos, jadi ubin yang menggambar kartunya.
+  /// Null berarti belum ada ilustrasinya.
+  final String? assetPath;
+
+  final VoidCallback? onTap;
+
+  bool get _isCardArt => assetPath?.toLowerCase().endsWith('.png') ?? false;
+
+  factory CategoryTile.fromCategory(
+    ServiceCategory category, {
+    VoidCallback? onTap,
+  }) => CategoryTile(
+    label: category.name,
+    assetPath: HomeAssets.categoryIcon(category.code),
+    onTap: onTap,
+  );
+}
+
+/// Satu baris berisi tiga kategori layanan (FR-HLP-001) ditambah pintasan
+/// Helper.
+///
+/// Ubin berukuran tetap 69 dp dengan jarak tetap, bukan dibagi rata ke lebar
+/// layar — di desain ukurannya memang tidak berubah mengikuti lebar.
+///
+/// Baris selebar 337,5 dp ini muat di frame desain (412 dp), tapi tidak di
+/// layar 360 dp. Di layar sesempit itu seluruh baris diperkecil utuh supaya
+/// proporsi ubin, jarak, dan label tetap sama dengan desain.
+class CategoryGrid extends StatelessWidget {
+  const CategoryGrid({super.key, required this.tiles});
+
+  final List<CategoryTile> tiles;
+
+  /// Tinggi satu baris, dipakai penanda memuat supaya layar tidak melompat
+  /// saat kategori selesai dimuat.
+  static const height =
+      HomeMetrics.tileSize +
+      HomeMetrics.tileLabelGap +
+      HomeMetrics.tileLabelSize;
+
+  @override
+  Widget build(BuildContext context) {
+    // Sisi kanan diberi jarak yang sama dengan padding kiri beranda.
+    return Padding(
+      padding: const EdgeInsets.only(right: HomeMetrics.bodyPadding),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: HomeMetrics.tileGap),
+              _Tile(tile: tiles[i]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  const _Tile({required this.tile});
+
+  final CategoryTile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: tile.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: HomeMetrics.tileSize,
+        child: Column(
+          children: [
+            DecoratedBox(
+              // Bayangan merata di keempat sisi, sesuai profil yang diukur
+              // dari Figma: tanpa offset, sigma ~4,2 dp, hitam 15%.
+              // blurRadius 6,4 -> sigma = 6,4 x 0,577 + 0,5 = 4,2 dp.
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(HomeMetrics.tileRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 6.4,
+                  ),
+                ],
+              ),
+              child: SizedBox.square(
+                dimension: HomeMetrics.tileSize,
+                child: _TileArt(tile: tile),
+              ),
+            ),
+            const SizedBox(height: HomeMetrics.tileLabelGap),
+            Text(
+              tile.label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              textAlign: TextAlign.center,
+              style: AppTypography.style(
+                size: HomeMetrics.tileLabelSize,
+                weight: AppTypography.medium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TileArt extends StatelessWidget {
+  const _TileArt({required this.tile});
+
+  final CategoryTile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    final path = tile.assetPath;
+    if (path == null) return _Card(child: _MissingArt(label: tile.label));
+
+    if (tile._isCardArt) {
+      return Image.asset(
+        path,
+        fit: BoxFit.fill,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => _Card(child: _MissingArt(label: tile.label)),
+      );
+    }
+
+    return _Card(
+      child: Center(
+        child: SvgPicture.asset(
+          path,
+          width: 36,
+          height: 37,
+          placeholderBuilder: (_) => _MissingArt(label: tile.label),
+        ),
+      ),
+    );
+  }
+}
+
+/// Kartu untuk ikon yang tidak membawa latarnya sendiri. Warnanya sama
+/// dengan latar kartu di ilustrasi PNG supaya semua ubin seragam.
+class _Card extends StatelessWidget {
+  const _Card({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: HomeAssets.tileCardColor,
+        borderRadius: BorderRadius.circular(HomeMetrics.tileRadius),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+/// Penanda ilustrasi yang belum ada: huruf awal kategori di atas latar pink.
+class _MissingArt extends StatelessWidget {
+  const _MissingArt({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = label.trim().isEmpty ? '?' : label.trim()[0].toUpperCase();
+
+    return ColoredBox(
+      color: AppColors.primaryLight,
+      child: Center(
+        child: Text(
+          initial,
+          style: AppTypography.style(
+            size: AppTypography.h6,
+            weight: AppTypography.bold,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -27,11 +27,13 @@ class PrimaryButton extends StatelessWidget {
       duration: kThemeChangeDuration,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
+        // Tombol mati di desain abu-abu datar; bayangan gelap membuatnya
+        // tampak kotor.
         boxShadow: [
           BoxShadow(
             color: enabled
                 ? AppColors.primary.withValues(alpha: 0.5)
-                : AppColors.dark.withValues(alpha: 0.25),
+                : Colors.transparent,
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),

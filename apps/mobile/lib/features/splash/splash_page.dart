@@ -2,12 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/storage/app_preferences.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
+import '../../widgets/app_logo.dart';
 import '../auth/auth_repository.dart';
+import '../auth/session_store.dart';
 import '../auth/login_page.dart';
+import '../helper/helper_shell.dart';
+import '../helper/helper_store.dart';
 import '../home/home_page.dart';
 import '../onboarding/onboarding_page.dart';
 import 'widgets/splash_waves.dart';
@@ -21,10 +27,7 @@ import 'widgets/splash_waves.dart';
 /// sisanya                        -> Login
 /// ```
 class SplashPage extends StatefulWidget {
-  const SplashPage({super.key, this.authRepo});
-
-  /// Diisi hanya saat pengujian, supaya splash bisa diuji tanpa server.
-  final AuthRepository? authRepo;
+  const SplashPage({super.key});
 
   /// Lama splash tampil minimal, walau pengecekan selesai lebih cepat.
   static const duration = Duration(seconds: 2);
@@ -34,32 +37,74 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage> {
-  late final _authRepo = widget.authRepo ?? AuthRepository();
+  late final _authRepo = context.read<AuthRepository>();
   final _prefs = AppPreferences();
+
+  /// Server deploy (Render gratis) bisa butuh ±1 menit untuk bangun. Lewat
+  /// [_slowAfter], pengguna diberi tahu supaya tidak mengira app macet.
+  static const _slowAfter = Duration(seconds: 4);
+  Timer? _slowTimer;
+  bool _slow = false;
 
   @override
   void initState() {
     super.initState();
+    _slowTimer = Timer(_slowAfter, () {
+      if (mounted) setState(() => _slow = true);
+    });
     unawaited(_decideNextPage());
+  }
+
+  @override
+  void dispose() {
+    _slowTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _decideNextPage() async {
     // Hitungan mulai sekarang, lalu pengecekan jalan bersamaan. Jadi splash
     // tetap tampil penuh 2 detik tanpa menambah waktu tunggu.
     final minimumDisplay = Future<void>.delayed(SplashPage.duration);
-    final destination = await _resolveDestination();
+    Widget destination;
+    try {
+      destination = await _resolveDestination();
+    } on Object {
+      // Kegagalan tak terduga (respons rusak, keystore/preferensi gagal
+      // dibaca) tidak boleh menahan pengguna di splash selamanya.
+      destination = const LoginPage();
+    }
     await minimumDisplay;
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => destination),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute<void>(builder: (_) => destination));
+  }
+
+  /// Mode terakhir dipakai. Mode Helper hanya kalau akun masih helper
+  /// terverifikasi; kalau tidak, kembali ke mode Client.
+  Future<Widget> _homeFor(HelperStore helper) async {
+    if (await _prefs.mode() == AppMode.helper) {
+      try {
+        await helper.loadStatus();
+        if (helper.status.isVerifiedHelper) return const HelperShell();
+      } on ApiException {
+        // Status helper gagal dimuat: buka mode Client dulu.
+      }
+      await _prefs.setMode(AppMode.client);
+    }
+    return const HomePage();
   }
 
   Future<Widget> _resolveDestination() async {
+    // Diambil sebelum menunggu apa pun: context tidak boleh dipakai lagi
+    // kalau halaman sudah ditutup saat balasan tiba.
+    final session = context.read<SessionStore>();
+    final helper = context.read<HelperStore>();
     if (await _authRepo.hasSession()) {
       try {
-        return HomePage(user: await _authRepo.me());
+        session.signIn(await _authRepo.me());
+        return await _homeFor(helper);
       } on ApiException catch (e) {
         // Token hanya dibuang kalau server benar-benar menolaknya. Jaringan
         // mati bukan alasan menghapus sesi — pengguna cuma diminta login lagi.
@@ -73,20 +118,42 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const AnnotatedRegion<SystemUiOverlayStyle>(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark, // ikon status bar gelap di latar putih
       child: Scaffold(
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Align(alignment: Alignment.bottomCenter, child: SplashWaves()),
+            const Align(
+              alignment: Alignment.bottomCenter,
+              child: SplashWaves(),
+            ),
             // Pusat logo di sekitar 32% tinggi layar, sama seperti desain.
-            // TODO: ganti kotak merah (placeholder di desain) dengan logo.
+            // Desain masih kotak merah polos; AppLogo juga logo sementara.
+            const Align(alignment: Alignment(0, -0.4), child: AppLogo()),
             Align(
-              alignment: Alignment(0, -0.4),
-              child: SizedBox.square(
-                dimension: 106,
-                child: ColoredBox(color: AppColors.primary),
+              alignment: const Alignment(0, 0.05),
+              child: AnimatedOpacity(
+                opacity: _slow ? 1 : 0,
+                duration: const Duration(milliseconds: 300),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Menghubungkan ke server...',
+                      style: AppTypography.style(
+                        size: AppTypography.small,
+                        weight: AppTypography.regular,
+                        color: AppColors.textDescription,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
