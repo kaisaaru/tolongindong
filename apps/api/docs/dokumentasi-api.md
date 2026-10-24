@@ -2,6 +2,16 @@
 
 Dokumen ini disusun sebagai panduan arsitektur, basis data, aturan bisnis, dan kontrak endpoint resmi bagi seluruh anggota tim (**System Analyst / SA**, **Quality Assurance / QA**, dan **Frontend Mobile / Flutter Developer**).
 
+
+> 🚀 **DEPLOYMENT SERVER (LIVE CLOUD)**:
+> - **Base URL**: `https://tolongindong.onrender.com`
+> - **Health Check**: `GET https://tolongindong.onrender.com/up`
+>
+> 📌 **CATATAN REVISI SYSTEM ANALYST (OKTOBER 2026)**:
+> 1. **Pemangkasan Kategori**: Layanan aktif kini hanya 3 kategori: `delivery`, `personal`, dan `household` (`food_run`, `moving`, dan `laundry` dihapus).
+> 2. **Penghapusan Talangan Belanja**: Fitur talangan uang tunai ditiadakan. Seluruh transaksi murni upah jasa (90% Payout Helper, 10% Komisi Platform).
+> 3. **Alur Pemesanan Marketplace (Gojek-Style)**: Client langsung memilih helper di awal (`helper_id`), helper langsung menerima via `POST /orders/{id}/accept` atau menolak via `POST /orders/{id}/reject`.
+> 4. **Obrolan Pra-Pesanan (Pre-Order Consultation)**: Client dapat berkonsultasi/chat langsung dengan helper sebelum membuat order via `POST /chats/helpers/{helperId}` atau melihat seluruh pesan di inbox `GET /chats`.
 ---
 
 ## DAFTAR ISI
@@ -192,6 +202,13 @@ Dikelola secara deterministik oleh kelas murni `App\Services\SettlementCalculato
   ```
 - **Respons (200)**: Token Sanctum + auto-provisioning dompet TD-Wallet saldo 0.
 
+#### 2b. Kirim Ulang Kode OTP
+
+- **Route**: `POST /send-otp`
+- **Akses**: Publik
+- **Body**: `{ "phone_number": "081234567890" }`
+- **Respons (200)**: Mengirim ulang kode OTP 6-digit baru (berlaku 300 detik).
+
 #### 3. Login Pengguna
 
 - **Route**: `POST /login`
@@ -227,6 +244,30 @@ Dikelola secara deterministik oleh kelas murni `App\Services\SettlementCalculato
 - **Route**: `GET /me`
 - **Akses**: Bearer Token
 - **Respons (200)**: Mengembalikan data akun, wallet, status verifikasi, dan status helper.
+
+#### 8. Ubah Kata Sandi Akun
+
+- **Route**: `POST /password/change`
+- **Akses**: Bearer Token
+- **Body**:
+  ```json
+  {
+    "current_password": "OldPassword123!",
+    "new_password": "NewPassword123!"
+  }
+  ```
+
+#### 9. Logout Akun
+
+- **Route**: `POST /logout`
+- **Akses**: Bearer Token
+- **Respons (200)**: Mencabut dan menghapus Bearer Token Sanctum yang sedang aktif.
+
+#### 10. Dashboard Client
+
+- **Route**: `GET /client/dashboard`
+- **Akses**: Bearer Token
+- **Respons (200)**: Ringkasan profil client, saldo dompet, dan pesanan aktif.
 
 ---
 
@@ -277,13 +318,14 @@ Semua endpoint membutuhkan header `Authorization: Bearer <token>`.
 
 ---
 
-### 6.4 Kategori Layanan & Pencarian Helper
+### 6.4 Kategori Layanan, Helper Discovery & KYC
 
-#### 1. Daftar 6 Kategori Layanan
+#### 1. Daftar 3 Kategori Layanan Aktif
 
 - **Route**: `GET /service-categories`
 - **Akses**: Publik
-- **Fitur Respons**: Mengembalikan flag `requires_advance`, `requires_pickup_photo`, `is_dispute_eligible`, dan `location_label` ("Lokasi pengerjaan" untuk Personal/Household, "Alamat tujuan" untuk lainnya).
+- **Kategori Aktif**: `delivery` (Kurir), `personal` (Asisten pribadi), `household` (Pekerjaan rumah tangga).
+- **Fitur Respons**: Mengembalikan flag `requires_advance` (selalu false), `requires_pickup_photo`, `is_dispute_eligible`, dan `location_label`.
 
 #### 2. Cari Helper Terdekat (Radius 10 km)
 
@@ -318,7 +360,32 @@ Semua endpoint membutuhkan header `Authorization: Bearer <token>`.
   }
   ```
 
-#### 3. Update Profil Operasional Helper
+#### 3. Pendaftaran Helper & Berkas KYC
+
+- **Route**: `POST /helper/register` (`FR-HLP-008`, `FR-VER-001`)
+- **Akses**: Bearer Token (Pengguna terdaftar yang belum terverifikasi helper)
+- **Content-Type**: `multipart/form-data`
+- **Fields**:
+  - `category_ids[]`: array int (1 sampai 3 kategori layanan)
+  - `hourly_rate`: int (tarif per jam, minimal Rp 0)
+  - `max_advance_limit`: int (opsional, default 0)
+  - `id_card_photo`: file gambar (KTP asli, max 5 MB, JPG/PNG)
+  - `selfie_photo`: file gambar (Selfie memegang KTP, max 5 MB, JPG/PNG)
+- **Respons (201)**: Berkas diunggah ke folder privat Cloudflare R2 (`verifications/{uuid}/`), status pengajuan menjadi `pending`.
+
+#### 4. Cek Status Pengajuan KYC Helper
+
+- **Route**: `GET /helper/status`
+- **Akses**: Bearer Token
+- **Respons (200)**: Mengembalikan `review_status` (`unverified`, `pending`, `approved`, atau `rejected` beserta `rejection_reason` jika ditolak).
+
+#### 5. Dashboard Kinerja Helper
+
+- **Route**: `GET /helper/dashboard`
+- **Akses**: Helper Terverifikasi
+- **Respons (200)**: Menampilkan metrik total pekerjaan selesai, pendapatan terkumpul, rating rata-rata, dan status ketersediaan saat ini.
+
+#### 6. Update Profil Operasional Helper
 
 - **Route**: `PUT /helper/profile` (`FR-HLP-008, 009`)
 - **Akses**: Helper Terverifikasi
@@ -327,8 +394,7 @@ Semua endpoint membutuhkan header `Authorization: Bearer <token>`.
   {
     "is_available": "available", // atau "unavailable" untuk libur
     "hourly_rate": 25000,
-    "max_advance_limit": 150000,
-    "category_ids": [1, 2] // 1 sampai 6 kategori tanpa re-KYC KTP
+    "category_ids": [2, 4] // 1 sampai 3 kategori aktif tanpa perlu re-KYC KTP
   }
   ```
 
